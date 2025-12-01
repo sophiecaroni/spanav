@@ -1,0 +1,7 @@
+fooof~=1.1.1
+mne~=1.10.2
+numpy~=2.2.6
+matplotlib~=3.10.7
+pandas~=2.3.3
+yasa~=0.6.5
+seaborn~=0.13.2
