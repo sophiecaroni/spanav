@@ -5,3 +5,4 @@ matplotlib~=3.10.7
 pandas~=2.3.3
 yasa~=0.6.5
 seaborn~=0.13.2
+autoreject~=0.4.3
