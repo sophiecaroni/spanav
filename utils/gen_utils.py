@@ -338,10 +338,10 @@ def get_task_epo_types(
     :return:
     """
     return [
-        # 'ObjPres',
-        # 'MovOn',
+        'ObjPres',
+        'MovOn',
         'ContMov',
-        # 'Static',
+        'Static',
     ] if not test else ['ContMov']
 
 
