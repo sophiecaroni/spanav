@@ -220,123 +220,128 @@ def select_trial_df(
     return trial_df
 
 
-def extract_eeg_epochs(
+def define_eeg_epochs(
         event_table,
         sid: str,
         save: bool = False,
         verbose: bool = False,
 ) -> pd.DataFrame:
-    # Parameters
-    movement_onset_window = (-0.5, 0.5)
-    stationary_window = (0, 1)
-    wide_window = 6.0
 
-    epochs = []
+    # Epoch parameters
+    movonset_epo_window = (-0.5, 0.5)
+    static_epo_window = (0, 1.0)
+    mov_epo_window_start = movonset_epo_window[1]
+    mov_min_s = 1.0 + mov_epo_window_start  # 1s in Convertino, but we shift to avoid overlap with movement onset epochs
+    mov_max_s = 3.0 + mov_epo_window_start  # to ignore part of movements after 3s of moving # 3s in Convertino, but since we shifted also the minimum of 0.5 to avoid overlap with movement onset epochs, it would not make sense to set to 3s then only have actually 2.5 to extract in epochs of 1s
+    static_min_s = 2.0
+    static_min_s_before_mov = 1.0
 
+    events = []
+    # Iterate over blocks
     for block in event_table['RetrievalBlock'].unique():
         block_df = event_table[event_table['RetrievalBlock'] == block]
         block_condition = block_df['Condition'].unique()[0]
 
+        # Iterate over trials
         for trial in block_df['Trial'].unique():
             trial_df = block_df[block_df['Trial'] == trial].reset_index(drop=True)
 
-            for i in range(len(trial_df)):
-                row = trial_df.loc[i]
+            # Iterate over states of the trial
+            for i, row in trial_df.iterrows():
 
                 # Reset times of the block to match its EEG recording (bc block times in event_table are continuous
                 # across blocks/stim. condition, while EEG aren't so their times always start from 0)
                 abs_start, abs_end, duration = row['StartTime'], row['EndTime'], row['Duration']
                 block_n = row['RetrievalBlock']
                 block_start, block_end = get_blocks_times(sid=sid)[block_n]
-                start = abs_start - block_start
-                end = abs_end - block_start
+                state_start = abs_start - block_start
                 if verbose:
                     print(
                         f"\nblock: {row['Condition']} ({block_n})"
                         f"\n\t: {block_start = }"
                         f"\n\t: {abs_start = }"
-                        f"\n\t: {start = }"
+                        f"\n\t: {state_start = }"
                     )
 
-                # Retrieve participant's state
-                state = row['State']
-
-                # static
-                if state == 'Static' and duration >= 2.0:
-                    epoch_start = start + stationary_window[0]
-                    epoch_end = start + stationary_window[1]
-                    wide_start = max(0, start - wide_window/2)
-                    wide_end = epoch_end + wide_window/2
-                    epochs.append({
+                # Define epochs
+                # 1. Static epochs
+                if row['State'] == 'Static' and duration >= static_min_s:
+                    stat_epoch_start = state_start + static_epo_window[0]
+                    stat_epoch_end = state_start + static_epo_window[1]
+                    events.append({
                         'RetrievalBlock': block,
                         'BlockStart': block_start,
                         'BlockEnd': block_end,
                         'Condition': block_condition,
                         'TrialNumber': trial,
                         'EpochType': 'Static',
-                        'EpochStart': epoch_start,
-                        'EpochEnd': epoch_end,
-                        'WideStart': wide_start,
-                        'WideEnd': wide_end
+                        'EpochStart': stat_epoch_start,
+                        'EpochEnd': stat_epoch_end,
+                        'EpochDuration': stat_epoch_end-stat_epoch_start,
                     })
 
-                # movement onset
-                if state == 'MovOn':
-                    if i > 0:
+                # 2. Movement onset epochs
+                if row['State'] == 'MovOn':
+
+                    # Movement onset is constrained by preceding immobility and following movement, so can't be the first state and has to have one state after it
+                    if 0 < i < len(trial_df)-1:
                         prev = trial_df.loc[i-1]
-                        if prev['State'] == 'Static' and prev['Duration'] >= 1.0:
-                            epoch_start = start + movement_onset_window[0]
-                            epoch_end = start + movement_onset_window[1]
-                            wide_start = max(0, start - wide_window/2)
-                            wide_end = epoch_end + wide_window/2
-                            epochs.append({
+                        following = trial_df.loc[i+1]
+
+                        # Check if preceding and following states qualify
+                        if (
+                                prev['State'] == 'Static' and prev['Duration'] >= static_min_s_before_mov
+                        ) and (
+                                following['State'] == 'Moving' and following['Duration'] >= mov_min_s
+                        ):
+
+                            # Save aside movement onset time (relative to block)
+                            movon_start = state_start
+
+                            # Define MovOn epoch
+                            movon_epoch_start = movon_start + movonset_epo_window[0]
+                            movon_epoch_end = movon_start + movonset_epo_window[1]
+                            events.append({
                                 'RetrievalBlock': block,
                                 'BlockStart': block_start,
                                 'BlockEnd': block_end,
                                 'Condition': block_condition,
                                 'TrialNumber': trial,
                                 'EpochType': 'MovOn',
-                                'EpochStart': epoch_start,
-                                'EpochEnd': epoch_end,
-                                'WideStart': wide_start,
-                                'WideEnd': wide_end
+                                'EpochStart': movon_epoch_start,
+                                'EpochEnd': movon_epoch_end,
+                                'EpochDuration': movon_epoch_end-movon_epoch_start,
                             })
 
-                # continuous movement
-                if state == 'Moving' and duration >= 3.0:
-                    # wide epoch fixed of 6 s in the onset
-                    wide_start = max(0, start - wide_window/2)
-                    wide_end = wide_start + wide_window
+                            # 3. Continuous movement epochs - only exist after MovOn epochs
+                            # Define epoch start - right after MovOn window to avoid overlapping portions
+                            contmov_epoch_start = movon_start + movonset_epo_window[1]  # onset of movement + end ov MovOn epoch
 
-                    # movement inside the wide window
-                    continuous_start = max(start, wide_start)
-                    continuous_end = min(end, wide_end)
+                            # Define epoch end: end at earlier end between movement end and movement portions exceeding mov_max_s after onset
+                            max_end = movon_start + mov_max_s
+                            mov_state_end = following['EndTime'] - block_start  # as done above with abs_start (but here we are in following state so need this again)
+                            contmov_epoch_end = min(mov_state_end, max_end)
 
-                    epochs.append({
-                        'RetrievalBlock': block,
-                        'BlockStart': block_start,
-                        'BlockEnd': block_end,
-                        'Condition': block_condition,
-                        'TrialNumber': trial,
-                        'EpochType': 'ContMov',
-                        'EpochStart': continuous_start,
-                        'EpochEnd': continuous_end,
-                        'WideStart': wide_start,
-                        'WideEnd': wide_end
-                    })
+                            # Append to events
+                            events.append({
+                                'RetrievalBlock': block,
+                                'BlockStart': block_start,
+                                'BlockEnd': block_end,
+                                'Condition': block_condition,
+                                'TrialNumber': trial,
+                                'EpochType': 'ContMov',
+                                'EpochStart': contmov_epoch_start,
+                                'EpochEnd': contmov_epoch_end,
+                                'EpochDuration': contmov_epoch_end-contmov_epoch_start,
+                            })
 
-    epochs_table = pd.DataFrame(epochs)
-
-    # display and save the table
-    pd.set_option('display.max_rows', None)
-    pd.set_option('display.max_columns', None)
-    pd.set_option('display.width', None)
+    events_df = pd.DataFrame(events)
 
     if save:
         file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-        epochs_table.to_csv(f'{set_for_save(file_path)}/eeg_epochs.csv', index=False)
+        events_df.to_csv(f'{set_for_save(file_path)}/eeg_epochs.csv', index=False)
 
-    return epochs_table
+    return events_df
 
 
 if __name__ == '__main__':

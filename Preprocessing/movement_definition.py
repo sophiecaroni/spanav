@@ -2,7 +2,7 @@ import warnings
 import matplotlib.pyplot as plt
 
 from preprocessing.behavior_to_eeg import get_blocks_times, get_trace_df, get_retrieval_df, extract_behavioral_events, \
-    extract_eeg_epochs
+    define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def_table, get_epo_rec
 from utils.gen_utils import get_sid_cids, set_for_save, reveal_cid
 from visualization.vis_eeg import plot_evk_by_cat
@@ -23,7 +23,7 @@ def gen_epo_tables(
         beh_events_df = extract_behavioral_events(sid, block_times, retrieval_df, df_trace)
 
         for s in mov_durations_s:
-            _ = extract_eeg_epochs(beh_events_df, sid, mov_duration_s=s, save=save)
+            _ = define_eeg_epochs(beh_events_df, sid, mov_duration_s=s, save=save)
 
 
 def gen_contmov_epos(
