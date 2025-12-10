@@ -203,7 +203,7 @@ def get_epo_from_intervals(
         df_epo_intervals: pd.DataFrame,
         epo_type: str,
         raw_rec: mne.io.BaseRaw,
-        epo_len: int = 1,
+        epo_len: float = 1.0,
 ) -> mne.Epochs | None:
     check_alignment(raw_rec, df_epo_intervals)
 
