@@ -27,7 +27,7 @@ def get_blocks_times(
                 block_n += 1
 
     if block_starts_to_check != sorted(block_starts_to_check):
-        warnings.warn('\n\n### Warning! Unusual times acorss blocks - possible interruption detected ### \n\n')
+        warnings.warn(f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
 
     return times_by_block
 
@@ -43,9 +43,9 @@ def get_trace_df(
         for line in f:
             line = line.strip()
             if '----------------------' in line:
-                if not new_trial_flag: #if the line has  ----------------------, it means we are in a new trial
+                if not new_trial_flag:  #if the line has  ----------------------, it means we are in a new trial
                     trial_counter += 1
-                    new_trial_flag = True # new_trial_flag is set to True until we find a normal line without ----, to avoid double increase of trial when there are 2 Num,-----
+                    new_trial_flag = True  # new_trial_flag is set to True until we find a normal line without ----, to avoid double increase of trial when there are 2 Num,-----
                 continue
             new_trial_flag = False
 
@@ -63,28 +63,33 @@ def get_trace_df(
 
             try:
                 tracelog.append({
-                    'time': float(time), #conversion into numbers from strings
+                    'time': float(time),
                     'x': float(x) if x else None,
                     'y': float(y) if y else None,
                 })
             except ValueError:
                 continue
 
-    df_trace = pd.DataFrame(tracelog) #conversion of tracelog into a data frame
+    # Transform into a dataframe
+    df = pd.DataFrame(tracelog)
 
-    if df_trace['time'].tolist() != sorted(df_trace['time']):
-        warnings.warn('\n\n### Warning! Unusual times acorss blocks - possible interruption detected ### \n\n')
+    if df['time'].tolist() != sorted(df['time']):
+        warnings.warn(f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
 
-    return df_trace
+    return df
 
 
 def get_retrieval_df(
         sid: str,
 ) -> pd.DataFrame:
-    df = pd.read_csv(f'{get_wd()}/Data/{sid}/behavior/RetrievalLog.txt', sep=',', comment='#') #ignore rwaws that start with #
-    df.drop('Block', axis=1, inplace=True)  # true block as we intended it is here "Round"
+    df = pd.read_csv(
+        f'{get_wd()}/Data/{sid}/behavior/RetrievalLog.txt',
+        sep=',',
+        comment='#',  # ignore rows that start with #
+    )
 
     # Rename some cols
+    df.drop('Block', axis=1, inplace=True)  # true block as we intend it is named "Round" here
     df = df.rename(columns={
         'Round': 'Block',
         'StartTime': 'starttime',
@@ -110,84 +115,83 @@ def extract_behavioral_events(
         save: bool = False,
 ) -> pd.DataFrame:
 
-    all_events = []
+    events = []
+
+    # Iterate over blocks
     for block_n, (start_blk, end_blk) in block_times.items():
-        block_trials = retrieval_df.copy()[  # only consider trials in the block
-            (retrieval_df['Block'] == block_n) &
-            (retrieval_df['starttime'] >= start_blk) &
-            (retrieval_df['endtime'] <= end_blk)]
+        block_trials = retrieval_df.copy()[retrieval_df['Block'] == block_n]  # only consider trials in the block
         block_trials.reset_index(drop=True, inplace=True)
+        assert ((block_trials['starttime'] >= start_blk) & (block_trials['endtime'] <= end_blk)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
 
         # Extract stimulation condition of the block
         condition = get_block_stim(sid, block_n)
 
-        for phase_idx, row in block_trials.iterrows(): #for every raw in block_trials
+        # Iterate over trials (rows) of the block
+        for phase_idx, row in block_trials.iterrows():
             start, end = row['starttime'], row['endtime']
+            trial_trace_df = select_trial_df(sid, block_n, df_trace, start, end)
 
-            trial_df = select_trial_df(sid, block_n, df_trace, start, end)
+            # Create new column state; set to Moving when there are values in x and y, otherwise to Static
+            trial_trace_df['state'] = trial_trace_df.apply(lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Static', axis=1)
 
-            # set state
-            trial_df['state'] = trial_df.apply(lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Static', axis=1)
-
-            #  pre-moving state
-            trial_df['state'] = trial_df.apply(
-                lambda r: 'MovOn' if (r.name > 0 and trial_df.loc[r.name-1,'state']=='Static' and r['state']=='Moving') else r['state'], axis=1
+            # Change each "Moving" value that is preceded by "Static" to "MovOn" (movement onset)
+            trial_trace_df['state'] = trial_trace_df.apply(
+                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name-1, 'state'] == 'Static' and r['state'] == 'Moving') else r['state'], axis=1
             )
 
-            # group togheter the same group
-            current_state = trial_df.loc[0, 'state']
-            start_time = trial_df.loc[0, 'time']
-
-            for i in range(1, len(trial_df)): #in every line of dataframe trial_df
-                if trial_df.loc[i, 'state'] != current_state:#i see the state of the prevous line with the following one
-                    end_time = trial_df.loc[i-1, 'time'] #i take the last time of the previous state
-                    duration = end_time - start_time #and calculate the duration
-                    pre_movement_window = None
+            # Iterate over states (Static, MovOn, Moving) of the block
+            current_state = trial_trace_df.loc[0, 'state']
+            state_start = trial_trace_df.loc[0, 'time']
+            for i in range(1, len(trial_trace_df)): #in every line of dataframe trial_df
+                if trial_trace_df.loc[i, 'state'] != current_state:  # when there is a change in state
+                    state_end = trial_trace_df.loc[i-1, 'time'] #i take the last time of the previous state
+                    state_len = state_end - state_start
+                    movon_window = None
                     if current_state == 'MovOn':
-                        pre_movement_window = f"{max(0,start_time-3):.3f} – {start_time+3:.3f}" #windowing of 6 sec for the pre movement
-                    all_events.append({
+                        movon_window = f"{max(0, state_start-3):.3f} – {state_start+3:.3f}" #windowing of 6 sec for the pre movement
+                    events.append({
                         'RetrievalBlock': block_n,
                         'Condition': condition,
                         'Trial': phase_idx+1,
                         'State': current_state,
-                        'StartTime': start_time,
-                        'EndTime': end_time,
-                        'Duration': duration,
-                        'MovOnWindow': pre_movement_window
+                        'StartTime': state_start,
+                        'EndTime': state_end,
+                        'Duration': state_len,
+                        'MovOnWindow': movon_window
                     })
-                    # start of a new state
-                    current_state = trial_df.loc[i,'state']
-                    start_time = trial_df.loc[i,'time']
 
-            # add the last state of the trial
-            end_time = trial_df.loc[len(trial_df)-1, 'time']
-            duration = end_time - start_time
-            pre_movement_window = None
+                    # Get next state and its time for the next iteration
+                    current_state = trial_trace_df.loc[i, 'state']
+                    state_start = trial_trace_df.loc[i, 'time']
+
+            # Add the last state of the trial
+            state_end = trial_trace_df.loc[len(trial_trace_df)-1, 'time']
+            state_len = state_end - state_start
+            movon_window = None
             if current_state == 'MovOn':
-                pre_movement_window = f"{max(0,start_time-3):.3f} – {start_time+3:.3f}"
-            all_events.append({
+                movon_window = f"{max(0, state_start-3):.3f} – {state_start+3:.3f}"
+            events.append({
                 'RetrievalBlock': block_n,
                 'Condition': condition,
                 'Trial': phase_idx+1,
                 'State': current_state,
-                'StartTime': start_time,
-                'EndTime': end_time,
-                'Duration': duration,
-                'MovOnWindow': pre_movement_window
+                'StartTime': state_start,
+                'EndTime': state_end,
+                'Duration': state_len,
+                'MovOnWindow': movon_window
             })
 
-    # build the table and visualization
-    event_table = pd.DataFrame(all_events)
+    # Create df
+    events_df = pd.DataFrame(events)
 
-    assert all(event_table['Duration']) >= 0, (
-        f'Something is wrong, some events have negative duration'
-    )
+    # Check events durations
+    assert all(events_df['Duration']) >= 0, (f'Something is wrong, some events have negative duration')
 
     if save:
         file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-        event_table.to_csv(f'{set_for_save(file_path)}/behavioral_events.csv', index=False)
+        events_df.to_csv(f'{set_for_save(file_path)}/behavioral_events.csv', index=False)
 
-    return event_table
+    return events_df
 
 
 def select_trial_df(

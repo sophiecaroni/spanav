@@ -1,13 +1,12 @@
+import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
 from mne import Epochs
 from mne.epochs import EpochsFIF
 
-from utils.spectral_utils import compute_psd, get_band_power, compute_osc_snr, model_psd
 from preprocessing.preprocess_eeg import basic_preproc_raw
-from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, get_sids, get_cids, get_real_cid, \
-    get_wd
+from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_wd, SEED
 from mne.baseline import rescale
 from autoreject import AutoReject
 
@@ -23,6 +22,7 @@ def get_all_epo_objects(
         save: bool = False,
         verbose: bool = True,
         test: bool = False,
+        epo_types: list | None = None
 ) -> dict:
     if save or load:
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
@@ -31,7 +31,7 @@ def get_all_epo_objects(
     if cid.startswith('RS'):
         epo_types = ['RS']
     else:
-        epo_types = get_task_epo_types(test=test)
+        epo_types = get_task_epo_types(test=test) if epo_types is None else epo_types
     for epo_type in epo_types:
 
         if verbose:
@@ -39,7 +39,7 @@ def get_all_epo_objects(
                 f"\n\n{epo_type = }\n\n"
             )
 
-        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save)
+        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
         epo_by_type[epo_type] = epo_rec
 
     return epo_by_type
@@ -52,13 +52,15 @@ def get_epo_rec(
         raw_rec: mne.io.BaseRaw | None = None,
         load: bool = True,
         save: bool = False,
+        verbose: bool = False,
+        epo_def_table: pd.DataFrame | None = None,
 ) -> EpochsFIF | None | Epochs:
     # Check epo type validity
     if epo_type not in EPO_TYPES:
         raise ValueError(f"Invalid epo_type: {epo_type!r}. Expected one of {EPO_TYPES}.")
 
     if load:
-        real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
         files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
         file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith('RS') else f'{real_cid}-epo.fif'
         try:
@@ -74,26 +76,28 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec)
 
         elif epo_type in ['ContMov', 'Static', 'MovOn']:
-            epo_def = get_epo_def_table(sid, cid)
+            epo_def = get_epo_def_table(sid, cid) if epo_def_table is None else epo_def_table
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         else:  # if epo_type == 'RS':
             epo_rec = get_rs_epochs(raw_rec)
 
         if epo_rec is not None:
-            epo_rec.plot_drop_log(show=True)
+            epo_rec.plot_drop_log(show=verbose)
+            if not verbose:
+                plt.close()
 
             # Clean epochs
-            if len(epo_rec) > 0:
-                epo_rec_clean = clean_epos(epo_rec, epo_type)
-
-                if save:
-                    real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
-                    files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-                    file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith('RS') else f'{real_cid}-epo.fif'
-                    epo_rec_clean.save(f'{set_for_save(files_path)}/{file_name}', overwrite=True)
-            else:
+            epo_rec_clean = clean_epos(epo_rec, epo_type, verbose=verbose)
+            if len(epo_rec) == 0:
                 epo_rec_clean = None
+            else:
+                if save:
+                    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                    files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+                    file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith(
+                        'RS') else f'{real_cid}-epo.fif'
+                    epo_rec_clean.save(f'{set_for_save(files_path)}/{file_name}', overwrite=True)
             return epo_rec_clean
 
         else:
@@ -160,12 +164,14 @@ def get_rs_epochs(
 def get_epo_def_table(
         sid: str,
         cid: str,
+        mov_duration_s: None | float = None,
 ) -> pd.DataFrame:
     file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-    epo_table = pd.read_csv(f'{file_path}/eeg_epochs.csv')
+    file_name = 'eeg_epochs' if mov_duration_s is None else f'eeg_epochs_{mov_duration_s}'
+    epo_table = pd.read_csv(f'{file_path}/{file_name}.csv')
 
     # Select rows selative to the retrieval block od the condition ID
-    block_n = int(cid[-1]) if sid != '02' else int(get_real_cid(sid, cid)[-1])
+    block_n = int(cid[-1]) if sid != '02' else int(reveal_cid(sid, cid)[-1])
     epo_table_block = epo_table[epo_table['RetrievalBlock'] == block_n]
     return epo_table_block
 
@@ -341,224 +347,45 @@ def task_bl_corr(
     return raw_corr
 
 
-def compare_epo_len_old(
-        char_to_compare: str,
-        lens_to_compare: list,
-        test: bool = False,
-):
-    valid_comparisons = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
-    if char_to_compare not in valid_comparisons:
-        raise ValueError(f"Invalid char_to_compare: {char_to_compare!r}. Expected one of {valid_comparisons}.")
-
-    sids = get_sids(test=test)
-    cids = get_cids(task=True, test=test)
-    bands = ['theta'] if test else ['theta', 'alpha']
-    char_dict = {}
-    for ln in lens_to_compare:
-        char_dict[f'{ln}s'] = {}
-        for cid in cids:
-            char_dict[f'{ln}s'][cid] = {band: [] for band in bands} if char_to_compare in ['band_pw', 'osc_snr'] else []
-            for sid in sids:
-
-                raw_rec = get_raw_to_epoch(sid, cid)
-                epo = get_epo_rec(raw_rec=raw_rec, epo_type='ObjPres', sid=sid, cid=cid, load=False, obj_pres_len=ln)
-
-                # Compute char_to_compare by subject
-                if char_to_compare in {'psd', 'band_pw', 'osc_snr'}:
-
-                    # Compute PSD in each epoch and channel, and then average across them
-                    fmin, fmax = 1, 40
-                    psd_epoxch = compute_psd(epo, fmin=fmin, fmax=fmax, verbose=False)
-                    psd_data, freqs = psd_epoxch.get_data(return_freqs=True)
-                    epo_avg_psd = psd_data.mean(axis=(0, 1))  # Average across epochs and channels
-
-                    # Interpolate PSD within a fixed set of freqs so that resolution of PSD of different epoch-lengths is fairly comparable
-                    fix_freqs = np.arange(fmin, fmax + 1e-9, 0.5)  # Define freqs grid
-                    psd_interp = np.interp(fix_freqs, freqs, epo_avg_psd)
-
-                    if char_to_compare == 'psd':
-                        char_dict[f'{ln}s'][cid].append(
-                            psd_interp
-                        )
-                    else:  # if char_to_compare == 'band_pw' or char_to_compare == 'osc_snr':
-                        for band in bands:
-                            if char_to_compare == 'band_pw':
-                                char_dict[f'{ln}s'][cid][band].append(
-                                    get_band_power(psd_interp, fix_freqs, band, rel=False)
-                                    # Compute theta/alpha abs power
-                                )
-
-                            else:  # char_to_compare == 'osc_snr'
-                                psd_model = model_psd(psd_interp, fix_freqs,
-                                                      max_n_peaks=4)  # limit max_n_peaks bc we only care about alpha/theta
-                                char_dict[f'{ln}s'][cid][band].append(
-                                    compute_osc_snr(psd_model, band)
-                                )
-
-                elif char_to_compare == 'evk':
-                    char_dict[f'{ln}s'][cid].append(
-                        epo.average()  # Average epochs to get to evoked response
-                    )
-
-            # Average across subjects
-            if char_to_compare == 'psd':
-                char_dict[f'{ln}s'][cid] = (
-                # Store in a tuple average and std of PSD + frequencies used for computing it
-                    np.mean(char_dict[f'{ln}s'][cid], axis=0),
-                    np.std(char_dict[f'{ln}s'][cid], axis=0),
-                    fix_freqs
-                )
-
-            elif char_to_compare in ['band_pw', 'osc_snr']:
-                for band in bands:
-                    char_dict[f'{ln}s'][cid][band] = (
-                    # Store in a tuple average and std of metric (band_pw or osc_snr) across sids
-                        np.mean(char_dict[f'{ln}s'][cid][band]),
-                        np.std(char_dict[f'{ln}s'][cid][band])
-                    )
-
-            elif char_to_compare == 'evk':
-                char_dict[f'{ln}s'][cid] = mne.grand_average(char_dict[f'{ln}s'][cid])
-
-    if char_to_compare.endswith('snr'):
-        return pd.DataFrame.from_dict(char_dict)
-    else:
-        return char_dict
-
-
-def compare_objepo_len(
-        metric: str,
-        lens_to_compare: list[float] | list[int],
-        sid: str | None = None,
-        test: bool = False,
-) -> pd.DataFrame:
-    """
-
-    :param metric:
-    :param lens_to_compare:
-    :param sid: data of the subject IDs to include; if None (default) uses all subjects.
-    :param test:
-    :return:
-    """
-    if metric not in EPO_LEN_COMPARISON_METRICS:
-        raise ValueError(f"Invalid metric: {metric!r}. Expected one of {EPO_LEN_COMPARISON_METRICS}.")
-
-    sids = get_sids(test=test) if sid is None else [sid]
-    cids = get_cids(task=True, test=test)
-    bands = ['theta'] if test else ['theta', 'alpha']
-    res_df_rows = []
-    for cid in cids:
-        for sid in sids:
-            raw_rec = get_raw_to_epoch(sid, cid)
-            for ln in lens_to_compare:
-                epo = get_epo_rec(raw_rec=raw_rec, epo_type='ObjPres', sid=sid, cid=cid, load=False, obj_pres_len=ln)
-
-                # Compute char_to_compare by subject
-                if metric in {'psd', 'band_pw', 'osc_snr'}:
-
-                    # Compute PSD in each epoch and channel, and then average across them
-                    fmin, fmax = 1, 40
-                    psd_epoxch = compute_psd(epo, fmin=fmin, fmax=fmax, verbose=False)
-                    psd_data, freqs = psd_epoxch.get_data(return_freqs=True)
-                    epo_avg_psd = psd_data.mean(axis=(0, 1))  # Average across epochs and channels
-
-                    # Interpolate PSD within a fixed set of freqs so that resolution of PSD of different epoch-lengths is fairly comparable
-                    fix_freqs = np.arange(fmin, fmax + 1e-9, 0.5)  # Define freqs grid
-                    psd_interp = np.interp(fix_freqs, freqs, epo_avg_psd)
-
-                    if metric == 'psd':
-                        # Define rows of the df (one row for each frequency-point of the psd
-                        for freq, pw in zip(fix_freqs, psd_interp):
-                            res_df_rows.append({
-                                'epo_s': ln,
-                                'sid': sid,
-                                'cid': cid,
-                                'freq': freq,
-                                'pw': pw,
-                            })
-
-                    else:  # if metric == 'band_pw' or metric == 'osc_snr':
-
-                        for band in bands:
-                            if metric == 'band_pw':
-
-                                res_df_rows.append({
-                                    'epo_s': ln,
-                                    'sid': sid,
-                                    'cid': cid,
-                                    'band': band,
-                                    'pw': get_band_power(psd_interp, fix_freqs, band)  # Compute abs power
-                                })
-
-                            else:  # metric == 'osc_snr'
-                                psd_model = model_psd(psd_interp, fix_freqs,
-                                                      max_n_peaks=4)  # limit max_n_peaks bc we only care about alpha/theta
-                                res_df_rows.append({
-                                    'epo_s': ln,
-                                    'sid': sid,
-                                    'cid': cid,
-                                    'band': band,
-                                    'osc_snr': compute_osc_snr(psd_model, band)  # Compute oscillatory SNR
-                                })
-
-                else:  # metric == 'evk'
-                    # Initiate a row of the df
-                    df_row = {
-                        'epo_s': ln,
-                        'sid': sid,
-                        'cid': cid,
-                        'evk': epo.average()  # Average epochs to get to evoked response
-                    }
-                    res_df_rows.append(df_row)
-
-    if metric == 'psd':
-        df_psd_long = pd.DataFrame(res_df_rows)
-        df_psd_wide = (
-            df_psd_long
-            .pivot_table(index=['sid', 'cid', 'epo_s'], columns='freq', values='pw')
-            .sort_index()
-        )
-        return df_psd_wide
-    else:
-        return pd.DataFrame(res_df_rows)
-
-
 def clean_epos(
         epo_rec: mne.Epochs,
         epo_label: str,
-) -> mne.Epochs:
-    n_epo = len(epo_rec)
-    if n_epo >= 5:
-        cv = 5
-        ar = AutoReject(cv=cv)
-        epo_rec_clean = ar.fit_transform(epo_rec)
-    else:
-        print(f'\n\nToo few epochs (n={n_epo}) in {epo_label} to apply autoreject! Applying manual epoch-cleaning.\n\n')
-
-        # Compute PTP per channel per epoch
-        data = epo_rec.get_data()  # (n_epochs, n_channels, n_times)
-        ptp_ch = np.ptp(data, axis=-1)  # (n_epochs, n_channels)
-
-        # Drop clearly bad epochs, where there are
-        th_epoch = 100e-6  # 100 µV; ev. change to 120e-6 for more clemency
-        bad_epochs = (ptp_ch > th_epoch).any(axis=1)  # shape (n_epochs,)
-        good_epochs = ~bad_epochs
-        epo_rec = epo_rec[good_epochs]
-        ptp_ch = ptp_ch[good_epochs]
-        n_epochs = len(epo_rec)
-
-        if n_epochs > 0:
-            # If there are still epochs left: reinterpolate channels that show >= 150 µV in at least 50% of epochs
-            th_ch = 150e-6  # 150 µV
-            frac_bad_per_ch = (ptp_ch > th_ch).mean(axis=0)
-            globally_bad_idx = np.where(frac_bad_per_ch >= 0.5)[0]  # bad in ≥50% of epochs
-            globally_bad_ch = [epo_rec.ch_names[i] for i in globally_bad_idx]
-
-            # Interpolate bad channels
-            epo_rec_clean = epo_rec.copy()
-            epo_rec_clean.info['bads'] = globally_bad_ch
-            epo_rec_clean.interpolate_bads(reset_bads=True)
+        verbose: bool = False,
+) -> mne.Epochs | None:
+    if len(epo_rec) > 0:
+        n_epo = len(epo_rec)
+        if n_epo >= 5:
+            cv = 5
+            ar = AutoReject(cv=cv, random_state=SEED, verbose=verbose)
+            epo_rec_clean = ar.fit_transform(epo_rec)
         else:
-            epo_rec_clean = epo_rec.copy()
+            print(f'\n\nToo few epochs (n={n_epo}) in {epo_label} to apply autoreject! Applying manual epoch-cleaning.\n\n')
 
-    return epo_rec_clean
+            # Compute PTP per channel per epoch
+            data = epo_rec.get_data()  # (n_epochs, n_channels, n_times)
+            ptp_ch = np.ptp(data, axis=-1)  # (n_epochs, n_channels)
+
+            # Drop clearly bad epochs, where there are
+            th_epoch = 100e-6  # 100 µV; ev. change to 120e-6 for more clemency
+            bad_epochs = (ptp_ch > th_epoch).any(axis=1)  # shape (n_epochs,)
+            good_epochs = ~bad_epochs
+            epo_rec = epo_rec[good_epochs]
+            ptp_ch = ptp_ch[good_epochs]
+            n_epochs = len(epo_rec)
+
+            if n_epochs > 0:
+                # If there are still epochs left: reinterpolate channels that show >= 150 µV in at least 50% of epochs
+                th_ch = 150e-6  # 150 µV
+                frac_bad_per_ch = (ptp_ch > th_ch).mean(axis=0)
+                globally_bad_idx = np.where(frac_bad_per_ch >= 0.5)[0]  # bad in ≥50% of epochs
+                globally_bad_ch = [epo_rec.ch_names[i] for i in globally_bad_idx]
+
+                # Interpolate bad channels
+                epo_rec_clean = epo_rec.copy()
+                epo_rec_clean.info['bads'] = globally_bad_ch
+                epo_rec_clean.interpolate_bads(reset_bads=True)
+            else:
+                epo_rec_clean = epo_rec.copy()
+        return epo_rec_clean
+    else:
+        return None

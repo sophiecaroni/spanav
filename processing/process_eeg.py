@@ -15,7 +15,7 @@ import pandas as pd
 import os
 
 from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr
-from utils.gen_utils import get_sids, set_for_save, get_wd, parse_filename
+from utils.gen_utils import get_sids, set_for_save, get_wd, parse_epo_filename
 
 
 def compute_avg_epo_psd(
@@ -49,11 +49,11 @@ def compute_psd_by_key(
     """
     psds = {}
     for epo_key, epo_rec in epos_dict.items():
-        if epo_rec is not None and len(epo_rec) > 0:
+        if epo_rec is None or len(epo_rec) == 0:
+            psds[epo_key] = (None, None, None)
+        else:
             fmax = epo_rec.info['lowpass']
             psds[epo_key] = compute_avg_epo_psd(epo_rec, fmax=fmax)
-        else:
-            psds[epo_key] = (None, None, None)
     return psds
 
 
@@ -68,7 +68,7 @@ def get_psd_df(
         # file_name = f'psd_df_log_WITH04.csv' if log else f'psd_df_lin_WITH04.csv'
         psd_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
-        sids = get_sids(test=test)
+        sids = get_sids(test=test, include_04=True)
         print(
             f"{sids = }"
         )
@@ -82,9 +82,10 @@ def get_psd_df(
                     if file.startswith('RS'):
                         continue
 
-                    cond, block_n, epo_type = parse_filename(file)
+                    cond, block_n, epo_type = parse_epo_filename(file)
                     epo = mne.read_epochs(f'{get_wd()}/data/{sid}/eeg/Epo/{file}', preload=True, verbose=False)
-                    if epo is None:
+                    if epo is None or len(epo) == 0:
+                        print(sid, cond, epo_type)
                         continue
 
                     # Compute PSD in each subject, epoch and channel, and then average across them

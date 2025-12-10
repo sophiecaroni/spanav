@@ -107,43 +107,94 @@ def get_nrows_ncols(
 
 def get_sids(
     test: bool = False,
+    include_04: bool = False,
 ) -> list[str]:
     """
 
     :param test:
+    :param include_04:
     :return:
     """
     rec_folders = os.listdir(f'{get_wd()}/data')
     sids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv'))])
-    sids.remove('04')
+    if not include_04:
+        sids.remove('04')
     return sids if not test else ['04']
 
 
-def get_cids(
+def get_conds(
+        sid: str,
         task: bool,
         test: bool = False,
 ) -> list[str]:
     """
 
+    :param sid:
     :param task:
     :param test:
     :return:
     """
-    if task:
-        return ['task_HF'] if test else [
-            'task_HF',
-            'task_iTBS',
-            'task_cTBS'
-        ]
+    if sid == '02':
+        if task:
+            return ['task_HF'] if test else [
+                'task_HF',
+                'task_iTBS',
+                'task_cTBS'
+            ]
+        else:
+            return ['RS_EO'] if test else [
+                'RS_EO',
+                'RS_EC'
+            ]
+    elif sid == '03':
+        if task:
+            return ['task_HF'] if test else [
+                'task_HF',
+                'task_iTBS'
+            ]
+        else:
+            return ['RS_pre_EO']
     else:
-        return ['RS_EO'] if test else [
-            # 'RS_EO',
-            # 'RS_EC'
-            'RS_pre_EO',
-            'RS_pre_EC',
-            'RS_post_EO',
-            'RS_post_EC',
-        ]
+        if task:
+            return ['task_HF'] if test else [
+                'task_HF',
+                'task_iTBS',
+                'task_cTBS'
+            ]
+        else:
+            return ['RS_pre_EO'] if test else [
+                'RS_pre_EO',
+                'RS_pre_EC',
+                'RS_post_EO',
+                'RS_post_EC',
+            ]
+
+
+def get_sid_cids(
+        sid: str,
+        task: bool,
+        test: bool = False,
+) -> list[str]:
+    """
+
+    :param sid:
+    :param task:
+    :param test:
+    :return:
+    """
+    cids = []
+    sid_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed')
+    for file in sid_files:
+        if file.endswith('.fif'):
+            if not task and file.startswith('RS'):
+                cid = parse_prepro_filename(file)
+                cids.append(cid)
+            elif task and file.startswith('task'):
+                cid = parse_prepro_filename(file)
+                cids.append(cid)
+            else:
+                continue
+    return cids if not test else [cids[0]]
 
 
 def get_band_freqs(
@@ -162,7 +213,7 @@ def get_band_freqs(
         return 12.0, 30.0
 
 
-def get_block_cid(
+def get_sid_cid_from_block(
         sid: str,
         block_n: int | str,
 ) -> str:
@@ -223,7 +274,7 @@ def get_cid_with_block(
         }[cid]
 
 
-def get_real_cid(
+def reveal_cid(
         sid: str,
         cid: str | None = None,
         block_n: int | str | None = None
@@ -235,10 +286,17 @@ def get_real_cid(
     :param block_n:
     :return:
     """
-    if sid == '02':  # or sid == '03':
-        return get_cid_with_block(sid, cid)
+    if cid is not None:
+        if cid[-1] in ['1', '2', '3', '4', '5', '6']:
+            print(f'Condition ID of subject {sid} is already the full one: {cid}')
+            return cid
+        else:
+            if sid == '02' or sid == '03':
+                return get_cid_with_block(sid, cid)
+            else:
+                raise ValueError(f'Something is wrong here. {sid = }, {cid = }')
     else:
-        return get_block_cid(sid, block_n)
+        return get_sid_cid_from_block(sid, block_n)
 
 
 def get_block_stim(
@@ -252,7 +310,7 @@ def get_block_stim(
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    cid = get_block_cid(sid, block_n)
+    cid = get_sid_cid_from_block(sid, block_n)
     return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
 
 
@@ -280,10 +338,10 @@ def get_task_epo_types(
     :return:
     """
     return [
-        'ObjPres',
-        'MovOn',
+        # 'ObjPres',
+        # 'MovOn',
         'ContMov',
-        'Static',
+        # 'Static',
     ] if not test else ['ContMov']
 
 
@@ -316,7 +374,7 @@ def get_wd(
         return '/Users/sophiecaroni/epfl_hes/spanav-tbi'
 
 
-def parse_filename(
+def parse_epo_filename(
         filename: str
 ) -> tuple[str, str | None, str]:
     """
@@ -344,6 +402,29 @@ def parse_filename(
             block_n = 0
 
     return cond, block_n, epo_type
+
+
+def parse_prepro_filename(
+        filename: str
+) -> str | None:
+    """
+
+    :param filename:
+    :return:
+    """
+    cid = None
+    if filename.startswith('RS'):
+        m = re.match(r"RS_(.+?)-raw\.fif$", filename)
+        if m:
+            (rs_cond, ) = m.groups()
+            cid = f'RS_{rs_cond}'
+    else:
+        m = re.match(r"task_(.+?)-raw\.fif$", filename)
+        if m:
+            (task_cid, ) = m.groups()
+            cid = f'task_{task_cid}'
+
+    return cid
 
 
 def get_ch_by_region(

@@ -15,7 +15,8 @@ import warnings
 import mne
 import pandas as pd
 import seaborn as sns
-from utils.gen_utils import plot_context, set_for_save, layout_subplots_grid, get_nrows_ncols, get_real_cid, \
+import os
+from utils.gen_utils import plot_context, set_for_save, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
                              get_ti_positions, get_ch_by_region
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -116,7 +117,7 @@ def ch_psd_subplots(
             if save:
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-                real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+                real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                 save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
                 file_name = f'{file_name_pref}_psd_subplots' if file_name_pref is not None else 'psd_subplots'
                 file_name += f"_{brain_region}"
@@ -142,7 +143,7 @@ def ch_psd_overlap(
         if save:
             assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
             assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
             file_name = f'{file_name_pref}_psd_overlap' if file_name_pref is not None else 'psd_overlap'
             fig.savefig(f'{save_path}/{file_name}.png', dpi=900)
@@ -180,7 +181,7 @@ def ics_psd_subplots(
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
                 n_components = ica_psd.info['nchan']
-                real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+                real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                 save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}/ICs/{n_components}_com')
                 file_name = 'subplots'
                 file_name += f"_{file_name_suff}" if file_name_suff is not None else ''
@@ -338,7 +339,7 @@ def plot_evk_from_df(
                 ax.set_ylabel('')
 
         if save:
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../outputs/Evk/{sid}/{real_cid}')
             plt.savefig(f'{save_path}/evk_traces.png', dpi=900, bbox_inches='tight')
         if show:
@@ -366,8 +367,14 @@ def plot_evk_by_cat(
             fig = axes.flatten()[0].figure
         axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
 
+        # If the recs_dict contains repetitive strings in keys, set repetitive part as figure's title and keep unique parts as subplot titles
+        keys = list(recs_dict)
+        prefix = os.path.commonprefix(keys).rsplit("_", 1)[0]
+        subtitles = [k.replace(prefix, "", 1) for k in keys]
+        fig.suptitle(prefix)
+
         # Plot one evoked-rec per subplot
-        for i, (ax, (key, rec)) in enumerate(zip(axes, recs_dict.items())):
+        for i, (ax, rec, title) in enumerate(zip(axes, recs_dict.values(), subtitles)):
             if rec is not None and len(rec) > 0:
                 if isinstance(rec, mne.Evoked):
                     rec.plot(axes=ax, show=False, sphere=False, **kwargs)
@@ -375,9 +382,9 @@ def plot_evk_by_cat(
                     rec.mean().plot(axes=ax, show=False, sphere=False, **kwargs)
                 else:
                     rec.average().plot(axes=ax, show=False, **kwargs)
-                ax.set_title(key)
+                ax.set_title(title)
             else:
-                ax.set_title(key)
+                ax.set_title(title)
                 continue
 
             # Customize ax labels
@@ -387,8 +394,10 @@ def plot_evk_by_cat(
             if col > 0:
                 ax.set_ylabel('')
 
+        fig.tight_layout()
+
         if save:
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../outputs/Evk/{sid}/{real_cid}')
             plt.savefig(f'{save_path}/evk_traces.png', dpi=900, bbox_inches='tight')
         if show:
@@ -475,7 +484,7 @@ def plot_psd_avg_by_cat(
             ax.set_xlabel('Frequency [Hz]')
 
         if save:
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
             plt.savefig(f'{save_path}/psds_by_epo_type.png', dpi=900, bbox_inches='tight')
         if show:
@@ -566,46 +575,6 @@ def compare_epo_psd(
         if save:
             save_path = set_for_save(f'../outputs/PSD') if plot_subj.startswith('average') else set_for_save(f'../outputs/PSD/{plot_subj}')
             plt.savefig(f'{save_path}/psd_{super_col}.png', dpi=900, bbox_inches='tight')
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
-
-
-def compare_epo_len_evk(
-        evk_df: pd.DataFrame,
-        show: bool = True,
-        save: bool = False,
-):
-    """
-    This function plots evoked responses in different subplots for both length of epochs they were computed from and 
-    for stimulation conditions.
-    :param evk_df:
-    :param show: 
-    :param save: 
-    :return:
-    """
-    with plot_context():
-        nrows = len(evk_df['epo_s'].unique())
-        ncols = len(evk_df['cid'].unique()) + 1  # extra subplot for average across conditions
-        fig, axes = plt.subplots(nrows, ncols, figsize=(10 * ncols * cm, 10 * nrows * cm), sharey=True)
-        for i, (ln, sub_df) in enumerate(evk_df.groupby('epo_s')):
-            axes_i = axes[i, :]
-            _ = plot_evk_from_df(sub_df, cat_col='cid', show=False, axes=axes_i)
-
-            # In the last subplot of the row, put the average signal across conditions
-            avg_evk = mne.grand_average(list(sub_df['evk'].to_numpy()))  # compute average across conditions
-            avg_evk.plot(axes=axes[i, -1], show=False, sphere=False)
-            axes[i, -1].set_title('Average across Conditions')
-
-        fig.legend()
-        fig.suptitle('Object-presentation Epochs')
-        fig.tight_layout()
-
-        if save:
-            sids = evk_df['sid'].unique()
-            save_path = set_for_save('../outputs/Evk') if len(sids) > 1 else set_for_save(f'../outputs/Evk/{sids[0]}')
-            plt.savefig(f'{save_path}/evk_epo_len.png', dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -733,9 +702,8 @@ def plot_band_metric(
             'ObjPres': 'Object Presentation',
         }
 
-
-        # Plot poin if there is only one observation, else violins
-        if (metric_df.groupby(['band','epo_type']).count() == 1).any().any():
+        # Plot poin if there is only one observation, else violins/boxes
+        if (metric_df.groupby(['band', 'epo_type']).count() == 1).any().any():
             plot = sns.scatterplot(
                 data=metric_df,
                 x='band',

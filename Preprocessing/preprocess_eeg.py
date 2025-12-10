@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from mne.preprocessing import ICA, create_eog_epochs, annotate_amplitude, annotate_muscle_zscore
 from visualization.vis_eeg import compare_psds, plot_muscle_art
 from utils.spectral_utils import compute_psd
-from utils.gen_utils import set_for_save, plot_context, SEED, get_trigger_str, get_real_cid, get_wd
+from utils.gen_utils import set_for_save, plot_context, SEED, get_trigger_str, reveal_cid, get_wd
 
 
 def load_raw(
@@ -191,7 +191,7 @@ def get_ica(
 
     if load:
         assert n_components is not None, "Number of components (n_components) can't be None with the current save/load parameters."
-        real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
         print(f"{real_cid = }")
         fitted_ica = mne.preprocessing.read_ica(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
     else:
@@ -217,7 +217,7 @@ def get_ica(
 
         if save:
             n_components = fitted_ica.n_components_
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             fitted_ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
@@ -234,12 +234,12 @@ def get_ica_sources(
 ) -> mne.io.BaseRaw:
     n_components = fitted_ica.n_components_
     if load:
-        real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
         ica_sources = mne.io.Raw(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
     else:
         ica_sources = fitted_ica.get_sources(raw_rec)
         if save:
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica_sources.save(f'{save_path}/{real_cid}_icsources-raw.fif', overwrite=True)
 
@@ -264,7 +264,7 @@ def plot_ics(
     for n_fig, topo_fig in enumerate(topo_figs):
         if save:
             n_components = ica.n_components_
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
             topo_fig.savefig(f'{save_path}/topos_{n_fig:02}.png')
         if show:
@@ -327,7 +327,7 @@ def get_eyes_ics(
 
         if save:
             n_components = ica.n_components_
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
             if fig2 is not None:
                 fig2.savefig(f'{save_path}/eyes_ch_corrs.png')
@@ -379,7 +379,7 @@ def get_muscle_ics(
 
         if save:
             n_components = ica.n_components_
-            real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
             save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
             if fig2 is not None:
                 fig2.savefig(f'{save_path}/muscle_ch_corrs.png')
@@ -444,7 +444,7 @@ def apply_ica(
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
     file_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawClean'
-    real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
     file_name = f'{real_cid}_iclean-raw.fif'
     if load:
         clean_rec = mne.io.Raw(f'{file_path}/{file_name}', preload=True)
@@ -574,7 +574,7 @@ def basic_preproc_raw(
     if save or load:
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
-    real_cid = get_real_cid(sid, block_n=cid[-1]) if cid.startswith('block') else get_real_cid(sid, cid=cid)
+    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
     file_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawPreprocessed'
     file_name = f'{real_cid}-raw.fif'
     if load:
