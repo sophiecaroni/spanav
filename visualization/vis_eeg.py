@@ -772,6 +772,47 @@ def plot_muscle_art(
         ax.axhline(y=muscle_threshold, color="r")
         ax.set(xlabel="Time [s]", ylabel="Z-score", title="Muscle activity")
 
+def plot_preprocessing_result(
+        raw_before: mne.io.BaseRaw,
+        raw_after: mne.io.BaseRaw,
+        sid: str | None = None,
+        cid: str | None = None,
+        show: bool = False,
+        save: bool = False,
+):
+    # Include all channels in both before and after plots (also those marked as bad before preprocessing)
+    picks = raw_after.ch_names
+
+    # Resample initial recording
+    raw_before_res = raw_before.copy().resample(250)
+
+    plot_kwargs = dict(fmax=40, picks=picks, reject_by_annotation=False)
+
+    # Create figure and plots
+    with plot_context():
+        fig, axs = plt.subplots(2, 2, figsize=(17*cm, 12*cm), sharey=True, sharex=True)
+
+        # Before plots
+        raw_before_res.plot_psd(average=True, ax=axs[0, 0], **plot_kwargs)
+        axs[0, 0].set_title('Starting data - Averaged chs')
+        raw_before_res.plot_psd(average=False, ax=axs[0, 1], **plot_kwargs)
+        axs[0, 1].set_title('Starting data - Single chs')
+
+        # After plots
+        raw_after.plot_psd(average=True, ax=axs[1, 0], **plot_kwargs)
+        axs[1, 0].set_title('Preprocessed data - Averaged chs')
+        raw_after.plot_psd(average=False, ax=axs[1, 1], **plot_kwargs)
+        axs[1, 1].set_title('Preprocessed data - Single chs')
+
+        if save:
+            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+            plt.savefig(f'../outputs/PSD/{sid}/{real_cid}/prepro_result.png', dpi=900, bbox_inches='tight')
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
         if show:
             plt.show()
         else:

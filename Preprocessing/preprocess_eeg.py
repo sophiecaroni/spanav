@@ -21,119 +21,159 @@ from utils.gen_utils import set_for_save, plot_context, SEED, get_trigger_str, r
 def load_raw(
         sid: str,
         cid: str,
+        annotated_bads: bool,
         test: bool = False,
         verbose: bool = True,
-) -> mne.io.BaseRaw:
+) -> mne.io.BaseRaw | None:
     """
 
     :param sid: participant ID
     :param cid: condition ID
+    :param annotated_bads:
     :param test:
     :param verbose:
     :return:
     """
-    # Load data
-    raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_wd()}/Data/{sid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
+    if annotated_bads:
+        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+        file_path = f'{get_wd()}/Data/{sid}/eeg/RawAnnotated'
+        file_name = f'{real_cid}_annot-raw.fif'
+        raw_rec = mne.io.read_raw_fif(f'{file_path}/{file_name}', preload=True)
 
-    # Crop from trigger defining start of RS/block recording
-    annots = raw_rec.annotations
-    if annots and not test:
-        print(f"{annots = }")
+        # Print contained 'bad' annotations
+        print(
+            f"Rec annotations: \n\t- bad channels: {raw_rec.info['bads']}"
+            f"\n\t- bad segments: {len([d for d in raw_rec.annotations.description if d.startswith('BAD')])}"
+            f"\n\t- other annotations: {len([d for d in raw_rec.annotations.description if not d.startswith('BAD')])}"
+        )
+    else:
+        # Load data
+        raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_wd()}/Data/{sid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
 
-        if cid.startswith('RS'):
-            start_trigger = get_trigger_str('rs_start')
-            end_trigger = None
-            assert start_trigger in annots.description, f'starting trigger "{start_trigger}" not found in annotations'
-            tmin = [o for o, d in zip(annots.onset, annots.description) if d == start_trigger][0]  # there should be one, but take first in any case
-            tmax = tmin+4*60  # crop after 4 minutes for RS at the beginning/end of the experiment
-        else:
-            start_trigger = get_trigger_str('enc_instr_gone')
-            end_trigger = get_trigger_str('trial_end')
-            assert start_trigger in annots.description, f'starting trigger "{start_trigger}" not found in annotations'
-            assert end_trigger in annots.description, f'ending trigger "{end_trigger}" not found in annotations'
-            tmin = [o for o, d in zip(annots.onset, annots.description) if d == start_trigger][0]  # there should be one, but take first in any case
-            tmax = [o for o, d in zip(annots.onset, annots.description) if d == end_trigger][-1]  # crop after last response
+        # Make sure this recording does not contain 'bad' annotations
+        assert not raw_rec.info['bads'], '\n\n#### Some channels are already set as bad!! ####\n\n'
+        assert not raw_rec.info['bads'], '\n\n#### Some channels are already set as bad!! ####\n\n'
 
-        raw_rec.crop(tmin=tmin, tmax=tmax)
-        if verbose:
-            print(f'\nCropping from first {start_trigger}...')
-            if end_trigger is not None:
-                print(f'\n... Cropping until {end_trigger}')
+        # Crop from trigger defining start of RS/block recording
+        annots = raw_rec.annotations
+        if annots and not test:
 
-        # Update onsets of annotations/triggers to "new" times of the cropped recording
-        t0 = raw_rec.first_time
-        raw_rec.annotations.onset = raw_rec.annotations.onset - t0
+            if cid.startswith('RS'):
+                start_trigger = get_trigger_str('rs_start')
+                end_trigger = None
+                assert start_trigger in annots.description, f'starting trigger "{start_trigger}" not found in annotations'
+                tmin = [o for o, d in zip(annots.onset, annots.description) if d == start_trigger][0]  # there should be one, but take first in any case
+                tmax = tmin+4*60  # crop after 4 minutes for RS at the beginning/end of the experiment
+            else:
+                start_trigger = get_trigger_str('enc_instr_gone')
+                end_trigger = get_trigger_str('trial_end')
+                assert start_trigger in annots.description, f'starting trigger "{start_trigger}" not found in annotations'
+                assert end_trigger in annots.description, f'ending trigger "{end_trigger}" not found in annotations'
+                tmin = [o for o, d in zip(annots.onset, annots.description) if d == start_trigger][0]  # there should be one, but take first in any case
+                tmax = [o for o, d in zip(annots.onset, annots.description) if d == end_trigger][-1]  # crop after last response
 
-    # Use only some seconds of data if in testing mode
-    if test:
-        raw_rec.crop(tmax=50.0)
-        if verbose:
-            print(f'\nCropping for testing...')
+            raw_rec.crop(tmin=tmin, tmax=tmax)
+            if verbose:
+                print(f'\nCropping from first {start_trigger}...')
+                if end_trigger is not None:
+                    print(f'.. Cropping until {end_trigger}')
+
+            # Update onsets of annotations/triggers to "new" times of the cropped recording
+            t0 = raw_rec.first_time
+            raw_rec.annotations.onset = raw_rec.annotations.onset - t0
+
+        # Use only some seconds of data if in testing mode
+        if test:
+            raw_rec.crop(tmax=50.0)
+            if verbose:
+                print(f'\nCropping for testing...')
 
     if verbose:
-        print(f'\n\t-> {raw_rec.times[-1]} sec of final data, {len(raw_rec.times)} timepoints')
+        print(f'\n\t-> {raw_rec.times[-1]} sec of data, {len(raw_rec.times)} timepoints')
 
     return raw_rec
 
 
 def annot_raw_manual(
         raw_rec: mne.io.BaseRaw,
-        bad_chs: list,
-        bad_seg_starts: list,
-        bad_seg_lens: list,
-) -> mne.io.BaseRaw:
+        bad_chs: list | None = None,
+        bad_seg_starts: list | None = None,
+        bad_seg_lens: list | None = None,
+        sid: str | None = None,
+        cid: str | None = None,
+        save: bool = False,
+) -> mne.io.BaseRaw | None:
     """
 
     :param raw_rec:
     :param bad_chs:
     :param bad_seg_starts:
     :param bad_seg_lens:
+    :param sid: participant ID
+    :param cid: condition ID
+    :param load:
+    :param save:
     :return:
     """
+    annot_raw_rec = raw_rec.copy()
+
     # Manually annotate bad channels
     if bad_chs:
-        raw_rec.info['bads'] = bad_chs
+        annot_raw_rec.info['bads'] = bad_chs
 
     # Manually annotate bad segments
     if bad_seg_starts:
-        all_annots = raw_rec.annotations  # keep existing annotations
+        all_annots = annot_raw_rec.annotations  # keep existing annotations
         all_annots.append(mne.Annotations(bad_seg_starts, bad_seg_lens, ['BAD']*len(bad_seg_starts)))
-        raw_rec.set_annotations(all_annots)
+        annot_raw_rec.set_annotations(all_annots)
 
     print(
-        f"Final annotations: \n\t- bad channels: {raw_rec.info['bads']} \n\t- bad segments: {len([d for d in raw_rec.annotations.description if d.startswith('BAD')])}"
+        f"Final annotations: \n\t- bad channels: {annot_raw_rec.info['bads']}"
+        f"\n\t- bad segments: {len([d for d in raw_rec.annotations.description if d.startswith('BAD')])}"
+        f"\n\t- other annotations: {len([d for d in raw_rec.annotations.description if not d.startswith('BAD')])}"
     )
 
-    return raw_rec
+    if save:
+        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+        save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/RawAnnotated')
+        annot_raw_rec.save(f'{save_path}/{real_cid}_annot-raw.fif', overwrite=True)
+
+    return annot_raw_rec
 
 
-def annot_raw_auto(
+def muscle_annot_raw_auto(
         raw_rec: mne.io.BaseRaw,
         muscle_threshold: float | None = None,
+        show: bool = True,
 ) -> mne.io.BaseRaw:
     """
-
+    Automatically detect muscle artifacts.
     :param raw_rec:
-    :param bad_chs:
-    :param bad_seg_starts:
-    :param bad_seg_lens:
-    :param bad_seg_lbls:
     :param muscle_threshold:
+    :param show:
     :return:
     """
-    # Automatically detect muscle artifacts
-    raw_rec_copy = raw_rec.copy()  # you should notch filter before detecting muscle artifacts
-    raw_rec_copy.notch_filter(freqs=50)
-    muscle_threshold = 5 if muscle_threshold is None else muscle_threshold
+    rec_annot = raw_rec.annotations.copy()
+    
+    # Copy recording to detect bad segments - needs some processing
+    raw_det = raw_rec.copy()
+    raw_det.resample(285, verbose=False)  # to reduce computational time, but assuring the Nyquist freq is higher than 140 (highpass of the muscle detection filter)
+    raw_det.notch_filter(freqs=50, verbose=False)  # you should notch filter before detecting muscle artifacts
+
+    # Detecet muslce segments
+    muscle_threshold = 5.0 if muscle_threshold is None else muscle_threshold
     annot_muscle, scores_muscle = annotate_muscle_zscore(
-        raw_rec_copy,
+        raw_det,
         threshold=muscle_threshold,
         min_length_good=0.1,
     )
-    plot_muscle_art(raw_rec_copy, scores_muscle, muscle_threshold, show=True)
-    raw_rec.set_annotations(annot_muscle)
+    plot_muscle_art(raw_det, scores_muscle, muscle_threshold, show=show)
 
-    return raw_rec
+    # Apply annotations to original unaltered recording
+    raw_annot = raw_rec.copy()
+    raw_annot.set_annotations(rec_annot + annot_muscle)
+
+    return raw_annot
 
 
 def prepro_for_ica(
@@ -217,7 +257,7 @@ def get_ica(
         if save:
             n_components = fitted_ica.n_components_
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             fitted_ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return fitted_ica, ica_prepro_raw

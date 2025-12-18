@@ -28,10 +28,11 @@ def compute_psd(
         'picks': 'all',
     })
     if isinstance(rec, mne.io.BaseRaw):
-        times = rec.times
-        n_fft = len(times) // 1000 if test else len(times)
-        kwargs['n_fft'] = n_fft
-        # kwargs['reject_by_annotation'] = None  # annotations make it slower so ignore them
+        kwargs['reject_by_annotation'] = None  # annotations make it slower so ignore them
+        if 'n_fft' not in kwargs.keys():
+            times = rec.times
+            n_fft = len(times) // 1000 if test else len(times)
+            kwargs['n_fft'] = n_fft
 
     psd_obj = rec.compute_psd(**kwargs)
     if log_space:
