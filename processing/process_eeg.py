@@ -14,8 +14,9 @@ import numpy as np
 import pandas as pd
 import os
 
-from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr
-from utils.gen_utils import get_sids, set_for_save, get_wd, parse_epo_filename
+from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
+from utils.gen_utils import get_sids, set_for_save, get_wd, parse_epo_filename, parse_prepro_filename
+from fooof.analysis import get_band_peak_fm
 
 
 def compute_avg_epo_psd(
@@ -77,38 +78,68 @@ def get_psd_df(
         df_rows = []
         for sid in sids:
 
-            sid_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/Epo')
+            sid_epo_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/Epo')
+            sid_raw_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed')  # Also compute metrics on full raw data
+            sid_files = sid_raw_files + sid_epo_files
+
             for file in sid_files:
                 if file.endswith('.fif'):
 
                     if file.startswith('RS'):
                         continue
 
-                    cond, block_n, epo_type = parse_epo_filename(file)
-                    epo = mne.read_epochs(f'{get_wd()}/data/{sid}/eeg/Epo/{file}', preload=True, verbose=False)
-                    if epo is None or len(epo) == 0:
-                        print(sid, cond, epo_type)
+                    if file.endswith('-epo.fif'):
+                        if (file.startswith('SEG') and segmented_epochs) or (not file.startswith('SEG') and not segmented_epochs):
+                            rec = mne.read_epochs(f'{get_wd()}/data/{sid}/eeg/Epo/{file}', preload=True, verbose=False)
+                            cond, block_n, epo_type = parse_epo_filename(file)
+                        else:
+                            rec = None
+                    else:
+                        assert file.endswith('-raw.fif')
+                        rec = mne.io.read_raw_fif(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed/{file}', preload=True, verbose=False)
+                        cid = parse_prepro_filename(file)
+                        cond = cid.split('_')[-2]
+                        block_n = cid.split('_')[-1]
+                        epo_type = 'Raw'
+
+                    if rec is None or len(rec) == 0:
                         continue
 
                     # Compute PSD in each subject, epoch and channel, and then average across them
                     fmin, fmax = 1, 45
-                    psd = compute_psd(epo, fmin=fmin, fmax=fmax, verbose=False)
-                    psd_epoxch, freqs = psd.get_data(return_freqs=True)
+                    # psd_kwargs = {} if file.endswith('-epo.fif') else {'n_fft': 250}
+                    sfreq = int(rec.info['sfreq'])
+                    psd_kwargs = dict(
+                        method="welch",
+                        n_fft=sfreq,
+                        n_per_seg=sfreq,  # windows_length = n_per_seg / sfreq, so n_per_seg=sfreq makes 1s windows
+                        n_overlap=int(sfreq/2),  # 50% overlap, common
+                        window="hamming"  # common
+                    )
+                    psd = compute_psd(rec, fmin=fmin, fmax=fmax, verbose=False, **psd_kwargs)
+                    full_psd, freqs = psd.get_data(return_freqs=True)
                     if log:
-                        psd_epoxch = np.log10(psd_epoxch)
+                        full_psd = np.log10(full_psd)
 
-                    # Average across channels
-                    psd_ch_mean = psd_epoxch.mean(axis=1)  # (n_epochs, n_freqs)
+                    # Compute average PSD
+                    if file.endswith('-epo.fif'):
 
-                    # 2) mean and std across epochs
-                    epo_avg_psd = psd_ch_mean.mean(axis=0)  # (n_freqs,)
-                    epo_psd_std = psd_ch_mean.std(axis=0)
+                        # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
+                        psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
+
+                        # 2) compute mean and std of psd_ch_mean (n_epochs, n_freqs) across epochs
+                        psd_avg = psd_ch_mean.mean(axis=0)  # (n_freqs,)
+                        psd_std = psd_ch_mean.std(axis=0)  # (n_freqs,)
+                    else:
+                        assert file.endswith('-raw.fif')
+                        # compute average and std of full_psd (n_channels, n_freqs)  across channels
+                        psd_avg = full_psd.mean(axis=0)  # (n_freqs,)
+                        psd_std = full_psd.std(axis=0)  # (n_freqs,)
 
                     # Define rows of the df (one row for each frequency-point of the psd
-                    for freq, pw, std in zip(freqs, epo_avg_psd, epo_psd_std):
+                    for freq, pw, std in zip(freqs, psd_avg, psd_std):
                         df_rows.append({
                             'sid': sid,
-                            'cid': f'{cond}_{block_n}',
                             'cond': cond,
                             'block': block_n,
                             'epo_type': epo_type,
@@ -120,6 +151,8 @@ def get_psd_df(
 
         psd_df = pd.DataFrame(df_rows)
         psd_df['sid'] = psd_df['sid'].astype('str')
+
+        assert (psd_df['freq'].unique() == list(range(fmin, fmax+1))).all()
 
         if save:
             files_path = f'{get_wd()}/data'
@@ -142,6 +175,8 @@ def get_psd_avg_df(
         psd_avg_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(load=True, log=False, segmented_epochs=segmented_epochs)  # always start by linear df (to apply log afterwards)
+
+        psd_df = psd_df[~(psd_df['sid'] == '04')]
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
         print(f"sids = {psd_df['sid'].unique()}")
@@ -169,6 +204,10 @@ def get_psd_avg_df(
             }
         )
 
+        raw = psd_avg_df[psd_avg_df["epo_type"] == "Raw"]
+        grp_to_check = raw.groupby("cond")["N"].agg(["min", "max"])
+        assert (grp_to_check['min'] == grp_to_check['max']).all()
+
         if save:
             files_path = f'{get_wd()}/data'
             file_pref = 'SEG_' if segmented_epochs else ''
@@ -177,7 +216,7 @@ def get_psd_avg_df(
     return psd_avg_df
 
 
-def get_osc_df(
+def get_band_metrics_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
@@ -206,10 +245,13 @@ def get_osc_df(
 
                     psd = mean_psd_df['pw_avg'].to_numpy()
                     freqs = mean_psd_df['freq'].to_numpy()
-                    psd_model = model_psd(psd, freqs,max_n_peaks=4)  # limit max_n_peaks bc we only care about alpha/theta
-                    # peak_psd = psd_model.get_data(component='peak', space='linear')
+                    psd_model = model_psd(psd, freqs, max_n_peaks=3)  # limit max_n_peaks bc we only care about alpha/theta (and perhaps gamma)
 
                     for band in bands:
+                        # Detect peak
+                        band_freqs = get_band_freqs(band)
+                        pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]
+                        pk = False if np.isnan(pk_pw) else True
 
                         # Define rows of the df
                         df_rows.append({
@@ -219,7 +261,9 @@ def get_osc_df(
                             'band': band,
                             'abs_pw': get_band_power(psd, freqs, band, rel=False),  # Compute abs power
                             'rel_pw': get_band_power(psd, freqs, band, rel=True),  # Compute rel power
-                            'osc_snr': compute_osc_snr(psd_model, band)  # Compute oscillatory SNR
+                            'osc_snr': compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
+                            'pk': pk,
+                            'pk_pw': pk_pw,
                         })
 
         osc_df = pd.DataFrame(df_rows)

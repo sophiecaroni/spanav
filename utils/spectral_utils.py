@@ -5,6 +5,25 @@ from fooof import FOOOF
 from yasa import bandpower_from_psd
 
 
+def get_band_freqs(
+        band: str,
+) -> tuple[float, float]:
+    """
+
+    :param band:
+    :return:
+    """
+    if band == 'theta':
+        return 4.0, 8.0
+    elif band == 'alpha':
+        return 8.0, 12.0
+    elif band == 'beta':
+        return 12.0, 30.0
+    else:
+        freqs = band.split('-')
+        return float(freqs[0]), float(freqs[1])
+
+
 def compute_psd(
         rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
         log_space: bool = False,
