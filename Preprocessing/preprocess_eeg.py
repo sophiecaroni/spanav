@@ -640,9 +640,6 @@ def basic_preproc_raw(
             reset_bads=True   # removes bads from info
         )
 
-        # Re-reference to common average
-        raw_rec_end.set_eeg_reference('average')
-
         if save:
             raw_rec_end.save(f'{set_for_save(file_path)}/{file_name}', overwrite=True)
 

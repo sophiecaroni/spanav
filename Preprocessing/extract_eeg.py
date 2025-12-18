@@ -353,6 +353,9 @@ def clean_epos(
         epo_label: str,
         verbose: bool = False,
 ) -> mne.Epochs | None:
+    # Re-reference to common average
+    epo_rec.set_eeg_reference('average')
+
     if len(epo_rec) > 0:
         n_epo = len(epo_rec)
         if n_epo >= 5:
