@@ -189,7 +189,7 @@ def get_osc_df(
             for cond, single_cond_df in single_epo_type_df.groupby('cond'):
                 for sid, single_sid_df in single_cond_df.groupby('sid'):
 
-                    # Average first across blocks of the same condition within each participant
+                    # Average first across blocks of the same condition (within each participant)
                     mean_psd_df = (
                         single_sid_df
                         .groupby('freq', as_index=False)['pw_avg']

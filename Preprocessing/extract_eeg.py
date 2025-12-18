@@ -107,7 +107,6 @@ def get_epo_rec(
 def get_obj_pres_epochs(
         raw_rec: mne.io.BaseRaw,
 ) -> mne.Epochs:
-    obj_pres_len = 1
     kwargs = {
         'verbose': True,
         'baseline': None,  # baseline was already applied on raw_rec
@@ -147,7 +146,7 @@ def get_obj_pres_epochs(
         )
         parts.append(epo1)
 
-    return epo3 if obj_pres_len == 3 else mne.concatenate_epochs(parts)
+    return mne.concatenate_epochs(parts)
 
 
 def get_rs_epochs(

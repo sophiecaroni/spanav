@@ -9,6 +9,7 @@
     This script contains helper functions to facilitate recurrent tasks.
 ********************************************************************************
 """
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import os
 from contextlib import contextmanager
@@ -24,7 +25,7 @@ SEED = 81025
 @contextmanager
 def plot_context(
 ):
-    increase = 2
+    increase = 0
     params = {
         'figure.dpi': 300,
         'axes.grid': False,
@@ -34,8 +35,8 @@ def plot_context(
         'axes.labelsize': 7 + increase,         # Axis labels (x and y)
         'xtick.labelsize': 6 + increase,        # X-axis tick labels
         'ytick.labelsize': 6 + increase,        # Y-axis tick labels
-        'legend.fontsize': 6 + increase,        # Legend text
-        'legend.title_fontsize': 6 + increase,       # Legend title
+        'legend.fontsize': 5 + increase,        # Legend text
+        'legend.title_fontsize': 5 + increase,       # Legend title
 
         # Line widths
         'axes.linewidth': 1,         # Border (spines) width
@@ -116,7 +117,10 @@ def get_sids(
     :return:
     """
     rec_folders = os.listdir(f'{get_wd()}/data')
-    sids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv'))])
+    sids = sorted([f for i, f in enumerate(rec_folders)
+                   if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv')
+                           or f.startswith('WITH'))
+                   ])
     if not include_04:
         sids.remove('04')
     return sids if not test else ['04']
@@ -197,22 +201,6 @@ def get_sid_cids(
     return cids if not test else [cids[0]]
 
 
-def get_band_freqs(
-        band: str,
-) -> tuple[float, float]:
-    """
-
-    :param band:
-    :return:
-    """
-    if band == 'theta':
-        return 4.0, 8.0
-    elif band == 'alpha':
-        return 8.0, 12.0
-    elif band == 'beta':
-        return 12.0, 30.0
-
-
 def get_sid_cid_from_block(
         sid: str,
         block_n: int | str,
@@ -287,7 +275,7 @@ def reveal_cid(
     :return:
     """
     if cid is not None:
-        if cid[-1] in ['1', '2', '3', '4', '5', '6']:
+        if cid[-1] in ['1', '2', '3', '4', '5', '6'] or cid.startswith('RS'):
             print(f'Condition ID of subject {sid} is already the full one: {cid}')
             return cid
         else:
@@ -393,11 +381,11 @@ def parse_epo_filename(
             cond = 'RS'
         block_n = 0
     else:
-        m = re.match(r"task_(.+?)_(.+?)_(.+?)-epo\.fif$", filename)
+        m = re.match(r".*task_(.+?)_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
         if m:
             cond, block_n, epo_type = m.groups()
         else:
-            other_m = re.match(r"task_(.+?)_(.+?)-epo\.fif$", filename)
+            other_m = re.match(r".*task_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
             cond, epo_type = other_m.groups()
             block_n = 0
 
@@ -419,7 +407,7 @@ def parse_prepro_filename(
             (rs_cond, ) = m.groups()
             cid = f'RS_{rs_cond}'
     else:
-        m = re.match(r"task_(.+?)-raw\.fif$", filename)
+        m = re.match(r".*task_(.+?)-raw\.fif$", filename)  # .* allows anything before
         if m:
             (task_cid, ) = m.groups()
             cid = f'task_{task_cid}'

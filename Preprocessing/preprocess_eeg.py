@@ -192,7 +192,6 @@ def get_ica(
     if load:
         assert n_components is not None, "Number of components (n_components) can't be None with the current save/load parameters."
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        print(f"{real_cid = }")
         fitted_ica = mne.preprocessing.read_ica(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
     else:
 
@@ -235,12 +234,12 @@ def get_ica_sources(
     n_components = fitted_ica.n_components_
     if load:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        ica_sources = mne.io.Raw(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
+        ica_sources = mne.io.Raw(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
     else:
         ica_sources = fitted_ica.get_sources(raw_rec)
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica_sources.save(f'{save_path}/{real_cid}_icsources-raw.fif', overwrite=True)
 
     return ica_sources
@@ -303,7 +302,7 @@ def get_eyes_ics(
 
         # Create EOG epochs
         eog_ch = 'Fp1' if 'Fp1' in raw_rec.ch_names else 'Fp2'
-        eog_epochs = create_eog_epochs(raw_rec, ch_name=eog_ch)
+        eog_epochs = create_eog_epochs(raw_rec, ch_name=eog_ch, show=False)
 
         if arbitrary_eyes_ics:
             eyes_ics = arbitrary_eyes_ics
@@ -312,7 +311,7 @@ def get_eyes_ics(
         else:
 
             # Find components correlated to EOG
-            eyes_ics, scores = ica.find_bads_eog(eog_epochs, ch_name=eog_ch)
+            eyes_ics, scores = ica.find_bads_eog(eog_epochs, ch_name=eog_ch, show=False)
             eyes_ics = list(map(int, eyes_ics))
 
             # Plots 
@@ -365,7 +364,7 @@ def get_muscle_ics(
             fig1 = ica.plot_components(muscle_ics, title='Selected muscle ICs:', show=False)
             fig2 = None
         else:
-            muscle_ics, scores = ica.find_bads_muscle(raw_rec)
+            muscle_ics, scores = ica.find_bads_muscle(raw_rec, show=False)
             muscle_ics = list(map(int, muscle_ics))
 
             # Plots
@@ -443,7 +442,7 @@ def apply_ica(
     if save or load:  # Export cleaned data
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
-    file_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawClean'
+    file_path = f'{get_wd()}/Data/{sid}/eeg/RawClean'
     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
     file_name = f'{real_cid}_iclean-raw.fif'
     if load:
@@ -461,7 +460,7 @@ def apply_ica(
 
             # Export ICA with bad component(s) marked
             n_components = ica.n_components_
-            save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return clean_rec
@@ -539,7 +538,7 @@ def load_bad_chs(
     :param cid:
     :return:
     """
-    file_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawClean'
+    file_path = f'{get_wd()}/Data/{sid}/eeg/RawClean'
     return np.loadtxt(f'{file_path}/{cid}_bad_channels', delimiter=',', dtype=str)
 
 
@@ -575,7 +574,7 @@ def basic_preproc_raw(
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-    file_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawPreprocessed'
+    file_path = f'{get_wd()}/Data/{sid}/eeg/RawPreprocessed'
     file_name = f'{real_cid}-raw.fif'
     if load:
         try:

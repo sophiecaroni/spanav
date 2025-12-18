@@ -86,7 +86,7 @@ def plot_single_ch_psd(
         ax.set_title(title)
         ax.plot(freqs, psd_T, **kwargs)
         if ax is None:
-            ax.set_ylabel(r'log(Power [$\mu$V]')
+            ax.set_ylabel(r'log(Power [$\mu$V])')
             ax.set_xlabel('Frequency [Hz]')
 
         if show:
@@ -477,10 +477,10 @@ def plot_psd_avg_by_cat(
         # Customize figure
         if len(cats) > 2:
             suplabels_fontsize = plt.rcParams['axes.labelsize']
-            fig.supylabel(r'log(Power [$\mu$V]', fontsize=suplabels_fontsize)
+            fig.supylabel(r'log(Power [$\mu$V])', fontsize=suplabels_fontsize)
             fig.supxlabel('Frequency [Hz]', fontsize=suplabels_fontsize)
         else:
-            ax.set_ylabel(r'log(Power [$\mu$V]')
+            ax.set_ylabel(r'log(Power [$\mu$V])')
             ax.set_xlabel('Frequency [Hz]')
 
         if save:
@@ -568,7 +568,7 @@ def compare_epo_psd(
         suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
         title_sids = 'Average across subjects' if plot_subj.startswith('average') else f"Subject {plot_subj}"
         fig.suptitle(f"{suptitle}\n{title_sids}")
-        fig.supylabel(r'log(Power [$\mu$V]')
+        fig.supylabel(r'log(Power [$\mu$V])')
         fig.supxlabel('Frequency [Hz]')
         fig.tight_layout()
 
@@ -618,7 +618,7 @@ def compare_band_metric(
         sids = df['sid'].unique()
         title_sids = 'Absolute band-power' if metric_name == 'abs_pw' else ('Relative band-power' if metric_name == 'rel_pw' else 'SNR')
         fig.suptitle(f"{suptitle}\n{title_sids}")
-        ylabel = r'log(Power [$\mu$V]' if metric_name != 'osc_snr' else 'SNR'
+        ylabel = r'log(Power [$\mu$V])' if metric_name != 'osc_snr' else 'SNR'
         fig.supylabel(ylabel)
         fig.supxlabel('Frequency bands')
         fig.tight_layout()
@@ -670,7 +670,7 @@ def plot_band_metric_by_cat(
 
         # Customize figure
         if len(cats) > 2:
-            fig.supylabel(r'log(Power [$\mu$V]')
+            fig.supylabel(r'log(Power [$\mu$V])')
             fig.supxlabel('Frequency bands')
 
         if show:
