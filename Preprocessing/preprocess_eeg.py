@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from mne.preprocessing import ICA, create_eog_epochs, annotate_amplitude, annotate_muscle_zscore
 from visualization.vis_eeg import compare_psds, plot_muscle_art
 from utils.spectral_utils import compute_psd
-from utils.gen_utils import set_for_save, save_figure, plot_context, SEED, get_trigger_str, reveal_cid, get_wd
+from utils.gen_utils import set_for_save, save_figure, plot_context, SEED, get_trigger_str, reveal_cid, get_wd, get_exp_phase
 
 
 def load_raw(
@@ -36,7 +36,7 @@ def load_raw(
     """
     if annotated_bads:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        file_path = f'{get_wd()}/Data/{sid}/eeg/RawAnnotated'
+        file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawAnnotated'
         file_name = f'{real_cid}_annot-raw.fif'
         raw_rec = mne.io.read_raw_fif(f'{file_path}/{file_name}', preload=True)
 
@@ -48,7 +48,7 @@ def load_raw(
         )
     else:
         # Load data
-        raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_wd()}/Data/{sid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
+        raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
 
         # Make sure this recording does not contain 'bad' annotations
         assert not raw_rec.info['bads'], '\n\n#### Some channels are already set as bad!! ####\n\n'
@@ -135,7 +135,7 @@ def annot_raw_manual(
 
     if save:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/RawAnnotated')
+        save_path = set_for_save(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawAnnotated')
         annot_raw_rec.save(f'{save_path}/{real_cid}_annot-raw.fif', overwrite=True)
 
     return annot_raw_rec
@@ -232,7 +232,7 @@ def get_ica(
     if load:
         assert n_components is not None, "Number of components (n_components) can't be None with the current save/load parameters."
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        fitted_ica = mne.preprocessing.read_ica(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
+        fitted_ica = mne.preprocessing.read_ica(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
     else:
 
         # Define components number
@@ -257,7 +257,7 @@ def get_ica(
         if save:
             n_components = fitted_ica.n_components_
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             fitted_ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return fitted_ica, ica_prepro_raw
@@ -274,12 +274,12 @@ def get_ica_sources(
     n_components = fitted_ica.n_components_
     if load:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        ica_sources = mne.io.Raw(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
+        ica_sources = mne.io.Raw(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
     else:
         ica_sources = fitted_ica.get_sources(raw_rec)
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica_sources.save(f'{save_path}/{real_cid}_icsources-raw.fif', overwrite=True)
 
     return ica_sources
@@ -484,7 +484,7 @@ def apply_ica(
     if save or load:  # Export cleaned data
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
-    file_path = f'{get_wd()}/Data/{sid}/eeg/RawClean'
+    file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawClean'
     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
     file_name = f'{real_cid}_iclean-raw.fif'
     if load:
@@ -502,7 +502,7 @@ def apply_ica(
 
             # Export ICA with bad component(s) marked
             n_components = ica.n_components_
-            save_path = set_for_save(f'{get_wd()}/Data/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return clean_rec
@@ -580,7 +580,7 @@ def load_bad_chs(
     :param cid:
     :return:
     """
-    file_path = f'{get_wd()}/Data/{sid}/eeg/RawClean'
+    file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawClean'
     return np.loadtxt(f'{file_path}/{cid}_bad_channels', delimiter=',', dtype=str)
 
 
@@ -596,7 +596,7 @@ def export_bad_chs(
     :param cid:
     :return:
     """
-    save_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/Data/{sid}/eeg/RawClean'
+    save_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/data/{get_exp_phase()}/{sid}/eeg/RawClean'
     bad_channels = data.info['bads']
     np.savetxt(f'{save_path}/{cid}_bad_channels', bad_channels, delimiter=',', fmt='%s')
     print(
@@ -616,7 +616,7 @@ def basic_preproc_raw(
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-    file_path = f'{get_wd()}/Data/{sid}/eeg/RawPreprocessed'
+    file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed'
     file_name = f'{real_cid}-raw.fif'
     if load:
         try:

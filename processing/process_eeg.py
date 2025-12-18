@@ -15,7 +15,8 @@ import pandas as pd
 import os
 
 from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
-from utils.gen_utils import get_sids, set_for_save, get_wd, parse_epo_filename, parse_prepro_filename
+from utils.gen_utils import get_sids, set_for_save, get_wd, parse_epo_filename, parse_prepro_filename, \
+    get_exp_phase
 from fooof.analysis import get_band_peak_fm
 
 
@@ -69,7 +70,7 @@ def get_psd_df(
         file_pref = 'SEG_' if segmented_epochs else ''
         file_name = f'{file_pref}psd_df_log.csv' if log else f'{file_pref}psd_df_lin.csv'
         # file_name = f'psd_df_log_WITH04.csv' if log else f'psd_df_lin_WITH04.csv'
-        psd_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        psd_df = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         sids = get_sids(test=test, include_04=True)
         print(
@@ -78,8 +79,8 @@ def get_psd_df(
         df_rows = []
         for sid in sids:
 
-            sid_epo_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/Epo')
-            sid_raw_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed')  # Also compute metrics on full raw data
+            sid_epo_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo')
+            sid_raw_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed')  # Also compute metrics on full raw data
             sid_files = sid_raw_files + sid_epo_files
 
             for file in sid_files:
@@ -90,13 +91,13 @@ def get_psd_df(
 
                     if file.endswith('-epo.fif'):
                         if (file.startswith('SEG') and segmented_epochs) or (not file.startswith('SEG') and not segmented_epochs):
-                            rec = mne.read_epochs(f'{get_wd()}/data/{sid}/eeg/Epo/{file}', preload=True, verbose=False)
+                            rec = mne.read_epochs(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo/{file}', preload=True, verbose=False)
                             cond, block_n, epo_type = parse_epo_filename(file)
                         else:
                             rec = None
                     else:
                         assert file.endswith('-raw.fif')
-                        rec = mne.io.read_raw_fif(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed/{file}', preload=True, verbose=False)
+                        rec = mne.io.read_raw_fif(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed/{file}', preload=True, verbose=False)
                         cid = parse_prepro_filename(file)
                         cond = cid.split('_')[-2]
                         block_n = cid.split('_')[-1]
@@ -155,7 +156,7 @@ def get_psd_df(
         assert (psd_df['freq'].unique() == list(range(fmin, fmax+1))).all()
 
         if save:
-            files_path = f'{get_wd()}/data'
+            files_path = f'{get_wd()}/data/{get_exp_phase()}'
             file_pref = 'SEG_' if segmented_epochs else ''
             file_name = f'{file_pref}psd_df_log.csv' if log else f'{file_pref}psd_df_lin.csv'
             psd_df.to_csv(f'{set_for_save(files_path)}/{file_name}')
@@ -172,7 +173,7 @@ def get_psd_avg_df(
         file_pref = 'SEG_' if segmented_epochs else ''
         file_name = f'{file_pref}psd_avg_df_log.csv' if log else f'{file_pref}psd_avg_df_lin.csv'
         # file_name = f'psd_avg_df_log_WITH04.csv' if log else f'psd_avg_df_lin_WITH04.csv'
-        psd_avg_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        psd_avg_df = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(load=True, log=False, segmented_epochs=segmented_epochs)  # always start by linear df (to apply log afterwards)
 
@@ -209,7 +210,7 @@ def get_psd_avg_df(
         assert (grp_to_check['min'] == grp_to_check['max']).all()
 
         if save:
-            files_path = f'{get_wd()}/data'
+            files_path = f'{get_wd()}/data/{get_exp_phase()}'
             file_pref = 'SEG_' if segmented_epochs else ''
             file_name = f'{file_pref}psd_avg_df_log.csv' if log else f'{file_pref}psd_avg_df_lin.csv'
             psd_avg_df.to_csv(f'{set_for_save(files_path)}/{file_name}')
@@ -224,8 +225,8 @@ def get_band_metrics_df(
 ) -> pd.DataFrame:
     if load:
         file_pref = 'SEG_' if segmented_epochs else ''
-        osc_df = pd.read_csv(f'{get_wd()}/data/{file_pref}band_metrics_df.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
-        # osc_df = pd.read_csv(f'{get_wd()}/data/osc_df_WITH04.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        osc_df = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/{file_pref}band_metrics_df.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        # osc_df = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/osc_df_WITH04.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(test=test, log=False, segmented_epochs=segmented_epochs)  # load power spectra in linear scale
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
@@ -270,7 +271,7 @@ def get_band_metrics_df(
         osc_df['sid'] = osc_df['sid'].astype('str')
 
         if save:
-            files_path = f'{get_wd()}/data'
+            files_path = f'{get_wd()}/data/{get_exp_phase()}'
             file_pref = 'SEG_' if segmented_epochs else ''
             osc_df.to_csv(f'{set_for_save(files_path)}/{file_pref}band_metrics_df.csv')
     return osc_df

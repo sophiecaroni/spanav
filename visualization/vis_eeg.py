@@ -17,7 +17,7 @@ import pandas as pd
 import seaborn as sns
 import os
 from utils.gen_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED, get_wd
+                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED, get_wd, get_exp_phase
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
@@ -58,7 +58,7 @@ def plot_ti_sensors(
     )
 
     if save:
-        save_figure(f'{get_wd()}/data/{sid}', 'ti_sensors.png', fig=fig)
+        save_figure(f'{get_wd()}/data/{get_exp_phase()}/{sid}', 'ti_sensors.png', fig=fig)
     if show:
         fig.show()
     else:

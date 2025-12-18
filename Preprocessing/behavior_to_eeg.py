@@ -2,7 +2,7 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from utils.gen_utils import set_for_save, get_block_stim, get_wd
+from utils.gen_utils import set_for_save, get_block_stim, get_wd, get_exp_phase
 
 
 def get_times_retrieval_phases(
@@ -14,7 +14,7 @@ def get_times_retrieval_phases(
     :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
     retrieval_starts_to_check = []
-    with open(f'{get_wd()}/Data/{sid}/behavior/TaskLog.txt', 'r') as f:
+    with open(f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/TaskLog.txt', 'r') as f:
         times_by_retrieval_phase = {}
         block_n = 1
         for line in f:
@@ -39,7 +39,7 @@ def get_trace_df(
         sid: str,
 ) -> pd.DataFrame:
     tracelog = []
-    with open(f'{get_wd()}/Data/{sid}/behavior/TraceLog.txt', 'r') as f:
+    with open(f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/TraceLog.txt', 'r') as f:
         for raw in f:
             line = raw.strip()
 
@@ -114,7 +114,7 @@ def get_retrieval_df(
         sid: str,
 ) -> pd.DataFrame:
     df = pd.read_csv(
-        f'{get_wd()}/Data/{sid}/behavior/RetrievalLog.txt',
+        f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/RetrievalLog.txt',
         sep=',',
         comment='#',  # ignore rows that start with #
     )
@@ -219,7 +219,7 @@ def extract_behavioral_events(
     assert all(events_df['Duration']) >= 0, (f'Something is wrong, some events have negative duration')
 
     if save:
-        file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+        file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
         events_df.to_csv(f'{set_for_save(file_path)}/behavioral_events.csv', index=False)
 
     return events_df
@@ -473,7 +473,7 @@ def define_eeg_epochs(
     events_df = pd.DataFrame(events)
 
     if save:
-        file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+        file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
         file_name = 'SEG_eeg_epochs' if segment_epochs else 'eeg_epochs'
         events_df.to_csv(f'{set_for_save(file_path)}/{file_name}.csv', index=False)
 

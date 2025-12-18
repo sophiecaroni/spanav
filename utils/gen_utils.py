@@ -137,7 +137,7 @@ def get_sids(
     :param include_04:
     :return:
     """
-    rec_folders = os.listdir(f'{get_wd()}/data')
+    rec_folders = os.listdir(f'{get_wd()}/data/{get_exp_phase()}')
     sids = sorted([f for i, f in enumerate(rec_folders)
                    if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv')
                            or f.startswith('WITH'))
@@ -208,7 +208,7 @@ def get_sid_cids(
     :return:
     """
     cids = []
-    sid_files = os.listdir(f'{get_wd()}/data/{sid}/eeg/RawPreprocessed')
+    sid_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed')
     for file in sid_files:
         if file.endswith('.fif'):
             if not task and file.startswith('RS'):
@@ -233,7 +233,7 @@ def get_sid_cid_from_block(
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    conv_table = pd.read_excel(f'{get_wd()}/data/{sid}/stimulations.xlsx')
+    conv_table = pd.read_excel(f'{get_wd()}/data/{get_exp_phase()}/{sid}/stimulations.xlsx')
     block_str_variants = [f'block{block_n}', f'block_{block_n}']  # possible variants of how block was reported in excel file
     block_str_variants_lower = {v.lower() for v in block_str_variants}  # normalize to lower once
 
@@ -331,9 +331,9 @@ def get_ti_positions(
     :param sid:
     :return:
     """
-    sid_files = os.listdir(f'{get_wd()}/data/{sid}')
+    sid_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}')
     conv_file = [file_name for file_name in sid_files if file_name.startswith('SpaNav') and file_name.endswith('csv')][0]
-    conv_table = pd.read_csv(f'{get_wd()}/data/{sid}/{conv_file}', sep=';')
+    conv_table = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/{sid}/{conv_file}', sep=';')
     eeg_ti_positions = conv_table.loc[:, 'Old channel name'].to_list()
     return eeg_ti_positions
 
@@ -381,6 +381,15 @@ def get_wd(
         return '/Volumes/My Passport/SpaNav/Sophie_backup'
     else:
         return '/Users/sophiecaroni/epfl_hes/spanav-tbi'
+
+
+def get_exp_phase(
+        pilot: bool = True,
+) -> str:
+    if pilot:
+        return 'pilot'
+    else:
+        return 'main'
 
 
 def parse_epo_filename(

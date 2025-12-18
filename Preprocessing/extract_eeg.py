@@ -6,7 +6,8 @@ from mne import Epochs
 from mne.epochs import EpochsFIF
 
 from preprocessing.preprocess_eeg import basic_preproc_raw
-from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_wd, SEED
+from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_wd, SEED, \
+    get_exp_phase
 from mne.baseline import rescale
 from autoreject import AutoReject
 
@@ -63,7 +64,7 @@ def get_epo_rec(
 
     if load:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+        files_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
         file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith('RS') else f'{real_cid}-epo.fif'
         try:
             epo_rec_clean = mne.read_epochs(f'{files_path}/{file_name}', preload=True, verbose=False)
@@ -96,7 +97,7 @@ def get_epo_rec(
             else:
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                    files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+                    files_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
 
                     file_name = f'{real_cid}-epo.fif' if epo_type.startswith('RS') else (f'{real_cid}_{epo_type}-epo.fif' if not segmented_epochs else f'SEG_{real_cid}_{epo_type}-epo.fif')
                     epo_rec_clean.save(f'{set_for_save(files_path)}/{file_name}', overwrite=True)
@@ -167,7 +168,7 @@ def get_epo_def(
         cid: str,
         segmented_epochs: bool = False,
 ) -> pd.DataFrame:
-    file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
+    file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
     file_name = 'SEG_eeg_epochs' if segmented_epochs else f'eeg_epochs'
     epo_table = pd.read_csv(f'{file_path}/{file_name}.csv')
 
