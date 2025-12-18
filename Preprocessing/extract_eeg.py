@@ -22,7 +22,8 @@ def get_all_epo_objects(
         save: bool = False,
         verbose: bool = True,
         test: bool = False,
-        epo_types: list | None = None
+        epo_types: list | None = None,
+        segmented_epochs: bool = False,
 ) -> dict:
     if save or load:
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
@@ -39,7 +40,7 @@ def get_all_epo_objects(
                 f"\n\n{epo_type = }\n\n"
             )
 
-        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
+        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose, segmented_epochs=segmented_epochs)
         epo_by_type[epo_type] = epo_rec
 
     return epo_by_type
@@ -53,7 +54,8 @@ def get_epo_rec(
         load: bool = True,
         save: bool = False,
         verbose: bool = False,
-        epo_def_table: pd.DataFrame | None = None,
+        epo_def_df: pd.DataFrame | None = None,
+        segmented_epochs: bool = False,
 ) -> EpochsFIF | None | Epochs:
     # Check epo type validity
     if epo_type not in EPO_TYPES:
@@ -76,7 +78,7 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec)
 
         elif epo_type in ['ContMov', 'Static', 'MovOn']:
-            epo_def = get_epo_def_table(sid, cid) if epo_def_table is None else epo_def_table
+            epo_def = get_epo_def(sid, cid, segmented_epochs=segmented_epochs) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         else:  # if epo_type == 'RS':
@@ -95,8 +97,8 @@ def get_epo_rec(
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                     files_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-                    file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith(
-                        'RS') else f'{real_cid}-epo.fif'
+
+                    file_name = f'{real_cid}-epo.fif' if epo_type.startswith('RS') else (f'{real_cid}_{epo_type}-epo.fif' if not segmented_epochs else f'SEG_{real_cid}_{epo_type}-epo.fif')
                     epo_rec_clean.save(f'{set_for_save(files_path)}/{file_name}', overwrite=True)
             return epo_rec_clean
 
@@ -160,13 +162,13 @@ def get_rs_epochs(
     )
 
 
-def get_epo_def_table(
+def get_epo_def(
         sid: str,
         cid: str,
-        mov_duration_s: None | float = None,
+        segmented_epochs: bool = False,
 ) -> pd.DataFrame:
     file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-    file_name = 'eeg_epochs' if mov_duration_s is None else f'eeg_epochs_{mov_duration_s}'
+    file_name = 'SEG_eeg_epochs' if segmented_epochs else f'eeg_epochs'
     epo_table = pd.read_csv(f'{file_path}/{file_name}.csv')
 
     # Select rows selative to the retrieval block od the condition ID

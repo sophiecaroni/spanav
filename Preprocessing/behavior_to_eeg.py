@@ -1,59 +1,57 @@
 import warnings
 import pandas as pd
+import numpy as np
+
 from utils.gen_utils import set_for_save, get_block_stim, get_wd
 
 
-def get_blocks_times(
+def get_times_retrieval_phases(
         sid: str,
 ) -> dict[int: tuple[float, float]]:
     """
-    Retrieve start and end times of each task-block, based on TaskLog.txt
+    Retrieve start and end times of each retrieval phase, based on TaskLog.txt
     :param sid: subject ID
-    :return: dict containing block IDs as keys, and tuples with start and end times as values
+    :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
-    block_starts_to_check = []
+    retrieval_starts_to_check = []
     with open(f'{get_wd()}/Data/{sid}/behavior/TaskLog.txt', 'r') as f:
-        times_by_block = {}
+        times_by_retrieval_phase = {}
         block_n = 1
         for line in f:
             line = line.strip()  # remove trailing /n
             if 'Retrieval Start' in line:
                 line_split = line.split(',')
-                block_start = float(line_split[0])
+                retr_start = float(line_split[0])
                 next_line_split = next(f).split(',')
-                block_end = float(next_line_split[0])
-                times_by_block[block_n] = (block_start, block_end)
-                block_starts_to_check.append(block_start)
+                retr_end = float(next_line_split[0])
+                times_by_retrieval_phase[block_n] = (retr_start, retr_end)
+                retrieval_starts_to_check.append(retr_start)
                 block_n += 1
 
-    if block_starts_to_check != sorted(block_starts_to_check):
-        warnings.warn(f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
+    if retrieval_starts_to_check != sorted(retrieval_starts_to_check):
+        warnings.warn(
+            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
 
-    return times_by_block
+    return times_by_retrieval_phase
 
 
 def get_trace_df(
         sid: str,
 ) -> pd.DataFrame:
-
     tracelog = []
     with open(f'{get_wd()}/Data/{sid}/behavior/TraceLog.txt', 'r') as f:
-        trial_counter = 0
-        new_trial_flag = False
-        for line in f:
-            line = line.strip()
-            if '----------------------' in line:
-                if not new_trial_flag:  #if the line has  ----------------------, it means we are in a new trial
-                    trial_counter += 1
-                    new_trial_flag = True  # new_trial_flag is set to True until we find a normal line without ----, to avoid double increase of trial when there are 2 Num,-----
-                continue
-            new_trial_flag = False
+        for raw in f:
+            line = raw.strip()
 
-            if line == '' or line.startswith('Time') or line.startswith('#'): #to ignore the first line of TraceLog
+            # Skip some lines
+            if line == '' or line.startswith('Time') or line.startswith('#') or line.startswith('---'):
                 continue
 
-            parts = line.split(',') #list of the parts of the line
-            if len(parts) == 2:
+            parts = line.split(',')  # list of the parts of the line
+            if len(parts) == 1:  # lines "Number ----------------------"
+                time = parts
+                x = y = None
+            elif len(parts) == 2:
                 time, angle = parts
                 x = y = None
             elif len(parts) == 4:
@@ -61,20 +59,53 @@ def get_trace_df(
             else:
                 continue
 
-            try:
-                tracelog.append({
-                    'time': float(time),
-                    'x': float(x) if x else None,
-                    'y': float(y) if y else None,
-                })
-            except ValueError:
-                continue
+            tracelog.append({
+                'time': float(time),
+                'x': float(x) if x else np.nan,
+                'y': float(y) if y else np.nan,
+            })
 
     # Transform into a dataframe
     df = pd.DataFrame(tracelog)
 
+    # As "The row is recorded every 100 ms if there's any navigation (translation or rotation). And, if there's no
+    # recording, it means that s/he was stationary during the period." (June), insert syntehtic rows when needed
+    t = df['time'].to_numpy()
+    reset = np.r_[False, np.diff(t) < 0]          # True where time decreases
+    df["segment_id"] = np.cumsum(reset)           # 0,1,2,... in file order
+    tolerance = 1e-6  # tolerance
+    sample_s = 0.1  # 100 ms, to treat two times as equal if they differ by less than one microsecond
+    synthethic_rows = []
+
+    for seg_id, seg in df.groupby("segment_id", sort=False):
+        seg = seg.copy()
+
+        # Sort only inside the segment (safe)
+        seg.sort_values("time", inplace=True, kind="mergesort")
+        seg.reset_index(drop=True, inplace=True)
+
+        ts = seg["time"].to_numpy()
+        dt = np.diff(ts)
+
+        synthetic_rows = []
+        for i, d in enumerate(dt):
+            if d > sample_s + tolerance:
+                for tt in np.arange(ts[i] + sample_s, ts[i + 1] - tolerance, sample_s):
+                    synthetic_rows.append({'time': float(tt), 'x': np.nan, 'y': np.nan, 'segment_id': seg_id})
+
+        if synthetic_rows:
+            seg = pd.concat([seg, pd.DataFrame(synthetic_rows)], ignore_index=True)
+            seg.sort_values("time", inplace=True, kind="mergesort")
+            seg.reset_index(drop=True, inplace=True)
+
+        synthethic_rows.append(seg)
+
+    df = pd.concat(synthethic_rows, ignore_index=True)
+
+    # Final check
     if df['time'].tolist() != sorted(df['time']):
-        warnings.warn(f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
+        warnings.warn(
+            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
 
     return df
 
@@ -109,19 +140,19 @@ def get_retrieval_df(
 
 def extract_behavioral_events(
         sid: str,
-        block_times: dict[int: tuple[float, float]],
+        retrieval_times: dict[int: tuple[float, float]],
         retrieval_df: pd.DataFrame,
-        df_trace: pd.DataFrame,
+        trace_df: pd.DataFrame,
         save: bool = False,
 ) -> pd.DataFrame:
-
     events = []
 
     # Iterate over blocks
-    for block_n, (start_blk, end_blk) in block_times.items():
+    for block_n, (retr_start, retr_end) in retrieval_times.items():
         block_trials = retrieval_df.copy()[retrieval_df['Block'] == block_n]  # only consider trials in the block
         block_trials.reset_index(drop=True, inplace=True)
-        assert ((block_trials['starttime'] >= start_blk) & (block_trials['endtime'] <= end_blk)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
+        assert ((block_trials['starttime'] >= retr_start) & (block_trials[
+                                                                 'endtime'] <= retr_end)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
 
         # Extract stimulation condition of the block
         condition = get_block_stim(sid, block_n)
@@ -129,35 +160,36 @@ def extract_behavioral_events(
         # Iterate over trials (rows) of the block
         for phase_idx, row in block_trials.iterrows():
             start, end = row['starttime'], row['endtime']
-            trial_trace_df = select_trial_df(sid, block_n, df_trace, start, end)
+
+            trial_trace_df = select_trial_df(sid, block_n, trace_df, start, end)
 
             # Create new column state; set to Moving when there are values in x and y, otherwise to Static
-            trial_trace_df['state'] = trial_trace_df.apply(lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Static', axis=1)
+            trial_trace_df['state'] = trial_trace_df.apply(
+                lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Static', axis=1)
 
             # Change each "Moving" value that is preceded by "Static" to "MovOn" (movement onset)
             trial_trace_df['state'] = trial_trace_df.apply(
-                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name-1, 'state'] == 'Static' and r['state'] == 'Moving') else r['state'], axis=1
+                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name - 1, 'state'] == 'Static' and r[
+                    'state'] == 'Moving') else r['state'], axis=1
             )
 
             # Iterate over states (Static, MovOn, Moving) of the block
             current_state = trial_trace_df.loc[0, 'state']
             state_start = trial_trace_df.loc[0, 'time']
-            for i in range(1, len(trial_trace_df)): #in every line of dataframe trial_df
+            for i in range(1, len(trial_trace_df)):  # in every line of dataframe trial_df
                 if trial_trace_df.loc[i, 'state'] != current_state:  # when there is a change in state
-                    state_end = trial_trace_df.loc[i-1, 'time'] #i take the last time of the previous state
+                    state_end = trial_trace_df.loc[i - 1, 'time']  # i take the last time of the previous state
                     state_len = state_end - state_start
-                    movon_window = None
-                    if current_state == 'MovOn':
-                        movon_window = f"{max(0, state_start-3):.3f} – {state_start+3:.3f}" #windowing of 6 sec for the pre movement
                     events.append({
                         'RetrievalBlock': block_n,
                         'Condition': condition,
-                        'Trial': phase_idx+1,
+                        'Trial': phase_idx + 1,
+                        'TrialStart': start,
+                        'TrialEnd': end,
                         'State': current_state,
-                        'StartTime': state_start,
-                        'EndTime': state_end,
+                        'StateStart': state_start,
+                        'StateEnd': state_end,
                         'Duration': state_len,
-                        'MovOnWindow': movon_window
                     })
 
                     # Get next state and its time for the next iteration
@@ -165,20 +197,19 @@ def extract_behavioral_events(
                     state_start = trial_trace_df.loc[i, 'time']
 
             # Add the last state of the trial
-            state_end = trial_trace_df.loc[len(trial_trace_df)-1, 'time']
+            state_end = trial_trace_df.loc[len(trial_trace_df) - 1, 'time']
             state_len = state_end - state_start
-            movon_window = None
-            if current_state == 'MovOn':
-                movon_window = f"{max(0, state_start-3):.3f} – {state_start+3:.3f}"
             events.append({
                 'RetrievalBlock': block_n,
                 'Condition': condition,
-                'Trial': phase_idx+1,
+                'Trial': phase_idx + 1,
+                'TrialStart': start,
+                'TrialEnd': end,
                 'State': current_state,
-                'StartTime': state_start,
-                'EndTime': state_end,
+                'StateStart': state_start,
+                'StateEnd': state_end,
                 'Duration': state_len,
-                'MovOnWindow': movon_window
+
             })
 
     # Create df
@@ -197,36 +228,112 @@ def extract_behavioral_events(
 def select_trial_df(
         sid: str,
         block_n: int,
-        df_trace: pd.DataFrame,
+        trace_df: pd.DataFrame,
         trial_start: float,
         trial_end: float
 ):
-    df_trace_block = df_trace.copy()
+    block_trace_df = trace_df.copy()
 
     if sid == '05':
-        dt_full = df_trace['time'].diff()
+        dt_full = trace_df['time'].diff()
         reset_indices = dt_full[dt_full < 0].index
         if len(reset_indices) > 0:
             reset_idx = reset_indices[0]
             if block_n in (1, 2):
                 # Before the interruption: use the first part of the TraceLog
-                df_trace_block = df_trace.iloc[:reset_idx].copy()
+                block_trace_df = trace_df.iloc[:reset_idx].copy()
             else:
                 # After the interruption: use the second part
-                df_trace_block = df_trace.iloc[reset_idx:].copy()
+                block_trace_df = trace_df.iloc[reset_idx:].copy()
 
-    trial_df = df_trace_block[(df_trace_block['time'] >= trial_start + 0.05) & (df_trace_block['time'] <= trial_end - 0.05)].copy()  # only select timing of the trial (with 50 ms of padding each side - like June did - to remove uncertain points at the trial edges)
-    trial_df.reset_index(drop=True, inplace=True)  # reset of indexes
+    # Select rows in trace_df for which the timing is within the start/end of the trial
+    trial_df = block_trace_df[
+        (block_trace_df['time'] >= trial_start) &
+        (block_trace_df['time'] <= trial_end)
+        ].copy().sort_values("time").reset_index(
+        drop=True)  # only select timing of the trial (with 50 ms of padding each side - like June did - to remove uncertain points at the trial edges)
+
+    # Add some padding (with 50 ms - like June did) to remove uncertain points at the trial edges
+    pad = 0.05
+
+    # Do not trim start if the first state is static (as per June's example:
+    # "People often stay stationary in the beginning of a trial,
+    # For instance,
+    # 781.307, ----------------------
+    # 782.660,167.187
+    # Then, we can say that this one was static during 781.307 ~ (782.660 - 50ms)."
+    is_static = trial_df['x'].isna() & trial_df['y'].isna()
+
+    end_bound = trial_end - pad  # Always trim end
+
+    trial_df = trial_df[
+        (trial_df["time"] <= end_bound) &
+        ((is_static & (trial_df["time"] >= trial_start)) |
+         (~is_static & (trial_df["time"] >= trial_start + pad))
+         )
+        ].copy().reset_index(drop=True)
+
     return trial_df
 
 
+def segment_epoch(
+        events_list,
+        epoch_info: dict,
+        epoch_type: str,
+        epoch_start: float,
+        epoch_end: float,
+        segment_len_s: float = 1.0,
+):
+    total_len = epoch_end - epoch_start
+    if total_len <= 0:
+        return
+
+    # If segment_len_s invalid or longer than epoch, keep one epoch
+    if (segment_len_s is None) or (segment_len_s <= 0) or (segment_len_s >= total_len):
+        events_list.append({
+            **epoch_info,
+            'EpochType': epoch_type,
+            'EpochStart': epoch_start,
+            'EpochEnd': epoch_end,
+            'EpochDuration': total_len,
+            'SubEpoch': 0,
+        })
+        return
+
+    n_segments = int(total_len // segment_len_s)
+    if n_segments == 0:
+        events_list.append({
+            **epoch_info,
+            'EpochType': epoch_type,
+            'EpochStart': epoch_start,
+            'EpochEnd': epoch_end,
+            'EpochDuration': total_len,
+            'SubEpoch': 0,
+        })
+        return
+
+    for seg_idx in range(n_segments):
+        seg_start = epoch_start + seg_idx * segment_len_s
+        seg_end = seg_start + segment_len_s
+        if seg_end > epoch_end + 1e-6:
+            break
+        events_list.append({
+            **epoch_info,
+            'EpochType': epoch_type,
+            'EpochStart': seg_start,
+            'EpochEnd': seg_end,
+            'EpochDuration': segment_len_s,
+            'SubEpoch': seg_idx,
+        })
+
+
 def define_eeg_epochs(
-        event_table,
+        events_df,
         sid: str,
         save: bool = False,
         verbose: bool = False,
+        segment_epochs: bool = False,
 ) -> pd.DataFrame:
-
     # Epoch parameters
     movonset_epo_window = (-0.5, 0.5)
     static_epo_window = (0, 1.0)
@@ -238,8 +345,8 @@ def define_eeg_epochs(
 
     events = []
     # Iterate over blocks
-    for block in event_table['RetrievalBlock'].unique():
-        block_df = event_table[event_table['RetrievalBlock'] == block]
+    for block in events_df['RetrievalBlock'].unique():
+        block_df = events_df[events_df['RetrievalBlock'] == block]
         block_condition = block_df['Condition'].unique()[0]
 
         # Iterate over trials
@@ -249,44 +356,60 @@ def define_eeg_epochs(
             # Iterate over states of the trial
             for i, row in trial_df.iterrows():
 
-                # Reset times of the block to match its EEG recording (bc block times in event_table are continuous
+                # Reset times of the block to match its EEG recording (bc block times in events_df are continuous
                 # across blocks/stim. condition, while EEG aren't so their times always start from 0)
-                abs_start, abs_end, duration = row['StartTime'], row['EndTime'], row['Duration']
+                abs_start, abs_end, duration = row['StateStart'], row['StateEnd'], row['Duration']
                 block_n = row['RetrievalBlock']
-                block_start, block_end = get_blocks_times(sid=sid)[block_n]
-                state_start = abs_start - block_start
+                retrieval_start, retrieval_end = get_times_retrieval_phases(sid=sid)[block_n]
+                state_start = abs_start - retrieval_start
                 if verbose:
                     print(
                         f"\nblock: {row['Condition']} ({block_n})"
-                        f"\n\t: {block_start = }"
+                        f"\n\t: {retrieval_start = }"
                         f"\n\t: {abs_start = }"
                         f"\n\t: {state_start = }"
                     )
 
                 # Define epochs
+                base_event_info = {
+                    'RetrievalBlock': block,
+                    'BlockStart': retrieval_start,
+                    'BlockEnd': retrieval_end,
+                    'Condition': block_condition,
+                    'TrialNumber': trial,
+                    'TrialStart': row['TrialStart'],
+                    'TrialEnd': row['TrialEnd'],
+                }
+
                 # 1. Static epochs
                 if row['State'] == 'Static' and duration >= static_min_s:
-                    stat_epoch_start = state_start + static_epo_window[0]
-                    stat_epoch_end = state_start + static_epo_window[1]
-                    events.append({
-                        'RetrievalBlock': block,
-                        'BlockStart': block_start,
-                        'BlockEnd': block_end,
-                        'Condition': block_condition,
-                        'TrialNumber': trial,
-                        'EpochType': 'Static',
-                        'EpochStart': stat_epoch_start,
-                        'EpochEnd': stat_epoch_end,
-                        'EpochDuration': stat_epoch_end-stat_epoch_start,
-                    })
+                    if segment_epochs:
+                        segment_epoch(
+                            events_list=events,
+                            epoch_info=base_event_info,
+                            epoch_type='Static',
+                            epoch_start=state_start,
+                            epoch_end=state_start + duration,
+                        )
+
+                    else:
+                        stat_epoch_start = state_start + static_epo_window[0]
+                        stat_epoch_end = state_start + static_epo_window[1]
+                        events.append({
+                            **base_event_info,
+                            'EpochType': 'Static',
+                            'EpochStart': stat_epoch_start,
+                            'EpochEnd': stat_epoch_end,
+                            'EpochDuration': stat_epoch_end - stat_epoch_start,
+                        })
 
                 # 2. Movement onset epochs
                 if row['State'] == 'MovOn':
 
                     # Movement onset is constrained by preceding immobility and following movement, so can't be the first state and has to have one state after it
-                    if 0 < i < len(trial_df)-1:
-                        prev = trial_df.loc[i-1]
-                        following = trial_df.loc[i+1]
+                    if 0 < i < len(trial_df) - 1:
+                        prev = trial_df.loc[i - 1]
+                        following = trial_df.loc[i + 1]
 
                         # Check if preceding and following states qualify
                         if (
@@ -301,50 +424,61 @@ def define_eeg_epochs(
                             # Define MovOn epoch
                             movon_epoch_start = movon_start + movonset_epo_window[0]
                             movon_epoch_end = movon_start + movonset_epo_window[1]
-                            events.append({
-                                'RetrievalBlock': block,
-                                'BlockStart': block_start,
-                                'BlockEnd': block_end,
-                                'Condition': block_condition,
-                                'TrialNumber': trial,
-                                'EpochType': 'MovOn',
-                                'EpochStart': movon_epoch_start,
-                                'EpochEnd': movon_epoch_end,
-                                'EpochDuration': movon_epoch_end-movon_epoch_start,
-                            })
+                            if segment_epochs:
+                                segment_epoch(
+                                    events_list=events,
+                                    epoch_info=base_event_info,
+                                    epoch_type='MovOn',
+                                    epoch_start=movon_epoch_start,
+                                    epoch_end=movon_epoch_end,
+                                )
+                            else:
+                                events.append({
+                                    **base_event_info,
+                                    'EpochType': 'MovOn',
+                                    'EpochStart': movon_epoch_start,
+                                    'EpochEnd': movon_epoch_end,
+                                    'EpochDuration': movon_epoch_end - movon_epoch_start,
+                                })
 
                             # 3. Continuous movement epochs - only exist after MovOn epochs
                             # Define epoch start - right after MovOn window to avoid overlapping portions
-                            contmov_epoch_start = movon_start + movonset_epo_window[1]  # onset of movement + end ov MovOn epoch
+                            contmov_epoch_start = movon_start + movonset_epo_window[
+                                1]  # onset of movement + end ov MovOn epoch
 
                             # Define epoch end: end at earlier end between movement end and movement portions exceeding mov_max_s after onset
                             max_end = movon_start + mov_max_s
-                            mov_state_end = following['EndTime'] - block_start  # as done above with abs_start (but here we are in following state so need this again)
+                            mov_state_end = following[
+                                                'StateEnd'] - retrieval_start  # as done above with abs_start (but here we are in following state so need this again)
                             contmov_epoch_end = min(mov_state_end, max_end)
 
                             # Append to events
-                            events.append({
-                                'RetrievalBlock': block,
-                                'BlockStart': block_start,
-                                'BlockEnd': block_end,
-                                'Condition': block_condition,
-                                'TrialNumber': trial,
-                                'EpochType': 'ContMov',
-                                'EpochStart': contmov_epoch_start,
-                                'EpochEnd': contmov_epoch_end,
-                                'EpochDuration': contmov_epoch_end-contmov_epoch_start,
-                            })
+                            if segment_epochs:
+                                segment_epoch(
+                                    events_list=events,
+                                    epoch_info=base_event_info,
+                                    epoch_type='ContMov',
+                                    epoch_start=contmov_epoch_start,
+                                    epoch_end=contmov_epoch_end,
+                                )
+                            else:
+                                events.append({
+                                    **base_event_info,
+                                    'EpochType': 'ContMov',
+                                    'EpochStart': contmov_epoch_start,
+                                    'EpochEnd': contmov_epoch_end,
+                                    'EpochDuration': contmov_epoch_end - contmov_epoch_start,
+                                })
 
     events_df = pd.DataFrame(events)
 
     if save:
         file_path = f'{get_wd()}/Data/{sid}/eeg/Epo'
-        events_df.to_csv(f'{set_for_save(file_path)}/eeg_epochs.csv', index=False)
+        file_name = 'SEG_eeg_epochs' if segment_epochs else 'eeg_epochs'
+        events_df.to_csv(f'{set_for_save(file_path)}/{file_name}.csv', index=False)
 
     return events_df
 
 
 if __name__ == '__main__':
     pass
-
-

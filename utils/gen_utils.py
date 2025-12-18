@@ -63,6 +63,27 @@ def set_for_save(
     return save_path
 
 
+def save_figure(
+        save_path: str,
+        file_name: str,
+        fig: matplotlib.figure.Figure | None = None,
+        dpi: int = 900,
+        prevent_overwrite: bool = False,
+        **kwargs,
+) -> None:
+    save_path = set_for_save(save_path)
+    final_path = f'{save_path}/{file_name}'
+
+    if prevent_overwrite and os.path.exists(final_path):
+        prefix = 'NO_PSD_KWARGS'
+        final_path = f'{save_path}/{prefix}_{file_name}'
+
+    if fig is None:
+        plt.savefig(final_path, dpi=dpi, **kwargs)
+    else:
+        fig.savefig(final_path, dpi=dpi, **kwargs)
+
+
 def layout_subplots_grid(
         n: int,
         max_cols: int = 6,

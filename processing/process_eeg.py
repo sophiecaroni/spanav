@@ -62,9 +62,11 @@ def get_psd_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        segmented_epochs: bool = False,
 ) -> pd.DataFrame:
     if load:
-        file_name = f'psd_df_log.csv' if log else f'psd_df_lin.csv'
+        file_pref = 'SEG_' if segmented_epochs else ''
+        file_name = f'{file_pref}psd_df_log.csv' if log else f'{file_pref}psd_df_lin.csv'
         # file_name = f'psd_df_log_WITH04.csv' if log else f'psd_df_lin_WITH04.csv'
         psd_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
@@ -121,7 +123,8 @@ def get_psd_df(
 
         if save:
             files_path = f'{get_wd()}/data'
-            file_name = f'psd_df_log.csv' if log else f'psd_df_lin.csv'
+            file_pref = 'SEG_' if segmented_epochs else ''
+            file_name = f'{file_pref}psd_df_log.csv' if log else f'{file_pref}psd_df_lin.csv'
             psd_df.to_csv(f'{set_for_save(files_path)}/{file_name}')
     return psd_df
 
@@ -130,13 +133,15 @@ def get_psd_avg_df(
         log: bool = False,
         load: bool = True,
         save: bool = False,
+        segmented_epochs: bool = False,
 ) -> pd.DataFrame:
     if load:
-        file_name = f'psd_avg_df_log.csv' if log else f'psd_avg_df_lin.csv'
+        file_pref = 'SEG_' if segmented_epochs else ''
+        file_name = f'{file_pref}psd_avg_df_log.csv' if log else f'{file_pref}psd_avg_df_lin.csv'
         # file_name = f'psd_avg_df_log_WITH04.csv' if log else f'psd_avg_df_lin_WITH04.csv'
         psd_avg_df = pd.read_csv(f'{get_wd()}/data/{file_name}', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
-        psd_df = pd.read_csv(f'{get_wd()}/data/psd_df_lin.csv', index_col=0, dtype={'sid': str}) # load linear in any case
+        psd_df = get_psd_df(load=True, log=False, segmented_epochs=segmented_epochs)  # always start by linear df (to apply log afterwards)
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
         print(f"sids = {psd_df['sid'].unique()}")
@@ -166,7 +171,8 @@ def get_psd_avg_df(
 
         if save:
             files_path = f'{get_wd()}/data'
-            file_name = f'psd_avg_df_log.csv' if log else f'psd_avg_df_lin.csv'
+            file_pref = 'SEG_' if segmented_epochs else ''
+            file_name = f'{file_pref}psd_avg_df_log.csv' if log else f'{file_pref}psd_avg_df_lin.csv'
             psd_avg_df.to_csv(f'{set_for_save(files_path)}/{file_name}')
     return psd_avg_df
 
@@ -175,12 +181,14 @@ def get_osc_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        segmented_epochs: bool = False,
 ) -> pd.DataFrame:
     if load:
-        osc_df = pd.read_csv(f'{get_wd()}/data/osc_df.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        file_pref = 'SEG_' if segmented_epochs else ''
+        osc_df = pd.read_csv(f'{get_wd()}/data/{file_pref}band_metrics_df.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
         # osc_df = pd.read_csv(f'{get_wd()}/data/osc_df_WITH04.csv', index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
-        psd_df = get_psd_df(test=test, log=False)  # load power spectra in linear scale
+        psd_df = get_psd_df(test=test, log=False, segmented_epochs=segmented_epochs)  # load power spectra in linear scale
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
         df_rows = []
 
@@ -219,7 +227,6 @@ def get_osc_df(
 
         if save:
             files_path = f'{get_wd()}/data'
-            osc_df.to_csv(f'{set_for_save(files_path)}/osc_df.csv')
+            file_pref = 'SEG_' if segmented_epochs else ''
+            osc_df.to_csv(f'{set_for_save(files_path)}/{file_pref}band_metrics_df.csv')
     return osc_df
-
-

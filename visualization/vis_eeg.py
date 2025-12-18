@@ -16,10 +16,11 @@ import mne
 import pandas as pd
 import seaborn as sns
 import os
-from utils.gen_utils import plot_context, set_for_save, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED
+from utils.gen_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
+                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED, get_wd
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 
 cm = 1/2.54
 
@@ -57,9 +58,7 @@ def plot_ti_sensors(
     )
 
     if save:
-        save_path = set_for_save(f'/Volumes/My Passport/SpaNav/Sophie_backup/data/{sid}')
-        fig.savefig(f'{save_path}/ti_sensors.png', dpi=900)
-
+        save_figure(f'{get_wd()}/data/{sid}', 'ti_sensors.png', fig=fig)
     if show:
         fig.show()
     else:
@@ -118,10 +117,9 @@ def ch_psd_subplots(
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
                 real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
                 file_name = f'{file_name_pref}_psd_subplots' if file_name_pref is not None else 'psd_subplots'
                 file_name += f"_{brain_region}"
-                fig.savefig(f'{save_path}/{file_name}.png', dpi=1200)
+                save_figure(f'../outputs/PSD/{sid}/{real_cid}', file_name, fig=fig, dpi=1200)
             if show:
                 fig.show()
             else:
@@ -144,9 +142,8 @@ def ch_psd_overlap(
             assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
             assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
             file_name = f'{file_name_pref}_psd_overlap' if file_name_pref is not None else 'psd_overlap'
-            fig.savefig(f'{save_path}/{file_name}.png', dpi=900)
+            save_figure(f'../outputs/PSD/{sid}/{real_cid}', file_name, fig=fig)
         if show:
             fig.show()
         else:
@@ -182,11 +179,10 @@ def ics_psd_subplots(
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
                 n_components = ica_psd.info['nchan']
                 real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}/ICs/{n_components}_com')
                 file_name = 'subplots'
                 file_name += f"_{file_name_suff}" if file_name_suff is not None else ''
                 file_name += f"_{group}" if len(grouped_ics.keys()) > 1 else ''
-                fig.savefig(f'{save_path}/{file_name}.png', dpi=900)
+                save_figure(f'../outputs/PSD/{sid}/{real_cid}/ICs/{n_components}_com', file_name, fig=fig)
             if show:
                 fig.show()
             else:
@@ -250,8 +246,7 @@ def compare_ch_psds(
 
             if save:
                 comps = '-vs-'.join(list(psds.keys()))
-                save_path = set_for_save(f'../outputs/PSD/Comparisons/{comps}')
-                plt.savefig(f'{save_path}/{ch}.png')
+                save_figure(f'../outputs/PSD/Comparisons/{comps}', f'{ch}.png')
             if show:
                 plt.show()
             else:
@@ -294,8 +289,7 @@ def compare_psds(
         show_save_dpi = 600
         if save:
             comps = '-vs-'.join(list(psds.keys()))
-            save_path = set_for_save(f'../outputs/PSD/Comparisons/{comps}')
-            plt.savefig(f'{save_path}/psds.png', dpi=show_save_dpi)
+            save_figure(f'../outputs/PSD/Comparisons/{comps}', 'psds.png', dpi=show_save_dpi)
         if show:
             fig.set_dpi(show_save_dpi)
             fig.show()
@@ -340,8 +334,7 @@ def plot_evk_from_df(
 
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../outputs/Evk/{sid}/{real_cid}')
-            plt.savefig(f'{save_path}/evk_traces.png', dpi=900, bbox_inches='tight')
+            save_figure(f'../outputs/Evk/{sid}/{real_cid}', 'evk_traces.png', dpi=900, bbox_inches='tight')
         if show:
             plt.show()
     return axes
@@ -354,6 +347,7 @@ def plot_evk_by_cat(
         show: bool = False,
         save: bool = False,
         axes: Axes | None = None,
+        segmented_epochs: bool = False,
         **kwargs,
 ) -> Axes:
     with plot_context():
@@ -398,8 +392,8 @@ def plot_evk_by_cat(
 
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../outputs/Evk/{sid}/{real_cid}')
-            plt.savefig(f'{save_path}/evk_traces.png', dpi=900, bbox_inches='tight')
+            file_name = f'evk_traces.png' if not segmented_epochs else f'SEG_evk_traces.png'
+            save_figure(f'../outputs/Evk/{sid}/{real_cid}', file_name, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
     return axes
@@ -436,6 +430,7 @@ def plot_psd_avg_by_cat(
         show: bool = False,
         save: bool = False,
         axes : Axes | None = None,
+        segmented_epochs: bool = False,
         **kwargs
 ):
     """
@@ -446,6 +441,7 @@ def plot_psd_avg_by_cat(
     :param show:
     :param save:
     :param axes:
+    :param segmented_epochs:
     :param kwargs:
     :return:
     """
@@ -485,8 +481,8 @@ def plot_psd_avg_by_cat(
 
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../outputs/PSD/{sid}/{real_cid}')
-            plt.savefig(f'{save_path}/psds_by_epo_type.png', dpi=900, bbox_inches='tight')
+            file_name = f'psds_by_epo_type.png' if not segmented_epochs else f'SEG_psds_by_epo_type.png'
+            save_figure(f'../outputs/PSD/{sid}/{real_cid}', file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -501,6 +497,7 @@ def compare_epo_psd(
         plot_subj: str,
         show: bool = True,
         save: bool = False,
+        segmented_epochs: bool = False,
 ):
     """
     This function plots power spectra overlapping different lengths of epoch they were computed from and using suplots
@@ -510,6 +507,7 @@ def compare_epo_psd(
     :param plot_subj:
     :param show:
     :param save:
+    :param segmented_epochs:
     :return:
     """
     # Convert powers to logs
@@ -528,10 +526,14 @@ def compare_epo_psd(
         # Create one subplot per condition, then superimpose plots of super_col levels
         for i_ax, (ax, (cid, cid_df)) in enumerate(zip(axes, df.groupby('cond'))):
             for lvl, lvl_df in cid_df.groupby(super_col):
+                lvl_df = lvl_df.copy()
+                lvl_df = lvl_df.sort_values("freq")
 
                 psd = lvl_df['pw_avg'].to_numpy()
-                sem_n = lvl_df.copy().reset_index().loc[0, 'N']
-                sem = lvl_df['pw_std'].to_numpy() / np.sqrt(sem_n)
+                # sem_n = lvl_df.copy().reset_index().loc[0, 'N']
+                # sem = lvl_df['pw_std'].to_numpy() / np.sqrt(sem_n)  # ok if N is constant
+                sem = lvl_df["pw_std"].to_numpy() / np.sqrt(lvl_df["N"].to_numpy())
+
                 freqs = lvl_df['freq'].to_numpy()
 
                 # Plot
@@ -542,7 +544,8 @@ def compare_epo_psd(
                     'ContMov': 'Continuous movement',
                     'Static': 'Static',
                     'MovOn': 'Movement onset',
-                    'ObjPres': 'Object Presentation',
+                    'ObjPres': 'Object presentation',
+                    'Raw': 'Continuous data',
                 }
 
                 label = labels[lvl] if i_ax == 0 else ''
@@ -568,8 +571,9 @@ def compare_epo_psd(
         fig.tight_layout()
 
         if save:
-            save_path = set_for_save(f'../outputs/PSD') if plot_subj.startswith('average') else set_for_save(f'../outputs/PSD/{plot_subj}')
-            plt.savefig(f'{save_path}/psd_{super_col}.png', dpi=900, bbox_inches='tight')
+            save_path = f'../outputs/PSD' if plot_subj.startswith('average') else f'../outputs/PSD/{plot_subj}'
+            file_name = f'SEG_psd_{super_col}.png' if segmented_epochs else f'psd_{super_col}.png'
+            save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -582,6 +586,7 @@ def compare_band_metric(
         super_col: str,
         show: bool = True,
         save: bool = False,
+        segmented_epochs: bool = False,
 ):
     """
     This function plots values of an oscillatory-band metric in an EEG band overlapping different subjects and using
@@ -591,6 +596,7 @@ def compare_band_metric(
     :param super_col: column containing the variable used to superimpose plots
     :param show:
     :param save:
+    :param segmented_epochs:
     :return:
     """
     # Convert powers to logs
@@ -619,8 +625,9 @@ def compare_band_metric(
         fig.tight_layout()
 
         if save:
-            save_path = set_for_save(f'../outputs/PSD') if len(sids) > 1 else set_for_save(f'../outputs/PSD/{sids[0]}')
-            plt.savefig(f'{save_path}/{metric_name}_{super_col}.png', dpi=900, bbox_inches='tight')
+            save_path = f'../outputs/PSD' if len(sids) > 1 else f'../outputs/PSD/{sids[0]}'
+            file_name = f'SEG_{metric_name}_{super_col}.png' if segmented_epochs else f'{metric_name}_{super_col}.png'
+            save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -691,7 +698,7 @@ def plot_band_metric(
         }
 
         # Plot poin if there is only one observation, else violins/boxes
-        if (metric_df.groupby(['band', 'epo_type']).count() == 1).any().any():
+        if (metric_df.groupby(['band', 'epo_type'])[metric_name].count() == 1).any().any():
 
             # Add some jitter to points
             jitter = 0.05  # adjust as needed
@@ -746,11 +753,10 @@ def plot_band_metric(
             # plot2.set(xlabel=None, ylabel=None)
         if legend:
             handles, current_labels = ax.get_legend_handles_labels()
+            new_labels = [custom_labels.get(lbl, lbl) for lbl in current_labels]
+            ax.legend(handles, new_labels, loc='upper right')  # , title='Epoch type'
 
-            new_labels = [custom_labels.get(l, l) for l in current_labels]
-
-            ax.legend(handles, new_labels, title='Epoch type', loc='upper right')
-
+        bands = metric_df['band'].unique()
         ax.set_xlim(-0.5, len(bands) - 0.5)  # no extra whitespace
         ax.margins(x=0.05)  # small outer margin
         plot.set(xlabel=None, ylabel=None)  # they are set elsewehre
@@ -771,6 +777,12 @@ def plot_muscle_art(
         ax.plot(raw_rec.times, scores_muscle)
         ax.axhline(y=muscle_threshold, color="r")
         ax.set(xlabel="Time [s]", ylabel="Z-score", title="Muscle activity")
+
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
 
 def plot_preprocessing_result(
         raw_before: mne.io.BaseRaw,
@@ -806,13 +818,180 @@ def plot_preprocessing_result(
 
         if save:
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            plt.savefig(f'../outputs/PSD/{sid}/{real_cid}/prepro_result.png', dpi=900, bbox_inches='tight')
+            save_figure(f'../outputs/PSD/{sid}/{real_cid}', 'prepro_result.png', dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
             plt.close(fig)
 
 
+def plot_schematic_epo_def(
+        beh_events_df: pd.DataFrame,
+        eeg_events_df: pd.DataFrame,
+        block_n: int = 1,
+        trial_n: int = 1,
+        sid: str | None = None,
+        show: bool = False,
+        save: bool = False,
+        segmented_epochs: bool = False,
+) -> None:
+
+    # Subset dataframes to specific block and trial numers
+    beh_data = beh_events_df[(beh_events_df['RetrievalBlock'] == block_n) & (beh_events_df['Trial'] == trial_n)].reset_index(drop=True)
+    eeg_data = eeg_events_df[(eeg_events_df['RetrievalBlock'] == block_n) & (eeg_events_df['TrialNumber'] == trial_n)].reset_index(drop=True)
+    beh_data.drop(['RetrievalBlock', 'Trial', 'Condition'], axis=1, inplace=True)  # drop now useless columns
+    eeg_data.drop(['RetrievalBlock', 'TrialNumber', 'Condition'], axis=1, inplace=True)  # drop now useless columns
+
+    # Sort to make sure states/epochs are ordered on time
+    beh_data = beh_data.sort_values("StateStart")
+    eeg_data = eeg_data.sort_values("EpochStart")
+
+    with plot_context():
+        fig, ax = plt.subplots(1, 1, figsize=(17*cm, 2*cm))
+        plot_schematic_behavior(ax, beh_data)
+        plot_schematic_eeg_epochs(ax, eeg_data)
+        ax.legend(loc='upper left')
+
+        if save:
+            real_cid = reveal_cid(sid, block_n=block_n)
+            file_name = f'epoching_trial{trial_n}.png' if not segmented_epochs else f'SEG_epoching_trial{trial_n}.png'
+            save_figure(f'../outputs/PSD/{sid}/{real_cid}', file_name, dpi=900, bbox_inches='tight')
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+
+def plot_schematic_behavior(
+        ax: Axes,
+        behavioral_data: pd.DataFrame
+    ) -> None:
+    # Add needed x and y columns in behavioral plot
+    behavioral_data['y_Movement'] = behavioral_data['State'].apply(lambda r: 1 if (r == 'Moving' or r == 'MovOn') else 0)  # Binarize movement (either present 1 or not 0)
+    behavioral_data['x_Time'] = behavioral_data['StateStart']
+
+    with plot_context():
+        ax.step(
+            behavioral_data["x_Time"],
+            behavioral_data["y_Movement"].astype('category'),
+            where="post",
+            color="k",
+            alpha=0.7,
+            linestyle="dotted",
+            linewidth=1,
+            label='Behavior'
+        )
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels(["Stationary", "Moving"])
+
+
+def plot_schematic_eeg_epochs(
+        ax: Axes,
+        eeg_epochs_df: pd.DataFrame,
+) -> None:
+    # Shift times based on block
+    eeg_epochs_df['EpochStart'] = eeg_epochs_df['EpochStart'] + eeg_epochs_df['BlockStart']
+    eeg_epochs_df['EpochEnd'] = eeg_epochs_df['EpochEnd'] + eeg_epochs_df['BlockStart']
+    eeg_epochs_df['EpochStart'] = eeg_epochs_df['EpochStart']
+    eeg_epochs_df['EpochEnd'] = eeg_epochs_df['EpochEnd']
+
+    # one color per EpochType (no manual colors; uses matplotlib default cycle)
+    epoch_types = eeg_epochs_df["EpochType"].unique()
+    palette = get_epo_palette()
+
+    # Vertical position
+    patch_height = 0.1
+    y_levels = {'Static': 0, 'MovOn': 0.5, 'ContMov': 1-patch_height}
+
+    with plot_context():
+        plotted_epos = []
+        for etype, s, e in eeg_epochs_df[["EpochType", "EpochStart", "EpochEnd"]].itertuples(index=False):
+
+            label = None if etype in plotted_epos else f'{etype} (x{len(eeg_epochs_df[eeg_epochs_df["EpochType"] == etype])})'
+            color = palette[etype]
+            rect = Rectangle(
+                (s, y_levels[etype]),
+                e - s,
+                patch_height,
+                facecolor=(color, 0.4),
+                edgecolor=(color, 1),
+                linewidth=1,
+                label=label,
+            )
+            ax.add_patch(rect)
+            plotted_epos.append(etype)
+
+
+def compare_found_peaks(
+        df: pd.DataFrame,
+        metric_name: str,
+        show: bool = True,
+        save: bool = False,
+        segmented_epochs: bool = False,
+):
+    """
+
+    :param df:
+    :param show:
+    :param save:
+    :param segmented_epochs:
+    :return:
+    """
+    subplots_cat_col = 'cond'
+    nrows = 1
+    ncols = len(df[subplots_cat_col].unique())
+    with plot_context():
+
+        # Define figure structure
+        fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols * cm, 10 * nrows * cm), sharey=True, sharex=True)
+        axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
+
+        # Plot each band's power per subplot
+        for i, (ax, (cat, cat_df)) in enumerate(zip(axes, df.groupby(subplots_cat_col))):
+
+            legend = i == 0
+
+            # Create list to define plotting order
+            bands = ["theta", "alpha", "38-42"]
+            epo_types = ["Raw", "ObjPres", "Static", "MovOn", "ContMov"] if 'Raw' in cat_df['epo_type'].unique() else ["ObjPres", "Static", "MovOn", "ContMov"]
+
+            # Sum numer of peaks for each band and epoch-type
+            plot_df = (cat_df
+                    .groupby(["band", "epo_type"])[metric_name]
+                    .sum()
+                    .unstack("epo_type", fill_value=0)
+                    .reindex(index=bands, columns=epo_types))  # force defined order
+
+            # Define bars
+            n_bars = len(epo_types)
+            bar_width = 0.8 / n_bars  # total band-group width ~0.8
+            n_band_groups = len(bands)
+            x0 = np.arange(n_band_groups)
+            for i, etype in enumerate(epo_types):
+                x = x0 + i * bar_width
+                y = plot_df[etype].values
+                color = get_epo_palette()[etype]
+                ax.bar(x, y, width=bar_width, edgecolor="grey", label=etype, color=color)
+
+            ax.set_xticks(x0 + (n_bars - 1) * bar_width / 2)
+            ax.set_xticklabels(bands)
+            ax.set_title(cat)
+
+            if legend:
+                ax.legend()
+
+        # suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
+        fig.suptitle(f"Oscillatory peaks found by FOOOF")
+        ylabel = '# Peaks (sum across subjects)'
+        fig.supylabel(ylabel)
+        fig.supxlabel('Frequency bands')
+        fig.tight_layout()
+
+        if save:
+            sids = df['sid'].unique()
+            save_path = f'../outputs/PSD' if len(sids) > 1 else f'../outputs/PSD/{sids[0]}'
+            file_name = f'SEG_found_peaks.png' if segmented_epochs else f'found_peaks.png'
+            save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:

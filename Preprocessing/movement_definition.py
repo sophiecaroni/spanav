@@ -1,10 +1,10 @@
 import warnings
 import matplotlib.pyplot as plt
 
-from preprocessing.behavior_to_eeg import get_blocks_times, get_trace_df, get_retrieval_df, extract_behavioral_events, \
+from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_behavioral_events, \
     define_eeg_epochs
-from extract_eeg import get_raw_to_epoch, get_epo_def_table, get_epo_rec
-from utils.gen_utils import get_sid_cids, set_for_save, reveal_cid
+from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
+from utils.gen_utils import get_sid_cids, set_for_save, reveal_cid, save_figure
 from visualization.vis_eeg import plot_evk_by_cat
 from utils.gen_utils import plot_context
 
@@ -13,22 +13,22 @@ warnings.filterwarnings('ignore')  # Suppress all warnings
 
 def gen_epo_tables(
         sids: list,
-        mov_durations_s: list,
+        segment_epoch_options: list,
         save: bool = False
 ) -> None:
     for sid in sids:
-        block_times = get_blocks_times(sid)
+        block_times = get_times_retrieval_phases(sid)
         df_trace = get_trace_df(sid)
         retrieval_df = get_retrieval_df(sid)
         beh_events_df = extract_behavioral_events(sid, block_times, retrieval_df, df_trace)
 
-        for s in mov_durations_s:
-            _ = define_eeg_epochs(beh_events_df, sid, mov_duration_s=s, save=save)
+        for segment_opt in segment_epoch_options:
+            _ = define_eeg_epochs(beh_events_df, sid, segment_epochs=segment_opt, save=save)
 
 
 def gen_contmov_epos(
         sids: list,
-        mov_durations_s: list[float],
+        segment_epoch_options: list[bool],
         test: bool = False,
 ) -> dict:
     epos_dict = {}
@@ -40,20 +40,21 @@ def gen_contmov_epos(
             epos_dict[sid][cid] = {}
             raw_rec = get_raw_to_epoch(sid, cid)
 
-            for s in mov_durations_s:
-                epo_def = get_epo_def_table(sid, cid, mov_duration_s=s)
+            for segment_bool in segment_epoch_options:
+                epo_def_df = get_epo_def(sid, cid, segmented_epochs=segment_bool)
                 epochs = get_epo_rec(
                     'ContMov',
                     sid,
                     cid,
                     raw_rec,
                     load=False,
-                    epo_def_table=epo_def,
+                    epo_def_df=epo_def_df,
                     verbose=False
                 )
                 if epochs is not None:
                     if len(epochs) > 0:
-                        epos_dict[sid][cid][f'ContMov_{s}s'] = epochs
+                        key = 'ContMov_seg' if segment_bool else 'ContMov'
+                        epos_dict[sid][cid][key] = epochs
 
     return epos_dict
 
@@ -88,8 +89,7 @@ def plot_contmov_epos(
                 plot_evk_by_cat(epo_by_mov_def, sid=sid, cid=cid, show=False, save=False)
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                    save_path = set_for_save(f'../outputs/Evk/{sid}/{real_cid}')
-                    plt.savefig(f'{save_path}/mov_durations.png', dpi=900, bbox_inches='tight')
+                    save_figure(f'../outputs/Evk/{sid}/{real_cid}', 'mov_durations.png', bbox_inches='tight')
         if show:
             plt.show()
         else:

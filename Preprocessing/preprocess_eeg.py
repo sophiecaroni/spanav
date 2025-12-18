@@ -15,7 +15,7 @@ from matplotlib import pyplot as plt
 from mne.preprocessing import ICA, create_eog_epochs, annotate_amplitude, annotate_muscle_zscore
 from visualization.vis_eeg import compare_psds, plot_muscle_art
 from utils.spectral_utils import compute_psd
-from utils.gen_utils import set_for_save, plot_context, SEED, get_trigger_str, reveal_cid, get_wd
+from utils.gen_utils import set_for_save, save_figure, plot_context, SEED, get_trigger_str, reveal_cid, get_wd
 
 
 def load_raw(
@@ -304,8 +304,8 @@ def plot_ics(
         if save:
             n_components = ica.n_components_
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
-            topo_fig.savefig(f'{save_path}/topos_{n_fig:02}.png')
+            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
+            save_figure(save_path, f'topos_{n_fig:02}.png', fig=topo_fig)
         if show:
             plt.show()
         else:
@@ -321,7 +321,8 @@ def plot_ics(
         fig.suptitle(f"Explained variance: {ratio_percent}%", x=0.2)
         fig.subplots_adjust()
         if save:
-            fig.savefig(f'{save_path}/props_{c:02d}.png')
+            save_figure(save_path, f'props_{c:02d}.png', fig=fig)
+
         if show:
             plt.show()
         else:
@@ -367,13 +368,14 @@ def get_eyes_ics(
         if save:
             n_components = ica.n_components_
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
+            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
             if fig2 is not None:
-                fig2.savefig(f'{save_path}/eyes_ch_corrs.png')
-            file_name_pref = '_arbitrary' if arbitrary_eyes_ics else ''
-            fig1.savefig(f'{save_path}/eyes_comp_topos{file_name_pref}.png')
-            fig3.savefig(f'{save_path}/eyes_evk_overlay{file_name_pref}.png')
-            fig4.savefig(f'{save_path}/eyes_trace_overlay{file_name_pref}.png')
+                save_figure(save_path, 'eyes_ch_corrs.png', fig=fig2)
+            file_name_suff = '_arbitrary' if arbitrary_eyes_ics else ''
+            save_figure(save_path, f'eyes_comp_topos{file_name_suff}.png', fig=fig1)
+            save_figure(save_path, f'eyes_evk_overlay{file_name_suff}.png', fig=fig3)
+            save_figure(save_path, f'eyes_trace_overlay{file_name_suff}.png', fig=fig4)
+
         if show:
             plt.show()
         else:
@@ -419,12 +421,12 @@ def get_muscle_ics(
         if save:
             n_components = ica.n_components_
             real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp')
+            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
             if fig2 is not None:
-                fig2.savefig(f'{save_path}/muscle_ch_corrs.png')
+                save_figure(save_path, 'muscle_ch_corrs.png', fig=fig2)
             file_name_pref = '_arbitrary' if arbitrary_muscle_ics else ''
-            fig1.savefig(f'{save_path}/muscle_comp_topos{file_name_pref}.png')
-            fig3.savefig(f'{save_path}/muscle_trace_overlay{file_name_pref}.png')
+            save_figure(save_path, f'muscle_comp_topos{file_name_pref}.png', fig=fig1)
+            save_figure(save_path, f'muscle_trace_overlay{file_name_pref}.png', fig=fig3)
         if show:
             plt.show()
         else:
