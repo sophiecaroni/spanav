@@ -438,5 +438,16 @@ def get_ch_by_region(
     return ch_by_region
 
 
+def get_epo_palette(
+) -> dict:
+    return {
+        'ContMov': 'tab:green',
+        'Static': 'tab:blue',
+        'MovOn': 'OrangeRed',
+        'ObjPres': 'orange',
+        'Raw': 'purple',
+    }
+
+
 if __name__ == '__main__':
     pass

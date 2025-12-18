@@ -17,7 +17,7 @@ import pandas as pd
 import seaborn as sns
 import os
 from utils.gen_utils import plot_context, set_for_save, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region
+                             get_ti_positions, get_ch_by_region, get_epo_palette
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -535,13 +535,8 @@ def compare_epo_psd(
                 freqs = lvl_df['freq'].to_numpy()
 
                 # Plot
-                colors = {
-                    'ContMov': 'tab:green',
-                    'Static': 'tab:blue',
-                    'MovOn': 'OrangeRed',
-                    'ObjPres': 'orange',
-                }
-                color = colors[lvl]
+                palette = get_epo_palette()
+                color = palette[lvl]
 
                 labels = {
                     'ContMov': 'Continuous movement',
@@ -688,13 +683,7 @@ def plot_band_metric(
 ):
     with plot_context():
         bands = metric_df['band'].unique()
-
-        palette = {
-            'ContMov': 'tab:green',
-            'Static': 'tab:blue',
-            'MovOn': 'OrangeRed',
-            'ObjPres': 'orange',
-        }
+        palette = get_epo_palette()
         custom_labels = {
             'ContMov': 'Continuous movement',
             'Static': 'Static',
