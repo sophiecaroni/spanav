@@ -17,7 +17,7 @@ import pandas as pd
 import seaborn as sns
 import os
 from utils.gen_utils import plot_context, set_for_save, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region, get_epo_palette
+                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -682,7 +682,6 @@ def plot_band_metric(
         **kwargs
 ):
     with plot_context():
-        bands = metric_df['band'].unique()
         palette = get_epo_palette()
         custom_labels = {
             'ContMov': 'Continuous movement',
@@ -693,9 +692,18 @@ def plot_band_metric(
 
         # Plot poin if there is only one observation, else violins/boxes
         if (metric_df.groupby(['band', 'epo_type']).count() == 1).any().any():
+
+            # Add some jitter to points
+            jitter = 0.05  # adjust as needed
+            rng = np.random.default_rng(SEED)
+            metric_df = metric_df.copy()
+            band_cat = pd.Categorical(metric_df["band"])  # ensure band is categorical and get stable numeric codes
+            metric_df["band_code"] = band_cat.codes.astype(float)  # convert to numeric codes
+            metric_df["band_jitt"] = metric_df["band_code"] + rng.uniform(-jitter, jitter, size=len(metric_df))  # add jitter to numeric codes
+
             plot = sns.scatterplot(
                 data=metric_df,
-                x='band',
+                x='band_jitt',
                 y=metric_name,
                 hue='epo_type',
                 palette=palette,
