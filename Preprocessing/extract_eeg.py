@@ -6,8 +6,8 @@ from mne import Epochs
 from mne.epochs import EpochsFIF
 
 from preprocessing.preprocess_eeg import basic_preproc_raw
-from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_wd, SEED, \
-    get_exp_phase
+from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_eeg_path, \
+    SEED
 from mne.baseline import rescale
 from autoreject import AutoReject
 
@@ -24,7 +24,6 @@ def get_all_epo_objects(
         verbose: bool = True,
         test: bool = False,
         epo_types: list | None = None,
-        segmented_epochs: bool = False,
 ) -> dict:
     if save or load:
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
@@ -41,7 +40,7 @@ def get_all_epo_objects(
                 f"\n\n{epo_type = }\n\n"
             )
 
-        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose, segmented_epochs=segmented_epochs)
+        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
         epo_by_type[epo_type] = epo_rec
 
     return epo_by_type
@@ -56,7 +55,6 @@ def get_epo_rec(
         save: bool = False,
         verbose: bool = False,
         epo_def_df: pd.DataFrame | None = None,
-        segmented_epochs: bool = False,
 ) -> EpochsFIF | None | Epochs:
     # Check epo type validity
     if epo_type not in EPO_TYPES:
@@ -64,10 +62,10 @@ def get_epo_rec(
 
     if load:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        files_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
         file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith('RS') else f'{real_cid}-epo.fif'
+        files_path = get_eeg_path() / 'Epo' / sid / file_name
         try:
-            epo_rec_clean = mne.read_epochs(f'{files_path}/{file_name}', preload=True, verbose=False)
+            epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False)
             return epo_rec_clean
         except FileNotFoundError:
             print(f'\nFile {file_name} not found for subject {sid} - potentially not existing \n\t--> returning None')
@@ -79,7 +77,7 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec)
 
         elif epo_type in ['ContMov', 'Static', 'MovOn']:
-            epo_def = get_epo_def(sid, cid, segmented_epochs=segmented_epochs) if epo_def_df is None else epo_def_df
+            epo_def = get_epo_def(sid, cid) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         else:  # if epo_type == 'RS':
@@ -97,10 +95,9 @@ def get_epo_rec(
             else:
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                    files_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
-
-                    file_name = f'{real_cid}-epo.fif' if epo_type.startswith('RS') else (f'{real_cid}_{epo_type}-epo.fif' if not segmented_epochs else f'SEG_{real_cid}_{epo_type}-epo.fif')
-                    epo_rec_clean.save(f'{set_for_save(files_path)}/{file_name}', overwrite=True)
+                    file_name = f'{real_cid}-epo.fif' if epo_type.startswith('RS') else f'{real_cid}_{epo_type}-epo.fif'
+                    files_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+                    epo_rec_clean.save(files_path, overwrite=True)
             return epo_rec_clean
 
         else:
@@ -166,11 +163,10 @@ def get_rs_epochs(
 def get_epo_def(
         sid: str,
         cid: str,
-        segmented_epochs: bool = False,
 ) -> pd.DataFrame:
-    file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
-    file_name = 'SEG_eeg_epochs' if segmented_epochs else f'eeg_epochs'
-    epo_table = pd.read_csv(f'{file_path}/{file_name}.csv')
+    file_name = 'eeg_epochs.csv'
+    file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+    epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID
     block_n = int(cid[-1]) if sid != '02' else int(reveal_cid(sid, cid)[-1])
@@ -257,28 +253,29 @@ def get_epo_type_id(
 def get_retrieval_raw_rec(
         sid: str,
         cid: str,
-        verbose: bool = False,
+        verbose: bool = True,
 ) -> mne.io.BaseRaw:
-    raw_rec = basic_preproc_raw(sid, cid, load=True, save=False, verbose=verbose)
-    if raw_rec is not None:
+    file_name = f'{cid}_final_raw.fif'
+    file_path = get_eeg_path() / '03_ica' / sid / file_name
+    raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
-        # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)
-        t0 = raw_rec.first_time
-        onsets = raw_rec.annotations.onset - t0
+    # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)
+    t0 = raw_rec.first_time
+    onsets = raw_rec.annotations.onset - t0
 
-        # Baseline correct (each trial with its initial 3s of RS)
-        raw_corr = task_bl_corr(raw_rec, verbose=verbose)
+    # Baseline correct (each trial with its initial 3s of RS)
+    raw_corr = task_bl_corr(raw_rec, verbose=verbose)
 
-        # Crop retrieval recording based on annotated triggers
-        desc = raw_rec.annotations.description
-        retr_start = onsets[desc == get_trigger_str('trial_start')][0]  # start of the first trial
-        retr_end = onsets[desc == get_trigger_str('trial_end')][-1]  # end of the last trial
-        raw_corr.crop(tmin=retr_start, tmax=retr_end)
-        if verbose:
-            print(
-                f"\n-> Cropped raw recording to match retrieval-task: "
-                f"final duration of {raw_corr.duration}s (from {raw_corr.first_time}s to {raw_rec._last_time}s of original recording)"
-            )
+    # Crop retrieval recording based on annotated triggers
+    desc = raw_rec.annotations.description
+    retr_start = onsets[desc == get_trigger_str('trial_start')][0]  # start of the first trial
+    retr_end = onsets[desc == get_trigger_str('trial_end')][-1]  # end of the last trial
+    raw_corr.crop(tmin=retr_start, tmax=retr_end)
+    if verbose:
+        print(
+            f"\n-> Cropped raw recording to match retrieval-task: "
+            f"final duration of {raw_corr.duration}s (from {raw_corr.first_time}s to {raw_rec._last_time}s of original recording)"
+        )
 
     return raw_corr
 
@@ -290,7 +287,7 @@ def get_raw_to_epoch(
     if cid.startswith('RS'):
         return basic_preproc_raw(sid, cid, load=True, save=False, verbose=False)
     else:
-        return get_retrieval_raw_rec(sid, cid, verbose=False)
+        return get_retrieval_raw_rec(sid, cid, verbose=True)
 
 
 def task_bl_corr(

@@ -2,7 +2,9 @@ import warnings
 import pandas as pd
 import numpy as np
 
-from utils.gen_utils import set_for_save, get_block_stim, get_wd, get_exp_phase
+from utils.gen_utils import set_for_save, get_eeg_path, get_behav_path
+
+SEGMENT_EPOCHS = True
 
 
 def get_times_retrieval_phases(
@@ -14,7 +16,9 @@ def get_times_retrieval_phases(
     :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
     retrieval_starts_to_check = []
-    with open(f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/TaskLog.txt', 'r') as f:
+    file_name = 'TaskLog.txt'
+    file_path = get_behav_path() / sid / file_name
+    with open(file_path, 'r') as f:
         times_by_retrieval_phase = {}
         block_n = 1
         for line in f:
@@ -39,7 +43,10 @@ def get_trace_df(
         sid: str,
 ) -> pd.DataFrame:
     tracelog = []
-    with open(f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/TraceLog.txt', 'r') as f:
+
+    file_name = 'TraceLog.txt'
+    file_path = get_behav_path() / sid / file_name
+    with open(file_path, 'r') as f:
         for raw in f:
             line = raw.strip()
 
@@ -113,8 +120,11 @@ def get_trace_df(
 def get_retrieval_df(
         sid: str,
 ) -> pd.DataFrame:
+
+    file_name = 'RetrievalLog.txt'
+    file_path = get_behav_path() / sid / file_name
     df = pd.read_csv(
-        f'{get_wd()}/data/{get_exp_phase()}/{sid}/behavior/RetrievalLog.txt',
+        file_path,
         sep=',',
         comment='#',  # ignore rows that start with #
     )
@@ -123,6 +133,7 @@ def get_retrieval_df(
     df.drop('Block', axis=1, inplace=True)  # true block as we intend it is named "Round" here
     df = df.rename(columns={
         'Round': 'Block',
+        'Index': 'Trial',
         'StartTime': 'starttime',
         'EndTime(Nav.)': 'endtime'
     })
@@ -130,7 +141,8 @@ def get_retrieval_df(
     # Invalid strings (e.g. new starting behavioral data) --> nan
     df['starttime'] = pd.to_numeric(df['starttime'], errors='coerce')
     df['endtime'] = pd.to_numeric(df['endtime'], errors='coerce')
-    df['Block'] = pd.to_numeric(df['Block'], errors='coerce')
+    df['Block'] = pd.to_numeric(df['Block'], errors='coerce').astype('Int64')
+    df['Trial'] = pd.to_numeric(df['Trial'], errors='coerce').astype('Int64')
 
     # Drop NaN rows (trials missing a start time)
     df = df[df['starttime'].notna()].copy().reset_index(drop=True)
@@ -138,7 +150,7 @@ def get_retrieval_df(
     return df
 
 
-def extract_behavioral_events(
+def extract_behav_events(
         sid: str,
         retrieval_times: dict[int: tuple[float, float]],
         retrieval_df: pd.DataFrame,
@@ -155,11 +167,12 @@ def extract_behavioral_events(
                                                                  'endtime'] <= retr_end)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
 
         # Extract stimulation condition of the block
-        condition = get_block_stim(sid, block_n)
+        condition = block_n  #get_block_stim(sid, block_n)
 
         # Iterate over trials (rows) of the block
-        for phase_idx, row in block_trials.iterrows():
-            start, end = row['starttime'], row['endtime']
+        for row_idx, trial_row in block_trials.iterrows():
+            start, end = trial_row['starttime'], trial_row['endtime']
+            trial_n = trial_row['Trial']
 
             trial_trace_df = select_trial_df(sid, block_n, trace_df, start, end)
 
@@ -183,7 +196,7 @@ def extract_behavioral_events(
                     events.append({
                         'RetrievalBlock': block_n,
                         'Condition': condition,
-                        'Trial': phase_idx + 1,
+                        'Trial': trial_n,
                         'TrialStart': start,
                         'TrialEnd': end,
                         'State': current_state,
@@ -202,7 +215,7 @@ def extract_behavioral_events(
             events.append({
                 'RetrievalBlock': block_n,
                 'Condition': condition,
-                'Trial': phase_idx + 1,
+                'Trial': trial_n,
                 'TrialStart': start,
                 'TrialEnd': end,
                 'State': current_state,
@@ -219,8 +232,9 @@ def extract_behavioral_events(
     assert all(events_df['Duration']) >= 0, (f'Something is wrong, some events have negative duration')
 
     if save:
-        file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
-        events_df.to_csv(f'{set_for_save(file_path)}/behavioral_events.csv', index=False)
+        file_name = 'behav_events.csv'
+        file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+        events_df.to_csv(file_path, index=False)
 
     return events_df
 
@@ -332,7 +346,7 @@ def define_eeg_epochs(
         sid: str,
         save: bool = False,
         verbose: bool = False,
-        segment_epochs: bool = False,
+        segment_epochs: bool = SEGMENT_EPOCHS,
 ) -> pd.DataFrame:
     # Epoch parameters
     movonset_epo_window = (-0.5, 0.5)
@@ -473,9 +487,9 @@ def define_eeg_epochs(
     events_df = pd.DataFrame(events)
 
     if save:
-        file_path = f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/Epo'
-        file_name = 'SEG_eeg_epochs' if segment_epochs else 'eeg_epochs'
-        events_df.to_csv(f'{set_for_save(file_path)}/{file_name}.csv', index=False)
+        file_name = 'eeg_epochs.csv'
+        file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+        events_df.to_csv(file_path, index=False)
 
     return events_df
 

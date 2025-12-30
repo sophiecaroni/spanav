@@ -1,10 +1,10 @@
 import warnings
 import matplotlib.pyplot as plt
 
-from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_behavioral_events, \
+from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_behav_events, \
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
-from utils.gen_utils import get_sid_cids, set_for_save, reveal_cid, save_figure
+from utils.gen_utils import get_sid_cids, reveal_cid, save_figure, get_outputs_path
 from visualization.vis_eeg import plot_evk_by_cat
 from utils.gen_utils import plot_context
 
@@ -20,10 +20,10 @@ def gen_epo_tables(
         block_times = get_times_retrieval_phases(sid)
         df_trace = get_trace_df(sid)
         retrieval_df = get_retrieval_df(sid)
-        beh_events_df = extract_behavioral_events(sid, block_times, retrieval_df, df_trace)
+        behav_events_df = extract_behav_events(sid, block_times, retrieval_df, df_trace)
 
         for segment_opt in segment_epoch_options:
-            _ = define_eeg_epochs(beh_events_df, sid, segment_epochs=segment_opt, save=save)
+            _ = define_eeg_epochs(behav_events_df, sid, segment_epochs=segment_opt, save=save)
 
 
 def gen_contmov_epos(
@@ -89,7 +89,9 @@ def plot_contmov_epos(
                 plot_evk_by_cat(epo_by_mov_def, sid=sid, cid=cid, show=False, save=False)
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-                    save_figure(f'../outputs/Evk/{sid}/{real_cid}', 'mov_durations.png', bbox_inches='tight')
+                    file_name = 'mov_durations.png'
+                    save_path = get_outputs_path() / 'Evk' / sid / real_cid / file_name
+                    save_figure(save_path, file_name, bbox_inches='tight')
         if show:
             plt.show()
         else:

@@ -12,13 +12,16 @@
 import matplotlib.figure
 import matplotlib.pyplot as plt
 import os
-from contextlib import contextmanager
-
 import mne
 import numpy as np
 import pandas as pd
 import re
 
+from contextlib import contextmanager
+from pathlib import Path
+
+SERVER = False
+PILOT = False
 SEED = 81025
 
 
@@ -52,8 +55,8 @@ def plot_context(
 
 
 def set_for_save(
-        save_path: str,
-) -> str:
+        save_path: str | Path,
+) -> str | Path:
     """
 
     :param save_path:
@@ -64,7 +67,7 @@ def set_for_save(
 
 
 def save_figure(
-        save_path: str,
+        save_path: str | Path,
         file_name: str,
         fig: matplotlib.figure.Figure | None = None,
         dpi: int = 900,
@@ -72,6 +75,7 @@ def save_figure(
         **kwargs,
 ) -> None:
     save_path = set_for_save(save_path)
+    # final_path = save_path / file_name
     final_path = f'{save_path}/{file_name}'
 
     if prevent_overwrite and os.path.exists(final_path):
@@ -129,22 +133,19 @@ def get_nrows_ncols(
 
 def get_sids(
     test: bool = False,
-    include_04: bool = False,
 ) -> list[str]:
     """
 
     :param test:
-    :param include_04:
     :return:
     """
-    rec_folders = os.listdir(f'{get_wd()}/data/{get_exp_phase()}')
+    raw_dir = get_eeg_path() / '00_raw'
+    rec_folders = os.listdir(raw_dir)
     sids = sorted([f for i, f in enumerate(rec_folders)
                    if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv')
                            or f.startswith('WITH'))
                    ])
-    if not include_04:
-        sids.remove('04')
-    return sids if not test else ['04']
+    return sids if not test else sids[0]
 
 
 def get_conds(
@@ -208,9 +209,10 @@ def get_sid_cids(
     :return:
     """
     cids = []
-    sid_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed')
+    raw_dir = get_eeg_path() / '03_ica' / sid
+    sid_files = os.listdir(raw_dir)
     for file in sid_files:
-        if file.endswith('.fif'):
+        if file.endswith('final_raw.fif'):
             if not task and file.startswith('RS'):
                 cid = parse_prepro_filename(file)
                 cids.append(cid)
@@ -233,7 +235,8 @@ def get_sid_cid_from_block(
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    conv_table = pd.read_excel(f'{get_wd()}/data/{get_exp_phase()}/{sid}/stimulations.xlsx')
+    stim_file_path = get_eeg_path() / '00_raw' / sid / 'stimulations.xlsx'
+    conv_table = pd.read_excel(stim_file_path)
     block_str_variants = [f'block{block_n}', f'block_{block_n}']  # possible variants of how block was reported in excel file
     block_str_variants_lower = {v.lower() for v in block_str_variants}  # normalize to lower once
 
@@ -286,26 +289,32 @@ def get_cid_with_block(
 def reveal_cid(
         sid: str,
         cid: str | None = None,
-        block_n: int | str | None = None
+        block_n: int | str | None = None,
+        pilot: bool = PILOT,
 ):
     """
 
     :param sid:
     :param cid:
     :param block_n:
+    :param pilot:
     :return:
     """
-    if cid is not None:
-        if cid[-1] in ['1', '2', '3', '4', '5', '6'] or cid.startswith('RS'):
-            print(f'Condition ID of subject {sid} is already the full one: {cid}')
-            return cid
-        else:
-            if sid == '02' or sid == '03':
-                return get_cid_with_block(sid, cid)
+    if pilot:
+        if cid is not None:
+            if cid[-1] in ['1', '2', '3', '4', '5', '6'] or cid.startswith('RS'):
+                print(f'Condition ID of subject {sid} is already the full one: {cid}')
+                return cid
             else:
-                raise ValueError(f'Something is wrong here. {sid = }, {cid = }')
+                if sid == '02' or sid == '03':
+                    return get_cid_with_block(sid, cid)
+                else:
+                    raise ValueError(f'Something is wrong here. {sid = }, {cid = }')
+        else:
+            return get_sid_cid_from_block(sid, block_n)
     else:
-        return get_sid_cid_from_block(sid, block_n)
+        # Keep blinding atm
+        return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
 
 
 def get_block_stim(
@@ -331,9 +340,12 @@ def get_ti_positions(
     :param sid:
     :return:
     """
-    sid_files = os.listdir(f'{get_wd()}/data/{get_exp_phase()}/{sid}')
-    conv_file = [file_name for file_name in sid_files if file_name.startswith('SpaNav') and file_name.endswith('csv')][0]
-    conv_table = pd.read_csv(f'{get_wd()}/data/{get_exp_phase()}/{sid}/{conv_file}', sep=';')
+
+    stim_file_path = get_eeg_path() / '00_raw' / sid
+    spanav_files = list(stim_file_path.glob('SpaNav_*.csv'))
+    if len(spanav_files) != 1:
+        raise RuntimeError(f'Expected exactly one SpaNav CSV for {sid}, found {len(spanav_files)}')
+    conv_table = pd.read_csv(spanav_files[0], sep=';')
     eeg_ti_positions = conv_table.loc[:, 'Old channel name'].to_list()
     return eeg_ti_positions
 
@@ -369,22 +381,61 @@ def get_epo_types(
     ]
 
 
-def get_wd(
-        ext=True,
-):
+def get_main_path(
+        server: bool = SERVER,
+) -> Path:
     """
 
-    :param ext:
+    :param server:
     :return:
     """
-    if ext:
-        return '/Volumes/My Passport/SpaNav/Sophie_backup'
+    if server:
+        return Path('/Volumes/Hummel-Data/mnt/Hummel-Data/TI/TI_EEG')
     else:
-        return '/Users/sophiecaroni/epfl_hes/spanav-tbi'
+        return Path('/Volumes/My Passport/SpaNav/Sophie_backup')
+
+
+def get_eeg_path(
+        server: bool = SERVER,
+) -> Path:
+    main_root = get_main_path()
+    if server:
+        return main_root / 'EEG'
+    else:
+        exp_phase = get_exp_phase()
+        return main_root / 'data' / exp_phase / 'EEG'
+
+
+def get_behav_path(
+        server: bool = SERVER,
+) -> Path:
+    main_root = get_main_path()
+    if server:
+        return main_root / 'behav'
+    else:
+        exp_phase = get_exp_phase()
+        return main_root / 'data' / exp_phase / 'behav'
+
+
+def get_outputs_path(
+        server: bool = SERVER,
+) -> Path:
+    main_root = get_main_path()
+    if server:
+        return main_root / 'outputs'
+    else:
+        exp_phase = get_exp_phase()
+        return main_root / 'outputs' / exp_phase
+
+
+def get_tables_path(
+) -> Path:
+    output_root = get_outputs_path()
+    return output_root / 'tables'
 
 
 def get_exp_phase(
-        pilot: bool = True,
+        pilot: bool = False,
 ) -> str:
     if pilot:
         return 'pilot'
@@ -393,14 +444,17 @@ def get_exp_phase(
 
 
 def parse_epo_filename(
-        filename: str
+        filename: str,
+        pilot: bool = PILOT,
 ) -> tuple[str, str | None, str]:
     """
 
     :param filename:
+    :param pilot:
     :return:
     """
     if filename.startswith('RS'):
+        block_n = None
         m = re.match(r"RS_(.+?)_(.+?)-epo\.fif$", filename)
         if m:
             rs_cond, epo_type = m.groups()
@@ -409,40 +463,55 @@ def parse_epo_filename(
             other_m = re.match(r"RS_(.+?)-epo\.fif$", filename)
             (epo_type, ) = other_m.groups()
             cond = 'RS'
-        block_n = 0
     else:
-        m = re.match(r".*task_(.+?)_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
-        if m:
-            cond, block_n, epo_type = m.groups()
+        if pilot:
+            m = re.match(r".*task_(.+?)_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
+            if m:
+                cond, block_n, epo_type = m.groups()
+            else:
+                other_m = re.match(r".*task_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
+                cond, epo_type = other_m.groups()
+                block_n = None
         else:
-            other_m = re.match(r".*task_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
-            cond, epo_type = other_m.groups()
-            block_n = 0
+            m = re.match(r".*block(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
+            block_n, epo_type = m.groups()
+            cond = f'block{block_n}'
 
     return cond, block_n, epo_type
 
 
 def parse_prepro_filename(
-        filename: str
-) -> str | None:
+        filename: str,
+        pilot: bool = PILOT,
+) -> tuple[str | None, str | None, str]:
     """
 
     :param filename:
+    :param pilot:
     :return:
     """
     cid = None
+    epo_type = 'Raw'
+    block_n = None
     if filename.startswith('RS'):
+        block_n = None
         m = re.match(r"RS_(.+?)-raw\.fif$", filename)
         if m:
             (rs_cond, ) = m.groups()
             cid = f'RS_{rs_cond}'
     else:
-        m = re.match(r".*task_(.+?)-raw\.fif$", filename)  # .* allows anything before
-        if m:
-            (task_cid, ) = m.groups()
-            cid = f'task_{task_cid}'
+        if pilot:
+            m = re.match(r".*task_(.+?)-raw\.fif$", filename)  # .* allows anything before
+            if m:
+                (task_cid, ) = m.groups()
+                cid = f'task_{task_cid}'
+                block_n = cid[-1]
+        else:
+            m = re.match(r".*block(.+?)_(.+?)_raw\.fif$", filename)  # .* allows anything before
+            block_n, _ = m.groups()
+            cid = f'block{block_n}'
 
-    return cid
+    return cid, block_n, epo_type
 
 
 def get_ch_by_region(
