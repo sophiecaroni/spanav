@@ -854,9 +854,9 @@ def plot_schematic_epo_def(
 
     with plot_context():
         fig, ax = plt.subplots(1, 1, figsize=(17*cm, 2*cm))
-        if len(behav_data) > 0:  # Make sure there are observations applying
+        if len(behav_data) > 0:  # Make sure there are observations left after the filtering above
             plot_schematic_behavior(ax, behav_data)
-        if len(eeg_data) > 0:  # Make sure there are observations applying
+        if len(eeg_data) > 0:  # Make sure there are observations left after the filtering above
             plot_schematic_eeg_epochs(ax, eeg_data)
         ax.legend(loc='upper left')
 
@@ -874,7 +874,7 @@ def plot_schematic_epo_def(
 def plot_schematic_behavior(
         ax: Axes,
         behav_data: pd.DataFrame
-    ) -> None:
+) -> None:
     # Add needed x and y columns in behavioral plot
     y_movement = behav_data['State'].apply(lambda r: 1 if (r == 'Moving' or r == 'MovOn') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
     x_time = behav_data['StateStart'].to_numpy()

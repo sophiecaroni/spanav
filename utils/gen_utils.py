@@ -141,11 +141,8 @@ def get_sids(
     """
     raw_dir = get_eeg_path() / '00_raw'
     rec_folders = os.listdir(raw_dir)
-    sids = sorted([f for i, f in enumerate(rec_folders)
-                   if not (f.startswith('.') or f.startswith('test') or f.startswith('to_start') or f.endswith('csv')
-                           or f.startswith('WITH'))
-                   ])
-    return sids if not test else sids[0]
+    sids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.'))])
+    return sids if not test else [sids[0]]
 
 
 def get_conds(
@@ -198,7 +195,6 @@ def get_conds(
 
 def get_sid_cids(
         sid: str,
-        task: bool,
         test: bool = False,
 ) -> list[str]:
     """
@@ -213,15 +209,13 @@ def get_sid_cids(
     sid_files = os.listdir(raw_dir)
     for file in sid_files:
         if file.endswith('final_raw.fif'):
-            if not task and file.startswith('RS'):
-                cid = parse_prepro_filename(file)
-                cids.append(cid)
-            elif task and file.startswith('task'):
-                cid = parse_prepro_filename(file)
-                cids.append(cid)
+            cid, _, _ = parse_prepro_filename(file)
+            cids.append(cid)
+            if len(cids) > 0 and test:  # stop after finding first cid when in testing mode
+                break
             else:
                 continue
-    return cids if not test else [cids[0]]
+    return cids
 
 
 def get_sid_cid_from_block(

@@ -156,11 +156,14 @@ def extract_behav_events(
         retrieval_df: pd.DataFrame,
         trace_df: pd.DataFrame,
         save: bool = False,
+        test: bool = False,
 ) -> pd.DataFrame:
     events = []
 
     # Iterate over blocks
     for block_n, (retr_start, retr_end) in retrieval_times.items():
+        if block_n > 1 and test:
+            break
         block_trials = retrieval_df.copy()[retrieval_df['Block'] == block_n]  # only consider trials in the block
         block_trials.reset_index(drop=True, inplace=True)
         assert ((block_trials['starttime'] >= retr_start) & (block_trials[

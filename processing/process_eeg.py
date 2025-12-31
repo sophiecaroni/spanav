@@ -71,77 +71,71 @@ def get_psd_df(
         psd_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         sids = get_sids(test=test)
-        print(
-            f"{sids = }"
-        )
         df_rows = []
         for sid in sids:
 
             epo_path = get_eeg_path() / 'Epo' / sid
-            sid_epo_files = os.listdir(epo_path)
+            sid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
             raw_path = get_eeg_path() / '03_ica' / sid
             sid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
             sid_files = sid_raw_files + sid_epo_files
 
             for file in sid_files:
-                if file.endswith('.fif'):
+                if file.startswith('RS'):  # ignore for the moment
+                    continue
 
-                    if file.startswith('RS'):
-                        continue
+                if file.endswith('-epo.fif'):
+                    rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
+                    cond, block_n, epo_type = parse_epo_filename(file)
+                else:
+                    rec = mne.io.read_raw_fif(raw_path / file, preload=True, verbose=False)
+                    cond, block_n, epo_type = parse_prepro_filename(file)
 
-                    if file.endswith('-epo.fif'):
-                        rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
-                        cond, block_n, epo_type = parse_epo_filename(file)
-                    else:
-                        rec = mne.io.read_raw_fif(raw_path / file, preload=True, verbose=False)
-                        cond, block_n, epo_type = parse_prepro_filename(file)
-                        epo_type = 'Raw'
+                if rec is None or len(rec) == 0:
+                    continue
 
-                    if rec is None or len(rec) == 0:
-                        continue
+                # Compute PSD in each recording (first within and epoch and channel, then average across them to get a PSD for the entire recording)
+                fmin, fmax = 1, 45
+                # psd_kwargs = {} if file.endswith('-epo.fif') else {'n_fft': 250}
+                sfreq = int(rec.info['sfreq'])
+                psd_kwargs = dict(
+                    method="welch",
+                    n_fft=sfreq,
+                    n_per_seg=sfreq,  # windows_length will be n_per_seg / sfreq, so setting n_per_seg=sfreq will make windows_length 1s
+                    n_overlap=int(sfreq/2),  # 50% overlap, common
+                    window="hamming"  # common
+                )
+                psd = compute_psd(rec, fmin=fmin, fmax=fmax, verbose=False, **psd_kwargs)
+                full_psd, freqs = psd.get_data(return_freqs=True)
+                if log:
+                    full_psd = np.log10(full_psd)
 
-                    # Compute PSD in each subject, epoch and channel, and then average across them
-                    fmin, fmax = 1, 45
-                    # psd_kwargs = {} if file.endswith('-epo.fif') else {'n_fft': 250}
-                    sfreq = int(rec.info['sfreq'])
-                    psd_kwargs = dict(
-                        method="welch",
-                        n_fft=sfreq,
-                        n_per_seg=sfreq,  # windows_length = n_per_seg / sfreq, so n_per_seg=sfreq makes 1s windows
-                        n_overlap=int(sfreq/2),  # 50% overlap, common
-                        window="hamming"  # common
-                    )
-                    psd = compute_psd(rec, fmin=fmin, fmax=fmax, verbose=False, **psd_kwargs)
-                    full_psd, freqs = psd.get_data(return_freqs=True)
-                    if log:
-                        full_psd = np.log10(full_psd)
+                # Compute average PSD
+                if file.endswith('-epo.fif'):
 
-                    # Compute average PSD
-                    if file.endswith('-epo.fif'):
+                    # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
+                    psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
 
-                        # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
-                        psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
+                    # 2) compute mean and std of psd_ch_mean (n_epochs, n_freqs) across epochs
+                    psd_avg = psd_ch_mean.mean(axis=0)  # (n_freqs,)
+                    psd_std = psd_ch_mean.std(axis=0)  # (n_freqs,)
+                else:
+                    # compute average and std of full_psd (n_channels, n_freqs)  across channels
+                    psd_avg = full_psd.mean(axis=0)  # (n_freqs,)
+                    psd_std = full_psd.std(axis=0)  # (n_freqs,)
 
-                        # 2) compute mean and std of psd_ch_mean (n_epochs, n_freqs) across epochs
-                        psd_avg = psd_ch_mean.mean(axis=0)  # (n_freqs,)
-                        psd_std = psd_ch_mean.std(axis=0)  # (n_freqs,)
-                    else:
-                        # compute average and std of full_psd (n_channels, n_freqs)  across channels
-                        psd_avg = full_psd.mean(axis=0)  # (n_freqs,)
-                        psd_std = full_psd.std(axis=0)  # (n_freqs,)
-
-                    # Define rows of the df (one row for each frequency-point of the psd
-                    for freq, pw, std in zip(freqs, psd_avg, psd_std):
-                        df_rows.append({
-                            'sid': sid,
-                            'cond': cond,
-                            'block': block_n,
-                            'epo_type': epo_type,
-                            # 'epo_len': epo_len,
-                            'freq': freq,
-                            'pw_avg': pw,
-                            'pw_std': std,
-                        })
+                # Define rows of the df (one row for each frequency-point of the psd
+                for freq, pw, std in zip(freqs, psd_avg, psd_std):
+                    df_rows.append({
+                        'sid': sid,
+                        'cond': cond,
+                        'block': block_n,
+                        'epo_type': epo_type,
+                        # 'epo_len': epo_len,
+                        'freq': freq,
+                        'pw_avg': pw,
+                        'pw_std': std,
+                    })
 
         psd_df = pd.DataFrame(df_rows)
         psd_df['sid'] = psd_df['sid'].astype('str')
@@ -169,7 +163,6 @@ def get_psd_avg_df(
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
-        print(f"sids = {psd_df['sid'].unique()}")
         df_subj = psd_df.groupby(
             ['sid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
             sid=("sid", 'first'),
@@ -216,7 +209,6 @@ def get_band_metrics_df(
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
         df_rows = []
 
-        print(f"sids = {psd_df['sid'].unique()}")
         for epo_type, single_epo_type_df in psd_df.groupby('epo_type'):
             for cond, single_cond_df in single_epo_type_df.groupby('cond'):
                 for sid, single_sid_df in single_cond_df.groupby('sid'):
