@@ -835,40 +835,66 @@ def plot_preprocessing_result(
 def plot_schematic_epo_def(
         behav_events_df: pd.DataFrame,
         eeg_events_df: pd.DataFrame,
-        block_n: int = 1,
-        trial_n: int = 1,
         sid: str | None = None,
         show: bool = False,
         save: bool = False,
 ) -> None:
 
-    # Subset dataframes to specific block and trial numers
-    behav_data = behav_events_df[(behav_events_df['RetrievalBlock'] == block_n) & (behav_events_df['Trial'] == trial_n)].reset_index(drop=True)
-    eeg_data = eeg_events_df[(eeg_events_df['RetrievalBlock'] == block_n) & (eeg_events_df['TrialNumber'] == trial_n)].reset_index(drop=True)
-    behav_data.drop(['RetrievalBlock', 'Trial', 'Condition'], axis=1, inplace=True)  # drop now useless columns
-    eeg_data.drop(['RetrievalBlock', 'TrialNumber', 'Condition'], axis=1, inplace=True)  # drop now useless columns
+    for block_n, block_df in behav_events_df.groupby('RetrievalBlock'):
 
-    # Sort to make sure states/epochs are ordered on time
-    behav_data = behav_data.sort_values("StateStart")
-    eeg_data = eeg_data.sort_values("EpochStart")
+        # Create one figure per block (containing all its trials as subplots)
+        trials_in_block = len(block_df['Trial'].unique())
+        nrows, ncols = layout_subplots_grid(n=trials_in_block, max_cols=2)
+        with plot_context():
+            fig, axs = plt.subplots(nrows, ncols, figsize=(17*ncols * cm, 4*nrows * cm))
+            axs = axs.ravel()
 
-    with plot_context():
-        fig, ax = plt.subplots(1, 1, figsize=(17*cm, 2*cm))
-        if len(behav_data) > 0:  # Make sure there are observations left after the filtering above
-            plot_schematic_behavior(ax, behav_data)
-        if len(eeg_data) > 0:  # Make sure there are observations left after the filtering above
-            plot_schematic_eeg_epochs(ax, eeg_data)
-        ax.legend(loc='upper left')
+            # Put each trial in a different subplot
+            for i, (trial_n, trial_df) in enumerate(block_df.groupby('Trial')):
+                ax = axs[i]
 
-        if save:
-            real_cid = reveal_cid(sid, block_n=block_n)
-            save_path = get_outputs_path() / 'Epo' / sid / real_cid
-            file_name = f'epoching_trial{trial_n}.png'
-            save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
+                # Subset dataframes to specific block and trial numers
+                behav_data = trial_df.reset_index(drop=True)
+                eeg_data = eeg_events_df[(eeg_events_df['RetrievalBlock'] == block_n) & (
+                            eeg_events_df['TrialNumber'] == trial_n)].reset_index(drop=True)
+                behav_data.drop(['RetrievalBlock', 'Trial', 'Condition'], axis=1,
+                                inplace=True)  # drop now useless columns
+                eeg_data.drop(['RetrievalBlock', 'TrialNumber', 'Condition'], axis=1,
+                              inplace=True)  # drop now useless columns
+
+                # Sort to make sure states/epochs are ordered on time
+                behav_data = behav_data.sort_values("StateStart")
+                eeg_data = eeg_data.sort_values("EpochStart")
+
+                # Plot behavior, if in this trial there was any
+                if len(behav_data) > 0:
+                    plot_schematic_behavior(ax, behav_data)
+
+                # Plot eeg epochs, if in this trial there were any
+                if len(eeg_data) > 0:
+                    plot_schematic_eeg_epochs(ax, eeg_data)
+
+                # General plot customizations
+                ax.legend(loc='upper left')
+                ax.set_title(f'Trial {trial_n}')
+
+            # hide unused axes
+            for ax in axs[trials_in_block:]:
+                ax.set_visible(False)
+
+            fig.suptitle(f'Block {block_n}')
+            fig.supxlabel('Time [s]')
+            fig.tight_layout()
+
+            if save:
+                real_cid = reveal_cid(sid, block_n=int(block_n))
+                save_path = get_outputs_path() / 'Epo' / sid / real_cid
+                file_name = f'block{block_n}_trials_epoching.png'
+                save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
+            if show:
+                plt.show()
+            else:
+                plt.close(fig)
 
 
 def plot_schematic_behavior(
@@ -878,7 +904,6 @@ def plot_schematic_behavior(
     # Add needed x and y columns in behavioral plot
     y_movement = behav_data['State'].apply(lambda r: 1 if (r == 'Moving' or r == 'MovOn') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
     x_time = behav_data['StateStart'].to_numpy()
-    print(x_time)
 
     # Duplicate last observation to allow plotting of full duration of last state
     x_time = np.r_[x_time, behav_data['StateEnd'].iloc[-1]]  # use np.r_ as row-wise concatenator
