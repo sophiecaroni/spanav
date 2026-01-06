@@ -144,7 +144,7 @@ def get_sids(
     """
     raw_dir = get_eeg_path() / '00_raw'
     rec_folders = os.listdir(raw_dir)
-    pids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.'))])
+    pids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.')) and not (f.startswith('test'))])
     return pids if not test else [pids[0]]
 
 
@@ -208,10 +208,10 @@ def get_sid_cids(
     :return:
     """
     cids = []
-    raw_dir = get_eeg_path() / '03_ica' / pid
+    raw_dir = get_clean_eeg_path() / pid
     sid_files = os.listdir(raw_dir)
     for file in sid_files:
-        if file.endswith('final_raw.fif'):
+        if file.endswith('final_raw.fif') or file.endswith('iclean-raw.fif') :
             cid, _, _ = parse_prepro_filename(file)
             cids.append(cid)
             if len(cids) > 0 and test:  # stop after finding first cid when in testing mode
@@ -402,6 +402,17 @@ def get_eeg_path(
         exp_phase = get_exp_phase()
         return main_root / 'data' / exp_phase / 'EEG'
 
+
+def get_clean_eeg_path(
+        server: bool = SERVER,
+) -> Path:
+    main_root = get_main_path()
+    if server:
+        return main_root / 'EEG'
+    else:
+        exp_phase = get_exp_phase()
+        clean_folder = '03_ica' if exp_phase == 'main' else 'RawClean'
+        return main_root / 'data' / exp_phase / 'EEG' / clean_folder
 
 def get_behav_path(
         server: bool = SERVER,
