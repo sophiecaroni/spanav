@@ -348,9 +348,12 @@ def plot_evk_from_df(
             if col > 0:
                 ax.set_ylabel('')
 
+        # General figure customization
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        fig.suptitle(real_cid)
+
         if save:
             file_name = 'evk_traces.png'
-            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
             save_path = get_outputs_path() / 'Evk' / pid / real_cid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
@@ -378,11 +381,14 @@ def plot_evk_by_cat(
             fig = axes.flatten()[0].figure
         axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
 
-        # If the recs_dict contains repetitive strings in keys, set repetitive part as figure's title and keep unique parts as subplot titles
+        # # If the recs_dict contains repetitive strings in keys, set repetitive part as figure's title and keep unique parts as subplot titles
         keys = list(recs_dict)
         prefix = os.path.commonprefix(keys).rsplit("_", 1)[0]
         subtitles = [k.replace(prefix, "", 1) for k in keys]
-        fig.suptitle(prefix)
+        # fig.suptitle(prefix)
+
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        fig.suptitle(real_cid)
 
         # Plot one evoked-rec per subplot
         for i, (ax, rec, title) in enumerate(zip(axes, recs_dict.values(), subtitles)):
@@ -408,9 +414,8 @@ def plot_evk_by_cat(
         fig.tight_layout()
 
         if save:
-            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
-            file_name = 'evk_traces.png'
-            save_path = get_outputs_path() / 'Evk' / pid / real_cid
+            file_name = f'{real_cid}_evk_traces.png'
+            save_path = get_outputs_path() / 'Evk' / pid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
@@ -480,6 +485,17 @@ def plot_psd_avg_by_cat(
         # Plot one psd per subplot
         for i, (key, (psd_avg, psd_std, freqs)) in enumerate(psd_avg_dict.items()):
             ax = axes if isinstance(axes, Axes) else axes.flatten()[i]
+
+            # General figure customization
+            row, col = divmod(i, ncols)
+            if row == nrows - 1:
+                ax.set_xlabel('Frequency [Hz]')
+            if col == 0:
+                ax.set_ylabel(r'log(Power [$\mu$V])')
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            fig.suptitle(real_cid)
+
+            # Plot
             if psd_avg is not None:
                 label = base_plot_label if i == 0 else None  # label only once per cat
                 ax = plot_psd_avg(psd_avg, psd_std, freqs, show=False, ax=ax, label=label, **kwargs)
@@ -488,19 +504,9 @@ def plot_psd_avg_by_cat(
                 ax.set_title(key)
                 continue
 
-        # Customize figure
-        if len(cats) > 2:
-            suplabels_fontsize = plt.rcParams['axes.labelsize']
-            fig.supylabel(r'log(Power [$\mu$V])', fontsize=suplabels_fontsize)
-            fig.supxlabel('Frequency [Hz]', fontsize=suplabels_fontsize)
-        else:
-            ax.set_ylabel(r'log(Power [$\mu$V])')
-            ax.set_xlabel('Frequency [Hz]')
-
         if save:
-            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
-            file_name = 'psds_by_epo_type.png'
-            save_path = get_outputs_path() / 'PSD' / pid / real_cid
+            file_name = f'{real_cid}_psds_by_epo_type.png'
+            save_path = get_outputs_path() / 'PSD' / pid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
