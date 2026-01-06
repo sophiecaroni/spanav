@@ -16,7 +16,7 @@ import os
 
 from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
 from utils.gen_utils import get_sids, set_for_save, parse_epo_filename, parse_prepro_filename, get_tables_path, \
-    get_eeg_path
+    get_eeg_path, get_clean_eeg_path
 from fooof.analysis import get_band_peak_fm
 
 
@@ -60,31 +60,49 @@ def compute_psd_by_key(
 
 
 def get_psd_df(
-        log: bool = False,
-        test: bool = False,
         load: bool = True,
+        test: bool = False,
         save: bool = False,
+        log: bool = False,
+        avg_across_epochs: bool = True,
 ) -> pd.DataFrame:
     if load:
-        file_name = 'psd_df_log.csv' if log else 'psd_df_lin.csv'
+        file_name = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
+            'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
         file_path = set_for_save(get_tables_path()) / file_name
         psd_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
         pids = get_sids(test=test)
-        df_rows = []
+        all_parts = []
+        sfreq = 250
+        psd_kwargs = dict(
+            fmin=1,
+            fmax=45,
+            method="welch",
+            n_fft=sfreq,
+            n_per_seg=sfreq,
+            # windows_length will be n_per_seg / sfreq, so setting n_per_seg=sfreq will make windows_length 1s
+            n_overlap=int(sfreq / 2),  # 50% overlap, common
+            window="hamming"  # common
+        )
+
         for pid in pids:
 
             epo_path = get_eeg_path() / 'Epo' / pid
             sid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
-            raw_path = get_eeg_path() / '03_ica' / pid
+            raw_path = get_clean_eeg_path() / pid
             sid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
-            sid_files = sid_raw_files + sid_epo_files
+            sid_files = sid_epo_files  # + sid_raw_files
 
-            for file in sid_files:
+            for i, file in enumerate(sid_files):
+                if test and i > 0:
+                    break
                 if file.startswith('RS'):  # ignore for the moment
                     continue
 
-                if file.endswith('-epo.fif'):
+                is_epo = file.endswith('-epo.fif')
+
+                if is_epo:
                     rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
                     cond, block_n, epo_type = parse_epo_filename(file)
                 else:
@@ -95,55 +113,67 @@ def get_psd_df(
                     continue
 
                 # Compute PSD in each recording (first within and epoch and channel, then average across them to get a PSD for the entire recording)
-                fmin, fmax = 1, 45
                 # psd_kwargs = {} if file.endswith('-epo.fif') else {'n_fft': 250}
-                sfreq = int(rec.info['sfreq'])
-                psd_kwargs = dict(
-                    method="welch",
-                    n_fft=sfreq,
-                    n_per_seg=sfreq,  # windows_length will be n_per_seg / sfreq, so setting n_per_seg=sfreq will make windows_length 1s
-                    n_overlap=int(sfreq/2),  # 50% overlap, common
-                    window="hamming"  # common
-                )
-                psd = compute_psd(rec, fmin=fmin, fmax=fmax, verbose=False, **psd_kwargs)
+                psd = compute_psd(rec, verbose=False, **psd_kwargs)
                 full_psd, freqs = psd.get_data(return_freqs=True)
                 if log:
                     full_psd = np.log10(full_psd)
 
+                # Prepare columns with base information to include to each df/row
+                base_cols = dict(pid=pid, cond=cond, block=block_n, epo_type=epo_type)
+
                 # Compute average PSD
-                if file.endswith('-epo.fif'):
+                if avg_across_epochs:
+                    if is_epo:
+                        # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
+                        psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
+
+                        # 2) compute mean and std of psd_ch_mean (n_epochs, n_freqs) across epochs
+                        psd_avg = psd_ch_mean.mean(axis=0)  # (n_freqs,)
+                        psd_std = psd_ch_mean.std(axis=0)  # (n_freqs,)
+                    else:  # continuous data
+                        # compute average and std of full_psd (n_channels, n_freqs)  across channels
+                        psd_avg = full_psd.mean(axis=0)  # (n_freqs,)
+                        psd_std = full_psd.std(axis=0)  # (n_freqs,)
+
+                    # Define sub_df for this rec (one row for each frequency-point of the PSD)
+                    file_freqs = freqs
+                    file_pws = psd_avg
+                    file_stds = psd_std
+
+                else:
+                    if not is_epo:  # not averaging across epochs only has to be implemented for epoched recordings
+                        continue
 
                     # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
                     psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
 
-                    # 2) compute mean and std of psd_ch_mean (n_epochs, n_freqs) across epochs
-                    psd_avg = psd_ch_mean.mean(axis=0)  # (n_freqs,)
-                    psd_std = psd_ch_mean.std(axis=0)  # (n_freqs,)
-                else:
-                    # compute average and std of full_psd (n_channels, n_freqs)  across channels
-                    psd_avg = full_psd.mean(axis=0)  # (n_freqs,)
-                    psd_std = full_psd.std(axis=0)  # (n_freqs,)
+                    # 2) compute std of full_psd (n_epochs, n_channels, n_freqs) across channels
+                    psd_ch_std = full_psd.std(axis=1)  # (n_epochs, n_freqs)
 
-                # Define rows of the df (one row for each frequency-point of the psd
-                for freq, pw, std in zip(freqs, psd_avg, psd_std):
-                    df_rows.append({
-                        'pid': pid,
-                        'cond': cond,
-                        'block': block_n,
-                        'epo_type': epo_type,
-                        # 'epo_len': epo_len,
-                        'freq': freq,
-                        'pw_avg': pw,
-                        'pw_std': std,
-                    })
+                    # Define sub_df for this rec (one row for each eppch and frequency-point of the PSD)
+                    n_epochs = psd_ch_mean.shape[0]
+                    base_cols['n_epo'] = np.repeat(np.arange(1, n_epochs+1),
+                                                   len(freqs))  # repeats n_epochs range (from 0 to tot nr of epochs) for all epochs
+                    file_freqs = np.tile(freqs, n_epochs)  # repeats freqs range for all epochs
+                    file_pws = psd_ch_mean.reshape(-1)  # flatten, so that all epochs follow in the col
+                    file_stds = psd_ch_std.reshape(-1)  # flatten, so that all epochs follow in the col
 
-        psd_df = pd.DataFrame(df_rows)
-        psd_df['pid'] = psd_df['pid'].astype('str')
+                # Define sub_df for this rec (one row for each frequency-point of the PSD)
+                all_parts.append(pd.DataFrame({
+                    **base_cols,
+                    'freq': file_freqs,
+                    'pw_avg': file_pws,
+                    'pw_std': file_stds,
+                }))
 
-        assert (psd_df['freq'].unique() == list(range(fmin, fmax+1))).all()
+        psd_df = pd.concat(all_parts, ignore_index=True)
+
+        assert (psd_df['freq'].unique() == list(range(psd_kwargs['fmin'], psd_kwargs['fmax']+1))).all()
 
         if save:
-            file_name = 'psd_df_log.csv' if log else 'psd_df_lin.csv'
+            file_name = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
+                'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
             file_path = set_for_save(get_tables_path()) / file_name
             psd_df.to_csv(file_path)
 
@@ -151,9 +181,9 @@ def get_psd_df(
 
 
 def get_psd_avg_df(
-        log: bool = False,
         load: bool = True,
         save: bool = False,
+        log: bool = False,
 ) -> pd.DataFrame:
     if load:
         file_name = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
