@@ -12,39 +12,39 @@ warnings.filterwarnings('ignore')  # Suppress all warnings
 
 
 def gen_epo_tables(
-        sids: list,
+        pids: list,
         segment_epoch_options: list,
         save: bool = False
 ) -> None:
-    for sid in sids:
-        block_times = get_times_retrieval_phases(sid)
-        df_trace = get_trace_df(sid)
-        retrieval_df = get_retrieval_df(sid)
-        behav_events_df = extract_behav_events(sid, block_times, retrieval_df, df_trace)
+    for pid in pids:
+        block_times = get_times_retrieval_phases(pid)
+        df_trace = get_trace_df(pid)
+        retrieval_df = get_retrieval_df(pid)
+        behav_events_df = extract_behav_events(pid, block_times, retrieval_df, df_trace)
 
         for segment_opt in segment_epoch_options:
-            _ = define_eeg_epochs(behav_events_df, sid, segment_epochs=segment_opt, save=save)
+            _ = define_eeg_epochs(behav_events_df, pid, segment_epochs=segment_opt, save=save)
 
 
 def gen_contmov_epos(
-        sids: list,
+        pids: list,
         segment_epoch_options: list[bool],
         test: bool = False,
 ) -> dict:
     epos_dict = {}
-    for sid in sids:
-        epos_dict[sid] = {}
-        cids = get_sid_cids(sid, task=True, test=test)
+    for pid in pids:
+        epos_dict[pid] = {}
+        cids = get_sid_cids(pid, task=True, test=test)
 
         for cid in cids:
-            epos_dict[sid][cid] = {}
-            raw_rec = get_raw_to_epoch(sid, cid)
+            epos_dict[pid][cid] = {}
+            raw_rec = get_raw_to_epoch(pid, cid)
 
             for segment_bool in segment_epoch_options:
-                epo_def_df = get_epo_def(sid, cid, segmented_epochs=segment_bool)
+                epo_def_df = get_epo_def(pid, cid, segmented_epochs=segment_bool)
                 epochs = get_epo_rec(
                     'ContMov',
-                    sid,
+                    pid,
                     cid,
                     raw_rec,
                     load=False,
@@ -54,7 +54,7 @@ def gen_contmov_epos(
                 if epochs is not None:
                     if len(epochs) > 0:
                         key = 'ContMov_seg' if segment_bool else 'ContMov'
-                        epos_dict[sid][cid][key] = epochs
+                        epos_dict[pid][cid][key] = epochs
 
     return epos_dict
 
@@ -62,9 +62,9 @@ def gen_contmov_epos(
 def count_and_compare_epochs(
         epo_dict: dict,
 ) -> None:
-    for sid, sid_dict in epo_dict.items():
+    for pid, sid_dict in epo_dict.items():
         print(
-            f"Subject {sid}"
+            f"Participant {pid}"
         )
         for cid, cid_dict in sid_dict.items():
             print(
@@ -84,13 +84,13 @@ def plot_contmov_epos(
         save: bool = False,
 ):
     with plot_context():
-        for sid, sid_dict in epos_dict.items():
+        for pid, sid_dict in epos_dict.items():
             for cid, epo_by_mov_def in sid_dict.items():
-                plot_evk_by_cat(epo_by_mov_def, sid=sid, cid=cid, show=False, save=False)
+                plot_evk_by_cat(epo_by_mov_def, pid=pid, cid=cid, show=False, save=False)
                 if save:
-                    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                    real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
                     file_name = 'mov_durations.png'
-                    save_path = get_outputs_path() / 'Evk' / sid / real_cid / file_name
+                    save_path = get_outputs_path() / 'Evk' / pid / real_cid / file_name
                     save_figure(save_path, file_name, bbox_inches='tight')
         if show:
             plt.show()

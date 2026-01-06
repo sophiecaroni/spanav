@@ -27,11 +27,11 @@ cm = 1/2.54
 
 def plot_ti_sensors(
         info,
-        sid: str,
+        pid: str,
         show: bool = False,
         save: bool = False,
 ) -> None:
-    ti_chs = get_ti_positions(sid)
+    ti_chs = get_ti_positions(pid)
     info_copy = mne.create_info(ch_names=info.ch_names+ti_chs, sfreq=info['sfreq'], ch_types='eeg')
     montage = mne.channels.make_standard_montage('standard_1020')
     info_copy.set_montage(montage)
@@ -58,7 +58,7 @@ def plot_ti_sensors(
     )
 
     if save:
-        save_path = get_eeg_path() / sid
+        save_path = get_eeg_path() / pid
         file_name = 'ti_sensors.png'
         save_figure(save_path, file_name, fig=fig)
     if show:
@@ -99,7 +99,7 @@ def ch_psd_subplots(
         raw_rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
         ch_psd: mne.time_frequency.Spectrum,
         cid: str | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         test: bool = False,
         show: bool = False,
         save: bool = False,
@@ -116,12 +116,12 @@ def ch_psd_subplots(
             fig = psd_subplots(ch_psd, chs, nrows, ncols, test=test)
 
             if save:
-                assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
+                assert pid is not None, "Participant ID (pid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-                real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
                 file_name = f'{file_name_pref}_psd_subplots' if file_name_pref is not None else 'psd_subplots'
                 file_name += f"_{brain_region}"
-                save_path = get_outputs_path() / 'PSD' / sid / real_cid
+                save_path = get_outputs_path() / 'PSD' / pid / real_cid
                 save_figure(save_path, file_name, fig=fig, dpi=1200)
             if show:
                 fig.show()
@@ -133,7 +133,7 @@ def ch_psd_overlap(
         raw_rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
         ch_psd: mne.time_frequency.Spectrum,
         cid: str | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         show: bool = False,
         save: bool = False,
         file_name_pref: str = None,
@@ -142,11 +142,11 @@ def ch_psd_overlap(
         fig = ch_psd.plot(picks=raw_rec.ch_names, average=False, show=False)
 
         if save:
-            assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
+            assert pid is not None, "Participant ID (pid) can't be None with save=True (when data is to save)"
             assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
             file_name = f'{file_name_pref}_psd_overlap' if file_name_pref is not None else 'psd_overlap'
-            save_path = get_outputs_path() / 'PSD' / sid / real_cid
+            save_path = get_outputs_path() / 'PSD' / pid / real_cid
             save_figure(save_path, file_name, fig=fig)
         if show:
             fig.show()
@@ -157,7 +157,7 @@ def ch_psd_overlap(
 def ics_psd_subplots(
         ica_psd: mne.time_frequency.Spectrum,
         cid: str | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         test: bool = False,
         show: bool = False,
         save: bool = False,
@@ -179,14 +179,14 @@ def ics_psd_subplots(
             fig = psd_subplots(ica_psd, ics, nrows, ncols, test=test)
 
             if save:
-                assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
+                assert pid is not None, "Participant ID (pid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
                 n_components = ica_psd.info['nchan']
-                real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
                 file_name = 'subplots'
                 file_name += f"_{file_name_suff}" if file_name_suff is not None else ''
                 file_name += f"_{group}" if len(grouped_ics.keys()) > 1 else ''
-                save_path = get_outputs_path() / 'PSD' / sid / real_cid / 'ICs' / f'{n_components}_com'
+                save_path = get_outputs_path() / 'PSD' / pid / real_cid / 'ICs' / f'{n_components}_com'
                 save_figure(save_path, file_name, fig=fig)
             if show:
                 fig.show()
@@ -309,7 +309,7 @@ def compare_psds(
 def plot_evk_from_df(
         evk_df: pd.DataFrame,
         cat_col: str,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = False,
         save: bool = False,
@@ -343,8 +343,8 @@ def plot_evk_from_df(
 
         if save:
             file_name = 'evk_traces.png'
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = get_outputs_path() / 'Evk' / sid / real_cid
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = get_outputs_path() / 'Evk' / pid / real_cid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
@@ -353,7 +353,7 @@ def plot_evk_from_df(
 
 def plot_evk_by_cat(
         recs_dict: dict,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = False,
         save: bool = False,
@@ -401,9 +401,9 @@ def plot_evk_by_cat(
         fig.tight_layout()
 
         if save:
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
             file_name = 'evk_traces.png'
-            save_path = get_outputs_path() / 'Evk' / sid / real_cid
+            save_path = get_outputs_path() / 'Evk' / pid / real_cid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
@@ -438,7 +438,7 @@ def plot_psd_avg(
 
 def plot_psd_avg_by_cat(
         psd_avg_dict: dict[np.ndarray, np.ndarray, np.ndarray],
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = False,
         save: bool = False,
@@ -448,7 +448,7 @@ def plot_psd_avg_by_cat(
     """
     This function plots power spectra of different types/categories in different subplots each
     :param psd_avg_dict:
-    :param sid:
+    :param pid:
     :param cid:
     :param show:
     :param save:
@@ -491,9 +491,9 @@ def plot_psd_avg_by_cat(
             ax.set_xlabel('Frequency [Hz]')
 
         if save:
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
             file_name = 'psds_by_epo_type.png'
-            save_path = get_outputs_path() / 'PSD' / sid / real_cid
+            save_path = get_outputs_path() / 'PSD' / pid / real_cid
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
@@ -559,7 +559,7 @@ def compare_epo_psd(
                 ax = plot_psd_avg(psd, sem, freqs, show=False, ax=ax, label=label, color=color)
                 ax.set_title(cid)
 
-        # # If we are comparing epochs-length: the last subplot put the average PSD across subjects and conditions
+        # # If we are comparing epochs-length: the last subplot put the average PSD across participants and conditions
         # if super_col == 'epo_len':
         #     for lvl, lvl_df in df.groupby(super_col):
         #         psd_avg = lvl_df.groupby(['freq'])['pw'].mean().values
@@ -571,7 +571,7 @@ def compare_epo_psd(
         # Figure customizations
         fig.legend()  #loc='center right', bbox_to_anchor=(0.52, 0.7))
         suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
-        title_sids = 'Average across subjects' if plot_subj.startswith('average') else f"Subject {plot_subj}"
+        title_sids = 'Average across participants' if plot_subj.startswith('average') else f"Participant {plot_subj}"
         fig.suptitle(f"{suptitle}\n{title_sids}")
         fig.supylabel(r'log(Power [$\mu$V])')
         fig.supxlabel('Frequency [Hz]')
@@ -595,7 +595,7 @@ def compare_band_metric(
         save: bool = False,
 ):
     """
-    This function plots values of an oscillatory-band metric in an EEG band overlapping different subjects and using
+    This function plots values of an oscillatory-band metric in an EEG band overlapping different participants and using
     subplots for different stimulation conditions.
     :param df:
     :param metric_name: name of the oscillatory-band metric
@@ -615,13 +615,13 @@ def compare_band_metric(
         fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols * cm, 10 * nrows * cm), sharey=True, sharex=True)
         _ = plot_band_metric_by_cat(df, cat_col='cond', metric_name='metric', show=False, axes=axes)
 
-        # If we are comparing epochs-length, in the last subplot put the average PSD across subjects and conditions
+        # If we are comparing epochs-length, in the last subplot put the average PSD across participants and conditions
         if super_col == 'epo_len':
             axes[-1] = plot_band_metric(df, axes[-1], metric_name, show=False, legend=False)
             axes[-1].set_title('Average across Conditions')
 
         suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
-        sids = df['sid'].unique()
+        pids = df['pid'].unique()
         title_sids = 'Absolute band-power' if metric_name == 'abs_pw' else ('Relative band-power' if metric_name == 'rel_pw' else 'SNR')
         fig.suptitle(f"{suptitle}\n{title_sids}")
         ylabel = r'log(Power [$\mu$V])' if metric_name != 'osc_snr' else 'SNR'
@@ -630,7 +630,7 @@ def compare_band_metric(
         fig.tight_layout()
 
         if save:
-            save_path = get_outputs_path() / 'PSD' if len(sids) > 1 else get_outputs_path() / 'PSD' / sids[0]
+            save_path = get_outputs_path() / 'PSD' if len(pids) > 1 else get_outputs_path() / 'PSD' / pids[0]
             file_name = f'{metric_name}_{super_col}.png'
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
@@ -792,7 +792,7 @@ def plot_muscle_art(
 def plot_preprocessing_result(
         raw_before: mne.io.BaseRaw,
         raw_after: mne.io.BaseRaw,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = False,
         save: bool = False,
@@ -822,8 +822,8 @@ def plot_preprocessing_result(
         axs[1, 1].set_title('Preprocessed data - Single chs')
 
         if save:
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = get_outputs_path() / 'PSD' / sid / real_cid
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = get_outputs_path() / 'PSD' / pid / real_cid
             file_name = 'prepro_result.png'
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:
@@ -835,7 +835,7 @@ def plot_preprocessing_result(
 def plot_schematic_epo_def(
         behav_events_df: pd.DataFrame,
         eeg_events_df: pd.DataFrame,
-        sid: str | None = None,
+        pid: str | None = None,
         show: bool = False,
         save: bool = False,
 ) -> None:
@@ -887,8 +887,8 @@ def plot_schematic_epo_def(
             fig.tight_layout()
 
             if save:
-                real_cid = reveal_cid(sid, block_n=int(block_n))
-                save_path = get_outputs_path() / 'Epo' / sid / real_cid
+                real_cid = reveal_cid(pid, block_n=int(block_n))
+                save_path = get_outputs_path() / 'Epo' / pid / real_cid
                 file_name = f'block{block_n}_trials_epoching.png'
                 save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
             if show:
@@ -1027,8 +1027,8 @@ def compare_found_peaks(
         fig.tight_layout()
 
         if save:
-            sids = df['sid'].unique()
-            save_path = get_outputs_path() / 'PSD' if len(sids) > 1 else get_outputs_path() / 'PSD' / sids[0]
+            pids = df['pid'].unique()
+            save_path = get_outputs_path() / 'PSD' if len(pids) > 1 else get_outputs_path() / 'PSD' / pids[0]
             file_name = 'found_peaks.png'
             save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
         if show:

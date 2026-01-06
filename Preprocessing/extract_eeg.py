@@ -17,7 +17,7 @@ EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
 
 def get_all_epo_objects(
         raw_rec: mne.io.BaseRaw | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         load: bool = False,
         save: bool = False,
@@ -26,7 +26,7 @@ def get_all_epo_objects(
         epo_types: list | None = None,
 ) -> dict:
     if save or load:
-        assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
+        assert pid is not None, "Participant ID (pid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
     epo_by_type = {}
     if cid.startswith('RS'):
@@ -40,7 +40,7 @@ def get_all_epo_objects(
                 f"\n\n{epo_type = }\n\n"
             )
 
-        epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
+        epo_rec = get_epo_rec(epo_type, pid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
         epo_by_type[epo_type] = epo_rec
 
     return epo_by_type
@@ -48,7 +48,7 @@ def get_all_epo_objects(
 
 def get_epo_rec(
         epo_type: str,
-        sid: str,
+        pid: str,
         cid: str,
         raw_rec: mne.io.BaseRaw | None = None,
         load: bool = True,
@@ -61,14 +61,14 @@ def get_epo_rec(
         raise ValueError(f"Invalid epo_type: {epo_type!r}. Expected one of {EPO_TYPES}.")
 
     if load:
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
         file_name = f'{real_cid}_{epo_type}-epo.fif' if not epo_type.startswith('RS') else f'{real_cid}-epo.fif'
-        files_path = get_eeg_path() / 'Epo' / sid / file_name
+        files_path = get_eeg_path() / 'Epo' / pid / file_name
         try:
             epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False)
             return epo_rec_clean
         except FileNotFoundError:
-            print(f'\nFile {file_name} not found for subject {sid} - potentially not existing \n\t--> returning None')
+            print(f'\nFile {file_name} not found for participant {pid} - potentially not existing \n\t--> returning None')
             return None
     else:
         assert raw_rec is not None, "Raw recording (raw_rec_start can't be None with the current save/load parameters."
@@ -77,7 +77,7 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec)
 
         elif epo_type in ['ContMov', 'Static', 'MovOn']:
-            epo_def = get_epo_def(sid, cid) if epo_def_df is None else epo_def_df
+            epo_def = get_epo_def(pid, cid) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         else:  # if epo_type == 'RS':
@@ -94,9 +94,9 @@ def get_epo_rec(
                 epo_rec_clean = None
             else:
                 if save:
-                    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                    real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
                     file_name = f'{real_cid}-epo.fif' if epo_type.startswith('RS') else f'{real_cid}_{epo_type}-epo.fif'
-                    files_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+                    files_path = set_for_save(get_eeg_path() / 'Epo' / pid) / file_name
                     epo_rec_clean.save(files_path, overwrite=True)
             return epo_rec_clean
 
@@ -161,15 +161,15 @@ def get_rs_epochs(
 
 
 def get_epo_def(
-        sid: str,
+        pid: str,
         cid: str,
 ) -> pd.DataFrame:
     file_name = 'eeg_epochs.csv'
-    file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+    file_path = set_for_save(get_eeg_path() / 'Epo' / pid) / file_name
     epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID
-    block_n = int(cid[-1]) if sid != '02' else int(reveal_cid(sid, cid)[-1])
+    block_n = int(cid[-1]) if pid != '02' else int(reveal_cid(pid, cid)[-1])
     epo_table_block = epo_table[epo_table['RetrievalBlock'] == block_n]
     return epo_table_block
 
@@ -251,12 +251,12 @@ def get_epo_type_id(
 
 
 def get_retrieval_raw_rec(
-        sid: str,
+        pid: str,
         cid: str,
         verbose: bool = True,
 ) -> mne.io.BaseRaw:
     file_name = f'{cid}_final_raw.fif'
-    file_path = get_eeg_path() / '03_ica' / sid / file_name
+    file_path = get_eeg_path() / '03_ica' / pid / file_name
     raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
     # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)
@@ -281,13 +281,13 @@ def get_retrieval_raw_rec(
 
 
 def get_raw_to_epoch(
-        sid: str,
+        pid: str,
         cid: str,
 ) -> mne.io.BaseRaw:
     if cid.startswith('RS'):
-        return basic_preproc_raw(sid, cid, load=True, save=False, verbose=False)
+        return basic_preproc_raw(pid, cid, load=True, save=False, verbose=False)
     else:
-        return get_retrieval_raw_rec(sid, cid, verbose=True)
+        return get_retrieval_raw_rec(pid, cid, verbose=True)
 
 
 def task_bl_corr(

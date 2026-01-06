@@ -8,16 +8,16 @@ SEGMENT_EPOCHS = True
 
 
 def get_times_retrieval_phases(
-        sid: str,
+        pid: str,
 ) -> dict[int: tuple[float, float]]:
     """
     Retrieve start and end times of each retrieval phase, based on TaskLog.txt
-    :param sid: subject ID
+    :param pid: participant ID
     :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
     retrieval_starts_to_check = []
     file_name = 'TaskLog.txt'
-    file_path = get_behav_path() / sid / file_name
+    file_path = get_behav_path() / pid / file_name
     with open(file_path, 'r') as f:
         times_by_retrieval_phase = {}
         block_n = 1
@@ -34,18 +34,18 @@ def get_times_retrieval_phases(
 
     if retrieval_starts_to_check != sorted(retrieval_starts_to_check):
         warnings.warn(
-            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
+            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {pid = } ### \n\n')
 
     return times_by_retrieval_phase
 
 
 def get_trace_df(
-        sid: str,
+        pid: str,
 ) -> pd.DataFrame:
     tracelog = []
 
     file_name = 'TraceLog.txt'
-    file_path = get_behav_path() / sid / file_name
+    file_path = get_behav_path() / pid / file_name
     with open(file_path, 'r') as f:
         for raw in f:
             line = raw.strip()
@@ -112,17 +112,17 @@ def get_trace_df(
     # Final check
     if df['time'].tolist() != sorted(df['time']):
         warnings.warn(
-            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
+            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {pid = } ### \n\n')
 
     return df
 
 
 def get_retrieval_df(
-        sid: str,
+        pid: str,
 ) -> pd.DataFrame:
 
     file_name = 'RetrievalLog.txt'
-    file_path = get_behav_path() / sid / file_name
+    file_path = get_behav_path() / pid / file_name
     df = pd.read_csv(
         file_path,
         sep=',',
@@ -151,7 +151,7 @@ def get_retrieval_df(
 
 
 def extract_behav_events(
-        sid: str,
+        pid: str,
         retrieval_times: dict[int: tuple[float, float]],
         retrieval_df: pd.DataFrame,
         trace_df: pd.DataFrame,
@@ -170,14 +170,14 @@ def extract_behav_events(
                                                                  'endtime'] <= retr_end)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
 
         # Extract stimulation condition of the block
-        condition = block_n  #get_block_stim(sid, block_n)
+        condition = block_n  #get_block_stim(pid, block_n)
 
         # Iterate over trials (rows) of the block
         for row_idx, trial_row in block_trials.iterrows():
             start, end = trial_row['starttime'], trial_row['endtime']
             trial_n = trial_row['Trial']
 
-            trial_trace_df = select_trial_df(sid, block_n, trace_df, start, end)
+            trial_trace_df = select_trial_df(pid, block_n, trace_df, start, end)
 
             # Create new column state; set to Moving when there are values in x and y, otherwise to Static
             trial_trace_df['state'] = trial_trace_df.apply(
@@ -236,14 +236,14 @@ def extract_behav_events(
 
     if save:
         file_name = 'behav_events.csv'
-        file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+        file_path = set_for_save(get_eeg_path() / 'Epo' / pid) / file_name
         events_df.to_csv(file_path, index=False)
 
     return events_df
 
 
 def select_trial_df(
-        sid: str,
+        pid: str,
         block_n: int,
         trace_df: pd.DataFrame,
         trial_start: float,
@@ -251,7 +251,7 @@ def select_trial_df(
 ):
     block_trace_df = trace_df.copy()
 
-    if sid == '05':
+    if pid == '05':
         dt_full = trace_df['time'].diff()
         reset_indices = dt_full[dt_full < 0].index
         if len(reset_indices) > 0:
@@ -346,7 +346,7 @@ def segment_epoch(
 
 def define_eeg_epochs(
         events_df,
-        sid: str,
+        pid: str,
         save: bool = False,
         verbose: bool = False,
         segment_epochs: bool = SEGMENT_EPOCHS,
@@ -377,7 +377,7 @@ def define_eeg_epochs(
                 # across blocks/stim. condition, while EEG aren't so their times always start from 0)
                 abs_start, abs_end, duration = row['StateStart'], row['StateEnd'], row['Duration']
                 block_n = row['RetrievalBlock']
-                retrieval_start, retrieval_end = get_times_retrieval_phases(sid=sid)[block_n]
+                retrieval_start, retrieval_end = get_times_retrieval_phases(pid=pid)[block_n]
                 state_start = abs_start - retrieval_start
                 if verbose:
                     print(
@@ -491,7 +491,7 @@ def define_eeg_epochs(
 
     if save:
         file_name = 'eeg_epochs.csv'
-        file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / file_name
+        file_path = set_for_save(get_eeg_path() / 'Epo' / pid) / file_name
         events_df.to_csv(file_path, index=False)
 
     return events_df

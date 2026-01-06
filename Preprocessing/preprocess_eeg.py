@@ -19,7 +19,7 @@ from utils.gen_utils import set_for_save, save_figure, plot_context, SEED, get_t
 
 
 def load_raw(
-        sid: str,
+        pid: str,
         cid: str,
         annotated_bads: bool,
         test: bool = False,
@@ -27,7 +27,7 @@ def load_raw(
 ) -> mne.io.BaseRaw | None:
     """
 
-    :param sid: participant ID
+    :param pid: participant ID
     :param cid: condition ID
     :param annotated_bads:
     :param test:
@@ -35,8 +35,8 @@ def load_raw(
     :return:
     """
     if annotated_bads:
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        file_path = f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawAnnotated'
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        file_path = f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawAnnotated'
         file_name = f'{real_cid}_annot-raw.fif'
         raw_rec = mne.io.read_raw_fif(f'{file_path}/{file_name}', preload=True)
 
@@ -48,7 +48,7 @@ def load_raw(
         )
     else:
         # Load data
-        raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
+        raw_rec = mne.io.read_raw_brainvision(vhdr_fname=f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawRecorded/{cid}.vhdr', preload=True)
 
         # Make sure this recording does not contain 'bad' annotations
         assert not raw_rec.info['bads'], '\n\n#### Some channels are already set as bad!! ####\n\n'
@@ -99,7 +99,7 @@ def annot_raw_manual(
         bad_chs: list | None = None,
         bad_seg_starts: list | None = None,
         bad_seg_lens: list | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         save: bool = False,
 ) -> mne.io.BaseRaw | None:
@@ -109,7 +109,7 @@ def annot_raw_manual(
     :param bad_chs:
     :param bad_seg_starts:
     :param bad_seg_lens:
-    :param sid: participant ID
+    :param pid: participant ID
     :param cid: condition ID
     :param load:
     :param save:
@@ -134,8 +134,8 @@ def annot_raw_manual(
     )
 
     if save:
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawAnnotated')
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawAnnotated')
         annot_raw_rec.save(f'{save_path}/{real_cid}_annot-raw.fif', overwrite=True)
 
     return annot_raw_rec
@@ -184,7 +184,7 @@ def prepro_for_ica(
     :param raw_rec:
     :param muscle_threshold: z-score above which a segment is considered a muscle artifact; set it optimally by
     looking at the plot.
-    :param sid:
+    :param pid:
     :param cid:
     :param show:
     :param save:
@@ -217,7 +217,7 @@ def prepro_for_ica(
 
 
 def get_ica(
-        sid: str,
+        pid: str,
         cid: str,
         raw_rec: mne.io.BaseRaw,
         n_components_based_on_var: bool = False,
@@ -231,8 +231,8 @@ def get_ica(
 
     if load:
         assert n_components is not None, "Number of components (n_components) can't be None with the current save/load parameters."
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        fitted_ica = mne.preprocessing.read_ica(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        fitted_ica = mne.preprocessing.read_ica(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_ica.fif')
     else:
 
         # Define components number
@@ -256,8 +256,8 @@ def get_ica(
 
         if save:
             n_components = fitted_ica.n_components_
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/ICA/{real_cid}/{n_components}_comp')
             fitted_ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return fitted_ica, ica_prepro_raw
@@ -266,20 +266,20 @@ def get_ica(
 def get_ica_sources(
         fitted_ica: mne.preprocessing.ica.ICA,
         raw_rec: mne.io.BaseRaw,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         load: bool = False,
         save: bool = False,
 ) -> mne.io.BaseRaw:
     n_components = fitted_ica.n_components_
     if load:
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-        ica_sources = mne.io.Raw(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
+        real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+        ica_sources = mne.io.Raw(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/ICA/{real_cid}/{n_components}_comp/{real_cid}_icsources-raw.fif', preload=True)
     else:
         ica_sources = fitted_ica.get_sources(raw_rec)
         if save:
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica_sources.save(f'{save_path}/{real_cid}_icsources-raw.fif', overwrite=True)
 
     return ica_sources
@@ -288,7 +288,7 @@ def get_ica_sources(
 def plot_ics(
         ica: mne.preprocessing.ica.ICA,
         raw_rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         test: bool = False,
         show: bool = False,
@@ -303,8 +303,8 @@ def plot_ics(
     for n_fig, topo_fig in enumerate(topo_figs):
         if save:
             n_components = ica.n_components_
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = f'../Outputs/ICA/{pid}/{real_cid}/{n_components}_comp'
             save_figure(save_path, f'topos_{n_fig:02}.png', fig=topo_fig)
         if show:
             plt.show()
@@ -333,7 +333,7 @@ def get_eyes_ics(
         ica: mne.preprocessing.ica.ICA,
         raw_rec: mne.io.BaseRaw,
         arbitrary_eyes_ics: list | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = True,
         save: bool = False,
@@ -367,8 +367,8 @@ def get_eyes_ics(
 
         if save:
             n_components = ica.n_components_
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = f'../Outputs/ICA/{pid}/{real_cid}/{n_components}_comp'
             if fig2 is not None:
                 save_figure(save_path, 'eyes_ch_corrs.png', fig=fig2)
             file_name_suff = '_arbitrary' if arbitrary_eyes_ics else ''
@@ -393,7 +393,7 @@ def get_muscle_ics(
         ica: mne.preprocessing.ica.ICA,
         raw_rec: mne.io.BaseRaw,
         arbitrary_muscle_ics: list | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = True,
         save: bool = False,
@@ -420,8 +420,8 @@ def get_muscle_ics(
 
         if save:
             n_components = ica.n_components_
-            real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-            save_path = f'../Outputs/ICA/{sid}/{real_cid}/{n_components}_comp'
+            real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+            save_path = f'../Outputs/ICA/{pid}/{real_cid}/{n_components}_comp'
             if fig2 is not None:
                 save_figure(save_path, 'muscle_ch_corrs.png', fig=fig2)
             file_name_pref = '_arbitrary' if arbitrary_muscle_ics else ''
@@ -444,14 +444,14 @@ def find_bad_ics(
         raw_rec: mne.io.BaseRaw,
         arbitrary_eyes_ics: list | None = None,
         arbitrary_muscle_ics: list | None = None,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         show: bool = True,
         save: bool = False,
 ) -> np.ndarray:
     
-    eyes_ics = get_eyes_ics(ica, raw_rec, arbitrary_eyes_ics, sid, cid, save=save, show=show)
-    muscle_ics = get_muscle_ics(ica, raw_rec, arbitrary_muscle_ics, sid, cid, save=save, show=show)
+    eyes_ics = get_eyes_ics(ica, raw_rec, arbitrary_eyes_ics, pid, cid, save=save, show=show)
+    muscle_ics = get_muscle_ics(ica, raw_rec, arbitrary_muscle_ics, pid, cid, save=save, show=show)
 
     bad_ics = np.unique(eyes_ics + muscle_ics)
     tot_cis = ica.n_components
@@ -465,7 +465,7 @@ def apply_ica(
         ica: mne.preprocessing.ica.ICA,
         rec_start: mne.io.BaseRaw,
         ics_to_exclude: list,
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         load: bool = False,
         save: bool = False,
@@ -474,7 +474,7 @@ def apply_ica(
 
     :param ica:
     :param rec_start:
-    :param sid:
+    :param pid:
     :param cid:
     :param ics_to_exclude:
     :param load:
@@ -482,10 +482,10 @@ def apply_ica(
     :return:
     """
     if save or load:  # Export cleaned data
-        assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
+        assert pid is not None, "Participant ID (pid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
-    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawClean'
-    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawClean'
+    real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
     file_name = f'{real_cid}_iclean-raw.fif'
     if load:
         clean_rec = mne.io.Raw(f'{file_path}/{file_name}', preload=True)
@@ -502,7 +502,7 @@ def apply_ica(
 
             # Export ICA with bad component(s) marked
             n_components = ica.n_components_
-            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/ICA/{real_cid}/{n_components}_comp')
+            save_path = set_for_save(f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/ICA/{real_cid}/{n_components}_comp')
             ica.save(f'{save_path}/{real_cid}_ica.fif', overwrite=True)
 
     return clean_rec
@@ -571,32 +571,32 @@ def vis_and_set_art_chs(
 
 
 def load_bad_chs(
-    sid: str,
+    pid: str,
     cid: str,
 ):
     """
 
-    :param sid:
+    :param pid:
     :param cid:
     :return:
     """
-    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawClean'
+    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawClean'
     return np.loadtxt(f'{file_path}/{cid}_bad_channels', delimiter=',', dtype=str)
 
 
 def export_bad_chs(
         data: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
-        sid: str,
+        pid: str,
         cid: str,
 ):
     """
 
     :param data:
-    :param sid:
+    :param pid:
     :param cid:
     :return:
     """
-    save_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/data/{get_exp_phase()}/{sid}/eeg/RawClean'
+    save_path = f'/Volumes/My Passport/SpaNav/Sophie_backup/data/{get_exp_phase()}/{pid}/eeg/RawClean'
     bad_channels = data.info['bads']
     np.savetxt(f'{save_path}/{cid}_bad_channels', bad_channels, delimiter=',', fmt='%s')
     print(
@@ -605,7 +605,7 @@ def export_bad_chs(
 
 
 def basic_preproc_raw(
-        sid: str | None = None,
+        pid: str | None = None,
         cid: str | None = None,
         raw_rec_start: mne.io.BaseRaw | None = None,
         load: bool = True,
@@ -613,16 +613,16 @@ def basic_preproc_raw(
         verbose: bool = True,
 ) -> mne.io.BaseRaw | None:
     if save or load:
-        assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
+        assert pid is not None, "Participant ID (pid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
-    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
-    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{sid}/eeg/RawPreprocessed'
+    real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
+    file_path = f'{get_main_path()}/data/{get_exp_phase()}/{pid}/eeg/RawPreprocessed'
     file_name = f'{real_cid}-raw.fif'
     if load:
         try:
             raw_rec_end = mne.io.read_raw_fif(f'{file_path}/{file_name}', preload=True, verbose=verbose)
         except FileNotFoundError:
-            print(f'File {file_name} not found for subject {sid} \n\t --> returning None')
+            print(f'File {file_name} not found for participant {pid} \n\t --> returning None')
             return None
     else:
         assert raw_rec_start is not None, "data can't be None with load=False (when data is to process)"

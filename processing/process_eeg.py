@@ -68,15 +68,15 @@ def get_psd_df(
     if load:
         file_name = 'psd_df_log.csv' if log else 'psd_df_lin.csv'
         file_path = set_for_save(get_tables_path()) / file_name
-        psd_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        psd_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
-        sids = get_sids(test=test)
+        pids = get_sids(test=test)
         df_rows = []
-        for sid in sids:
+        for pid in pids:
 
-            epo_path = get_eeg_path() / 'Epo' / sid
+            epo_path = get_eeg_path() / 'Epo' / pid
             sid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
-            raw_path = get_eeg_path() / '03_ica' / sid
+            raw_path = get_eeg_path() / '03_ica' / pid
             sid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
             sid_files = sid_raw_files + sid_epo_files
 
@@ -127,7 +127,7 @@ def get_psd_df(
                 # Define rows of the df (one row for each frequency-point of the psd
                 for freq, pw, std in zip(freqs, psd_avg, psd_std):
                     df_rows.append({
-                        'sid': sid,
+                        'pid': pid,
                         'cond': cond,
                         'block': block_n,
                         'epo_type': epo_type,
@@ -138,7 +138,7 @@ def get_psd_df(
                     })
 
         psd_df = pd.DataFrame(df_rows)
-        psd_df['sid'] = psd_df['sid'].astype('str')
+        psd_df['pid'] = psd_df['pid'].astype('str')
 
         assert (psd_df['freq'].unique() == list(range(fmin, fmax+1))).all()
 
@@ -158,14 +158,14 @@ def get_psd_avg_df(
     if load:
         file_name = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
         file_path = set_for_save(get_tables_path()) / file_name
-        psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
         df_subj = psd_df.groupby(
-            ['sid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
-            sid=("sid", 'first'),
+            ['pid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
+            pid=("pid", 'first'),
             freq=("freq", 'first'),
             pw_avg=('pw_avg', 'mean'),
         )
@@ -174,7 +174,7 @@ def get_psd_avg_df(
             # Convert in log space
             df_subj['pw_avg'] = np.log10(df_subj['pw_avg'])
 
-        # Then average PSD of the same epoch-type and condition across different subjects
+        # Then average PSD of the same epoch-type and condition across different participants
         psd_avg_df = df_subj.groupby(
             ['cond', 'epo_type', 'freq'], as_index=False).agg(
             freq=("freq", 'first'),
@@ -182,7 +182,7 @@ def get_psd_avg_df(
             pw_std=('pw_avg', 'std'),
             N=('pw_avg', 'count'),
         )
-        psd_avg_df.loc[psd_avg_df["N"] == 1, "pw_std"] = 0.0  # replace with zeros the NaNs appearing as std if there's only one subject
+        psd_avg_df.loc[psd_avg_df["N"] == 1, "pw_std"] = 0.0  # replace with zeros the NaNs appearing as std if there's only one participant
 
         raw = psd_avg_df[psd_avg_df["epo_type"] == "Raw"]
         grp_to_check = raw.groupby("cond")["N"].agg(["min", "max"])
@@ -203,7 +203,7 @@ def get_band_metrics_df(
     if load:
         file_name = 'band_metrics_df.csv'
         file_path = set_for_save(get_tables_path()) / file_name
-        osc_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        osc_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
         psd_df = get_psd_df(test=test, log=False)  # load power spectra in linear scale
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
@@ -211,7 +211,7 @@ def get_band_metrics_df(
 
         for epo_type, single_epo_type_df in psd_df.groupby('epo_type'):
             for cond, single_cond_df in single_epo_type_df.groupby('cond'):
-                for sid, single_sid_df in single_cond_df.groupby('sid'):
+                for pid, single_sid_df in single_cond_df.groupby('pid'):
 
                     # Average first across blocks of the same condition (within each participant)
                     mean_psd_df = (
@@ -232,7 +232,7 @@ def get_band_metrics_df(
 
                         # Define rows of the df
                         df_rows.append({
-                            'sid': sid,
+                            'pid': pid,
                             'cond': cond,
                             'epo_type': epo_type,
                             'band': band,
@@ -244,7 +244,7 @@ def get_band_metrics_df(
                         })
 
         osc_df = pd.DataFrame(df_rows)
-        osc_df['sid'] = osc_df['sid'].astype('str')
+        osc_df['pid'] = osc_df['pid'].astype('str')
 
         if save:
             file_name = 'band_metrics_df.csv'

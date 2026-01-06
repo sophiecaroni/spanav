@@ -141,23 +141,23 @@ def get_sids(
     """
     raw_dir = get_eeg_path() / '00_raw'
     rec_folders = os.listdir(raw_dir)
-    sids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.'))])
-    return sids if not test else [sids[0]]
+    pids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.'))])
+    return pids if not test else [pids[0]]
 
 
 def get_conds(
-        sid: str,
+        pid: str,
         task: bool,
         test: bool = False,
 ) -> list[str]:
     """
 
-    :param sid:
+    :param pid:
     :param task:
     :param test:
     :return:
     """
-    if sid == '02':
+    if pid == '02':
         if task:
             return ['task_HF'] if test else [
                 'task_HF',
@@ -169,7 +169,7 @@ def get_conds(
                 'RS_EO',
                 'RS_EC'
             ]
-    elif sid == '03':
+    elif pid == '03':
         if task:
             return ['task_HF'] if test else [
                 'task_HF',
@@ -194,18 +194,18 @@ def get_conds(
 
 
 def get_sid_cids(
-        sid: str,
+        pid: str,
         test: bool = False,
 ) -> list[str]:
     """
 
-    :param sid:
+    :param pid:
     :param task:
     :param test:
     :return:
     """
     cids = []
-    raw_dir = get_eeg_path() / '03_ica' / sid
+    raw_dir = get_eeg_path() / '03_ica' / pid
     sid_files = os.listdir(raw_dir)
     for file in sid_files:
         if file.endswith('final_raw.fif'):
@@ -219,17 +219,17 @@ def get_sid_cids(
 
 
 def get_sid_cid_from_block(
-        sid: str,
+        pid: str,
         block_n: int | str,
 ) -> str:
     """
 
-    :param sid:
+    :param pid:
     :param block_n:
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    stim_file_path = get_eeg_path() / '00_raw' / sid / 'stimulations.xlsx'
+    stim_file_path = get_eeg_path() / '00_raw' / pid / 'stimulations.xlsx'
     conv_table = pd.read_excel(stim_file_path)
     block_str_variants = [f'block{block_n}', f'block_{block_n}']  # possible variants of how block was reported in excel file
     block_str_variants_lower = {v.lower() for v in block_str_variants}  # normalize to lower once
@@ -243,7 +243,7 @@ def get_sid_cid_from_block(
     else:
         # This runs only if the loop completes with no break
         raise ValueError(
-            f'File stimulations.xlsx of subject {sid} does not contain a valid column for block {block_n}'
+            f'File stimulations.xlsx of participant {pid} does not contain a valid column for block {block_n}'
         )
 
     conv_cell = str(conv_table.loc[0, block_str])
@@ -253,27 +253,27 @@ def get_sid_cid_from_block(
         return f'task_{match.group(0)}_{block_n}'  # group(0) returns the entire matched string
     else:
         raise ValueError(
-            f'Conversion cell for block {block_n} in stimulations.xlsx of subject {sid} does not contain a valid stimulation '
+            f'Conversion cell for block {block_n} in stimulations.xlsx of participant {pid} does not contain a valid stimulation '
             f'condition ID (contains "{conv_cell}")')
 
 
 def get_cid_with_block(
-        sid: str,
+        pid: str,
         cid: str,
 ) -> str:
     """
 
-    :param sid:
+    :param pid:
     :param cid:
     :return:
     """
-    if sid == '02':
+    if pid == '02':
         return {
             'task_HF': 'task_HF_1',
             'task_iTBS': 'task_iTBS_2',
             'task_cTBS': 'task_cTBS_3'
         }[cid]
-    elif sid == '03':
+    elif pid == '03':
         return {
             'task_HF': 'task_HF_1',
             'task_iTBS': 'task_iTBS_2',
@@ -281,14 +281,14 @@ def get_cid_with_block(
 
 
 def reveal_cid(
-        sid: str,
+        pid: str,
         cid: str | None = None,
         block_n: int | str | None = None,
         pilot: bool = PILOT,
 ):
     """
 
-    :param sid:
+    :param pid:
     :param cid:
     :param block_n:
     :param pilot:
@@ -297,48 +297,48 @@ def reveal_cid(
     if pilot:
         if cid is not None:
             if cid[-1] in ['1', '2', '3', '4', '5', '6'] or cid.startswith('RS'):
-                print(f'Condition ID of subject {sid} is already the full one: {cid}')
+                print(f'Condition ID of participant {pid} is already the full one: {cid}')
                 return cid
             else:
-                if sid == '02' or sid == '03':
-                    return get_cid_with_block(sid, cid)
+                if pid == '02' or pid == '03':
+                    return get_cid_with_block(pid, cid)
                 else:
-                    raise ValueError(f'Something is wrong here. {sid = }, {cid = }')
+                    raise ValueError(f'Something is wrong here. {pid = }, {cid = }')
         else:
-            return get_sid_cid_from_block(sid, block_n)
+            return get_sid_cid_from_block(pid, block_n)
     else:
         # Keep blinding atm
         return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
 
 
 def get_block_stim(
-        sid: str,
+        pid: str,
         block_n: int | str,
 ) -> str:
     """
 
-    :param sid:
+    :param pid:
     :param block_n:
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    cid = get_sid_cid_from_block(sid, block_n)
+    cid = get_sid_cid_from_block(pid, block_n)
     return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
 
 
 def get_ti_positions(
-        sid: str,
+        pid: str,
 ) -> list:
     """
 
-    :param sid:
+    :param pid:
     :return:
     """
 
-    stim_file_path = get_eeg_path() / '00_raw' / sid
+    stim_file_path = get_eeg_path() / '00_raw' / pid
     spanav_files = list(stim_file_path.glob('SpaNav_*.csv'))
     if len(spanav_files) != 1:
-        raise RuntimeError(f'Expected exactly one SpaNav CSV for {sid}, found {len(spanav_files)}')
+        raise RuntimeError(f'Expected exactly one SpaNav CSV for {pid}, found {len(spanav_files)}')
     conv_table = pd.read_csv(spanav_files[0], sep=';')
     eeg_ti_positions = conv_table.loc[:, 'Old channel name'].to_list()
     return eeg_ti_positions
