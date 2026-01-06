@@ -11,11 +11,18 @@
 """
 import mne
 import numpy as np
+import configparser
+
 from matplotlib import pyplot as plt
 from mne.preprocessing import ICA, create_eog_epochs, annotate_amplitude, annotate_muscle_zscore
 from visualization.vis_eeg import compare_psds, plot_muscle_art
 from utils.spectral_utils import compute_psd
-from utils.gen_utils import set_for_save, save_figure, plot_context, SEED, get_trigger_str, reveal_cid, get_main_path, get_exp_phase
+from utils.gen_utils import set_for_save, save_figure, plot_context, get_trigger_str, reveal_cid, get_main_path, get_exp_phase
+
+config = configparser.ConfigParser()
+config.read('../config.ini')
+
+SEED = config.getboolean('General', 'seed')
 
 
 def load_raw(

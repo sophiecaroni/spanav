@@ -16,11 +16,18 @@ import mne
 import pandas as pd
 import seaborn as sns
 import os
+import configparser
 from utils.gen_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region, get_epo_palette, SEED, get_outputs_path, get_eeg_path
+                             get_ti_positions, get_ch_by_region, get_epo_palette, get_outputs_path, get_eeg_path
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
+
+config = configparser.ConfigParser()
+config.read('../config.ini')
+
+SEED = config.getint('General', 'seed')
+
 
 cm = 1/2.54
 

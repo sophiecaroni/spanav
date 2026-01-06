@@ -1,10 +1,14 @@
 import warnings
 import pandas as pd
 import numpy as np
+import configparser
 
 from utils.gen_utils import set_for_save, get_eeg_path, get_behav_path
 
-SEGMENT_EPOCHS = True
+config = configparser.ConfigParser()
+config.read('../config.ini')
+
+SEGMENT_EPOCHS = config.getboolean('Processing', 'segment_epochs')
 
 
 def get_times_retrieval_phases(

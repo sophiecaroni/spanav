@@ -16,13 +16,16 @@ import mne
 import numpy as np
 import pandas as pd
 import re
+import configparser
 
 from contextlib import contextmanager
 from pathlib import Path
 
-SERVER = False
-PILOT = False
-SEED = 81025
+config = configparser.ConfigParser()
+config.read('../config.ini')
+
+PILOT = config.getboolean('General', 'pilot')
+SERVER = config.getboolean('General', 'server')
 
 
 @contextmanager
@@ -429,7 +432,7 @@ def get_tables_path(
 
 
 def get_exp_phase(
-        pilot: bool = False,
+        pilot: bool = PILOT,
 ) -> str:
     if pilot:
         return 'pilot'

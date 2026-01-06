@@ -2,17 +2,22 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
+import configparser
+
 from mne import Epochs
 from mne.epochs import EpochsFIF
-
 from preprocessing.preprocess_eeg import basic_preproc_raw
-from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_eeg_path, \
-    SEED
+from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_eeg_path
 from mne.baseline import rescale
 from autoreject import AutoReject
 
 EPO_TYPES = set(get_epo_types())
 EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
+
+config = configparser.ConfigParser()
+config.read('../config.ini')
+
+SEED = config.getboolean('General', 'seed')
 
 
 def get_all_epo_objects(
