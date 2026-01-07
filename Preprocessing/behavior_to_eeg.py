@@ -38,7 +38,7 @@ def get_times_retrieval_phases(
 
     if retrieval_starts_to_check != sorted(retrieval_starts_to_check):
         warnings.warn(
-            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {pid = } ### \n\n')
+            f'\n\n### Warning! Unusual times across blocks - possible interruption detected {pid = } ### \n\n')
 
     return times_by_retrieval_phase
 

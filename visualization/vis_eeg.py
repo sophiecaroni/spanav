@@ -635,8 +635,8 @@ def compare_band_metric(
 
         suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
         pids = df['pid'].unique()
-        title_sids = 'Absolute band-power' if metric_name == 'abs_pw' else ('Relative band-power' if metric_name == 'rel_pw' else 'SNR')
-        fig.suptitle(f"{suptitle}\n{title_sids}")
+        title_pids = 'Absolute band-power' if metric_name == 'abs_pw' else ('Relative band-power' if metric_name == 'rel_pw' else 'SNR')
+        fig.suptitle(f"{suptitle}\n{title_pids}")
         ylabel = r'log(Power [$\mu$V])' if metric_name != 'osc_snr' else 'SNR'
         fig.supylabel(ylabel)
         fig.supxlabel('Frequency bands')

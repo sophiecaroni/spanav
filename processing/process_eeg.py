@@ -92,7 +92,7 @@ def get_psd_df(
             pid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
             raw_path = get_clean_eeg_path() / pid
             pid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
-            pid_files = pid_epo_files + pid_raw_files
+            pid_files = pid_epo_files # + pid_raw_files
 
             for i, file in enumerate(pid_files):
                 if test and i > 0:
@@ -195,8 +195,6 @@ def get_psd_avg_df(
         # For each patient, average PSD of the same condition and epoch-type across different blocks
         df_subj = psd_df.groupby(
             ['pid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
-            pid=("pid", 'first'),
-            freq=("freq", 'first'),
             pw_avg=('pw_avg', 'mean'),
         )
 
@@ -207,7 +205,6 @@ def get_psd_avg_df(
         # Then average PSD of the same epoch-type and condition across different participants
         psd_avg_df = df_subj.groupby(
             ['cond', 'epo_type', 'freq'], as_index=False).agg(
-            freq=("freq", 'first'),
             pw_avg=('pw_avg', 'mean'),
             pw_std=('pw_avg', 'std'),
             N=('pw_avg', 'count'),
