@@ -229,55 +229,71 @@ def get_band_metrics_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        avg_across_epochs: bool = True,
 ) -> pd.DataFrame:
     if load:
-        file_name = 'band_metrics_df.csv'
+        file_name = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
         file_path = set_for_save(get_tables_path()) / file_name
         osc_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
-        psd_df = get_psd_df(test=test, log=False)  # load power spectra in linear scale
+        psd_df = get_psd_df(test=test, log=False, avg_across_epochs=avg_across_epochs)  # load power spectra in linear scale
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
         df_rows = []
 
-        for epo_type, single_epo_type_df in psd_df.groupby('epo_type'):
-            for cond, single_cond_df in single_epo_type_df.groupby('cond'):
-                for pid, single_sid_df in single_cond_df.groupby('pid'):
+        # Define variables within which the PSD will be computed (for each of these there will be one)
+        group_by = ['pid', 'cond', 'epo_type'] if avg_across_epochs else ['pid', 'cond', 'epo_type', 'n_epo']
+        for by_vals, grouped_df in psd_df.groupby(group_by):
 
-                    # Average first across blocks of the same condition (within each participant)
-                    mean_psd_df = (
-                        single_sid_df
-                        .groupby('freq', as_index=False)['pw_avg']
-                        .mean()
-                    )
+            # Average across blocks of the grouping_vars-combination condition (of the same epo_type, cond, and pid (and n_epo when not avg_across_epochs)
+            mean_psd_df = (
+                grouped_df
+                .groupby('freq', as_index=False)['pw_avg']
+                .mean()
+            )
 
-                    psd = mean_psd_df['pw_avg'].to_numpy()
-                    freqs = mean_psd_df['freq'].to_numpy()
-                    psd_model = model_psd(psd, freqs, max_n_peaks=3)  # limit max_n_peaks bc we only care about alpha/theta (and perhaps gamma)
+            psd = mean_psd_df['pw_avg'].to_numpy()
+            freqs = mean_psd_df['freq'].to_numpy()
+            psd_model = model_psd(psd, freqs, max_n_peaks=3)  # limit max_n_peaks bc we only care about alpha/theta (and perhaps gamma)
 
-                    for band in bands:
-                        # Detect peak
-                        band_freqs = get_band_freqs(band)
-                        pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]
-                        pk = False if np.isnan(pk_pw) else True
+            for band in bands:
 
-                        # Define rows of the df
-                        df_rows.append({
-                            'pid': pid,
-                            'cond': cond,
-                            'epo_type': epo_type,
-                            'band': band,
-                            'abs_pw': get_band_power(psd, freqs, band, rel=False),  # Compute abs power
-                            'rel_pw': get_band_power(psd, freqs, band, rel=True),  # Compute rel power
-                            'osc_snr': compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
-                            'pk': pk,
-                            'pk_pw': pk_pw,
-                        })
+                # Detect peaks
+                band_freqs = get_band_freqs(band)
+                pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]
+                pk = False if np.isnan(pk_pw) else True
 
+                if avg_across_epochs:
+                    pid, cond, epo_type = by_vals
+                else:
+                    pid, cond, epo_type, n_epo = by_vals
+
+                # Define a row of the df
+                row = dict(
+                    pid=pid,
+                    cond=cond,
+                    epo_type=epo_type,
+                    band=band,
+                    abs_pw=get_band_power(psd, freqs, band, rel=False),  # Compute abs power
+                    rel_pw=get_band_power(psd, freqs, band, rel=True),  # Compute rel power
+                    osc_snr=compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
+                    pk=pk,
+                    pk_pw=pk_pw,
+                )
+                if not avg_across_epochs:
+                    # Also add n_epo col to the row dict
+                    items = list(row.items())  # convert dict items to list of tuples
+                    items.insert(2, ('n_epo', n_epo))  # this allows to insert the new item at the preferred index
+                    row = dict(items)  # re convert to dict
+
+                df_rows.append(row)
+
+        # Create df
         osc_df = pd.DataFrame(df_rows)
         osc_df['pid'] = osc_df['pid'].astype('str')
+        osc_df.sort_values(by=['pid', 'cond'])  # sort conveniently
 
         if save:
-            file_name = 'band_metrics_df.csv'
+            file_name = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
             file_path = set_for_save(get_tables_path()) / file_name
             osc_df.to_csv(file_path)
     return osc_df
