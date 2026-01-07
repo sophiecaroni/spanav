@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_behav_events, \
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
-from utils.gen_utils import get_sid_cids, reveal_cid, save_figure, get_outputs_path
+from utils.gen_utils import get_pid_cids, reveal_cid, save_figure, get_outputs_path
 from visualization.vis_eeg import plot_evk_by_cat
 from utils.gen_utils import plot_context
 
@@ -34,7 +34,7 @@ def gen_contmov_epos(
     epos_dict = {}
     for pid in pids:
         epos_dict[pid] = {}
-        cids = get_sid_cids(pid, task=True, test=test)
+        cids = get_pid_cids(pid, task=True, test=test)
 
         for cid in cids:
             epos_dict[pid][cid] = {}
@@ -62,11 +62,11 @@ def gen_contmov_epos(
 def count_and_compare_epochs(
         epo_dict: dict,
 ) -> None:
-    for pid, sid_dict in epo_dict.items():
+    for pid, pid_dict in epo_dict.items():
         print(
             f"Participant {pid}"
         )
-        for cid, cid_dict in sid_dict.items():
+        for cid, cid_dict in pid_dict.items():
             print(
                 f"\t{cid}"
             )
@@ -84,8 +84,8 @@ def plot_contmov_epos(
         save: bool = False,
 ):
     with plot_context():
-        for pid, sid_dict in epos_dict.items():
-            for cid, epo_by_mov_def in sid_dict.items():
+        for pid, pid_dict in epos_dict.items():
+            for cid, epo_by_mov_def in pid_dict.items():
                 plot_evk_by_cat(epo_by_mov_def, pid=pid, cid=cid, show=False, save=False)
                 if save:
                     real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)

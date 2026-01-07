@@ -15,7 +15,7 @@ import pandas as pd
 import os
 
 from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
-from utils.gen_utils import get_sids, set_for_save, parse_epo_filename, parse_prepro_filename, get_tables_path, \
+from utils.gen_utils import get_pids, set_for_save, parse_epo_filename, parse_prepro_filename, get_tables_path, \
     get_eeg_path, get_clean_eeg_path
 from fooof.analysis import get_band_peak_fm
 
@@ -72,7 +72,7 @@ def get_psd_df(
         file_path = set_for_save(get_tables_path()) / file_name
         psd_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
     else:
-        pids = get_sids(test=test)
+        pids = get_pids(test=test)
         all_parts = []
         sfreq = 250
         psd_kwargs = dict(
@@ -89,12 +89,12 @@ def get_psd_df(
         for pid in pids:
 
             epo_path = get_eeg_path() / 'Epo' / pid
-            sid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
+            pid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
             raw_path = get_clean_eeg_path() / pid
-            sid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
-            sid_files = sid_epo_files  # + sid_raw_files
+            pid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
+            pid_files = pid_epo_files + pid_raw_files
 
-            for i, file in enumerate(sid_files):
+            for i, file in enumerate(pid_files):
                 if test and i > 0:
                     break
                 if file.startswith('RS'):  # ignore for the moment

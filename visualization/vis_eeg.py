@@ -584,8 +584,8 @@ def compare_epo_psd(
         # Figure customizations
         fig.legend()  #loc='center right', bbox_to_anchor=(0.52, 0.7))
         suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
-        title_sids = 'Average across participants' if plot_subj.startswith('average') else f"Participant {plot_subj}"
-        fig.suptitle(f"{suptitle}\n{title_sids}")
+        title_pids = 'Average across participants' if plot_subj.startswith('average') else f"Participant {plot_subj}"
+        fig.suptitle(f"{suptitle}\n{title_pids}")
         fig.supylabel(r'log(Power [$\mu$V])')
         fig.supxlabel('Frequency [Hz]')
         fig.tight_layout()

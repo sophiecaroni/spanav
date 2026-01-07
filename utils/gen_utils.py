@@ -134,7 +134,7 @@ def get_nrows_ncols(
     return nrows, ncols
 
 
-def get_sids(
+def get_pids(
     test: bool = False,
 ) -> list[str]:
     """
@@ -196,7 +196,7 @@ def get_conds(
             ]
 
 
-def get_sid_cids(
+def get_pid_cids(
         pid: str,
         test: bool = False,
 ) -> list[str]:
@@ -209,8 +209,8 @@ def get_sid_cids(
     """
     cids = []
     raw_dir = get_clean_eeg_path() / pid
-    sid_files = os.listdir(raw_dir)
-    for file in sid_files:
+    pid_files = os.listdir(raw_dir)
+    for file in pid_files:
         if file.endswith('final_raw.fif') or file.endswith('iclean-raw.fif') :
             cid, _, _ = parse_prepro_filename(file)
             cids.append(cid)
@@ -221,7 +221,7 @@ def get_sid_cids(
     return cids
 
 
-def get_sid_cid_from_block(
+def get_pid_cid_from_block(
         pid: str,
         block_n: int | str,
 ) -> str:
@@ -308,7 +308,7 @@ def reveal_cid(
                 else:
                     raise ValueError(f'Something is wrong here. {pid = }, {cid = }')
         else:
-            return get_sid_cid_from_block(pid, block_n)
+            return get_pid_cid_from_block(pid, block_n)
     else:
         # Keep blinding atm
         return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
@@ -325,7 +325,7 @@ def get_block_stim(
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    cid = get_sid_cid_from_block(pid, block_n)
+    cid = get_pid_cid_from_block(pid, block_n)
     return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
 
 
