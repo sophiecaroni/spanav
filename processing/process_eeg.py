@@ -104,7 +104,7 @@ def get_psd_df(
 
                 if is_epo:
                     rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
-                    cond, block_n, epo_type = parse_epo_filename(file)
+                    cond, block_n, epo_type = parse_epo_filename(file, pid=pid)
                 else:
                     rec = mne.io.read_raw_fif(raw_path / file, preload=True, verbose=False)
                     cond, block_n, epo_type = parse_prepro_filename(file)

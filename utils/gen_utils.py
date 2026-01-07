@@ -26,6 +26,7 @@ config.read('../config.ini')
 
 PILOT = config.getboolean('General', 'pilot')
 SERVER = config.getboolean('General', 'server')
+BLINDING = config.getboolean('General', 'blinding')
 
 
 @contextmanager
@@ -433,6 +434,7 @@ def get_outputs_path(
         return main_root / 'outputs'
     else:
         exp_phase = get_exp_phase()
+        print(f"\n\n\n ### {exp_phase.upper()} ### \n\n\n ")
         return main_root / 'outputs' / exp_phase
 
 
@@ -454,11 +456,13 @@ def get_exp_phase(
 def parse_epo_filename(
         filename: str,
         pilot: bool = PILOT,
+        pid: str | None = None,
 ) -> tuple[str, str | None, str]:
     """
 
     :param filename:
     :param pilot:
+    :param pid:
     :return:
     """
     if filename.startswith('RS'):
@@ -483,7 +487,15 @@ def parse_epo_filename(
         else:
             m = re.match(r".*block(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
             block_n, epo_type = m.groups()
-            cond = f'block{block_n}'
+
+            if BLINDING:
+                runned_blocks = len(get_pid_cids(pid, test=False))
+                if runned_blocks == 4:  # this is a patient (4 blocks runned)
+                    cond = 'A' if int(block_n) in (1, 4) else 'B'  # blocks 1-4 of conditions ABBA
+                else:  # this is a healthy control (6 blocks runned)
+                    cond = 'A' if int(block_n) in (1, 6) else ('B' if int(block_n) in (2, 5) else 'C')  # blocks 1-6 of conditions ABCCBA
+            else:
+                cond = reveal_cid(pid, block_n=block_n)
 
     return cond, block_n, epo_type
 
