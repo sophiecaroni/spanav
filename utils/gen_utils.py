@@ -54,7 +54,12 @@ def plot_context(
         'xtick.major.size': 2,       # Tick length
         'ytick.major.size': 2
     }
-    with plt.rc_context(rc=params):
+
+    # Other specific customizations are stored in the despine.mplstyle file
+    style_path = (Path(__file__).resolve().parent / ".." / "visualization" / "despine.mplstyle").resolve()
+
+    # Create figure applying the custom context
+    with plt.rc_context(rc=params), plt.style.context(str(style_path)):
         yield
 
 
