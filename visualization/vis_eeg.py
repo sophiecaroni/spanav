@@ -315,7 +315,7 @@ def compare_psds(
 
 def plot_evk_from_df(
         evk_df: pd.DataFrame,
-        cat_col: str,
+        subplot_col: str,
         pid: str | None = None,
         cid: str | None = None,
         show: bool = False,
@@ -326,8 +326,8 @@ def plot_evk_from_df(
     with plot_context():
 
         # Define figure structure
-        cats = evk_df[cat_col].unique()
-        nrows, ncols = get_nrows_ncols(cats)
+        groups = evk_df[subplot_col].unique()
+        nrows, ncols = get_nrows_ncols(groups)
         if axes is None:
             fig, axes = plt.subplots(nrows, ncols, figsize=(9 * ncols * cm, 7 * nrows * cm), sharey=True)
         else:
@@ -335,11 +335,11 @@ def plot_evk_from_df(
         axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
 
         # Plot one evoked-rec per subplot
-        for i, (ax, (cat, cat_df)) in enumerate(zip(axes, evk_df.groupby(cat_col))):
-            evk_lst = cat_df['evk'].to_list()
+        for i, (ax, (subplot_var, subplot_df)) in enumerate(zip(axes, evk_df.groupby(subplot_col))):
+            evk_lst = subplot_df['evk'].to_list()
             avg_evk = mne.grand_average(evk_lst) # compute average across patients
             avg_evk.plot(axes=ax, show=False, sphere=False, **kwargs)
-            ax.set_title(cat)
+            ax.set_title(subplot_var)
 
             # Customize ax labels
             row, col = divmod(i, ncols)
@@ -361,7 +361,7 @@ def plot_evk_from_df(
     return axes
 
 
-def plot_evk_by_cat(
+def plot_evk_by_grp(
         recs_dict: dict,
         pid: str | None = None,
         cid: str | None = None,
@@ -373,8 +373,8 @@ def plot_evk_by_cat(
     with plot_context():
 
         # Define figure structure
-        cats = list(recs_dict.keys())
-        nrows, ncols = get_nrows_ncols(cats)
+        groups = list(recs_dict.keys())
+        nrows, ncols = get_nrows_ncols(groups)
         if axes is None:
             fig, axes = plt.subplots(nrows, ncols, figsize=(9 * ncols * cm, 7 * nrows * cm), sharey=True)
         else:
@@ -448,7 +448,7 @@ def plot_psd_avg(
     return ax
 
 
-def plot_psd_avg_by_cat(
+def plot_psd_avg_by_grp(
         psd_avg_dict: dict[np.ndarray, np.ndarray, np.ndarray],
         pid: str | None = None,
         cid: str | None = None,
@@ -470,13 +470,13 @@ def plot_psd_avg_by_cat(
     """
     created_fig = False
     base_plot_label = kwargs.pop("label", None)
-    cats = list(psd_avg_dict.keys())
+    groups = list(psd_avg_dict.keys())
 
     with plot_context():
 
         # Define figure structure
         if axes is None:
-            nrows, ncols = get_nrows_ncols(cats)
+            nrows, ncols = get_nrows_ncols(groups)
             fig, axes = plt.subplots(nrows, ncols, figsize=(9 * ncols * cm, 7 * nrows * cm), sharey=True, sharex=True)
             created_fig = True
         else:
@@ -497,7 +497,7 @@ def plot_psd_avg_by_cat(
 
             # Plot
             if psd_avg is not None:
-                label = base_plot_label if i == 0 else None  # label only once per cat
+                label = base_plot_label if i == 0 else None  # label only once per subplot_var
                 ax = plot_psd_avg(psd_avg, psd_std, freqs, show=False, ax=ax, label=label, **kwargs)
                 ax.set_title(key)
             else:
@@ -984,14 +984,15 @@ def compare_found_peaks(
 ):
     """
 
+    :param metric_name: 
     :param df:
     :param show:
     :param save:
     :return:
     """
-    subplots_cat_col = 'cond'
+    subplot_col = 'cond'
     nrows = 1
-    ncols = len(df[subplots_cat_col].unique())
+    ncols = len(df[subplot_col].unique())
     with plot_context():
 
         # Define figure structure
@@ -999,16 +1000,16 @@ def compare_found_peaks(
         axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
 
         # Plot each band's power per subplot
-        for i, (ax, (cat, cat_df)) in enumerate(zip(axes, df.groupby(subplots_cat_col))):
+        for i, (ax, (subplot_var, subplot_df)) in enumerate(zip(axes, df.groupby(subplot_col))):
 
             legend = i == 0
 
             # Create list to define plotting order
             bands = ["theta", "alpha", "38-42"]
-            epo_types = ["Raw", "ObjPres", "Static", "MovOn", "ContMov"] if 'Raw' in cat_df['epo_type'].unique() else ["ObjPres", "Static", "MovOn", "ContMov"]
+            epo_types = ["Raw", "ObjPres", "Static", "MovOn", "ContMov"] if 'Raw' in subplot_df['epo_type'].unique() else ["ObjPres", "Static", "MovOn", "ContMov"]
 
             # Sum numer of peaks for each band and epoch-type
-            plot_df = (cat_df
+            plot_df = (subplot_df
                     .groupby(["band", "epo_type"])[metric_name]
                     .sum()
                     .unstack("epo_type", fill_value=0)
@@ -1027,7 +1028,7 @@ def compare_found_peaks(
 
             ax.set_xticks(x0 + (n_bars - 1) * bar_width / 2)
             ax.set_xticklabels(bands)
-            ax.set_title(cat)
+            ax.set_title(subplot_var)
 
             if legend:
                 ax.legend()

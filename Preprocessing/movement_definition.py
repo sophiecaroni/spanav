@@ -5,7 +5,7 @@ from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
 from utils.gen_utils import get_pid_cids, reveal_cid, save_figure, get_outputs_path
-from visualization.vis_eeg import plot_evk_by_cat
+from visualization.vis_eeg import plot_evk_by_grp
 from utils.gen_utils import plot_context
 
 warnings.filterwarnings('ignore')  # Suppress all warnings
@@ -86,7 +86,7 @@ def plot_contmov_epos(
     with plot_context():
         for pid, pid_dict in epos_dict.items():
             for cid, epo_by_mov_def in pid_dict.items():
-                plot_evk_by_cat(epo_by_mov_def, pid=pid, cid=cid, show=False, save=False)
+                plot_evk_by_grp(epo_by_mov_def, pid=pid, cid=cid, show=False, save=False)
                 if save:
                     real_cid = reveal_cid(pid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(pid, cid=cid)
                     file_name = 'mov_durations.png'
