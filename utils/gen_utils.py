@@ -573,5 +573,62 @@ def get_epo_palette(
     }
 
 
+def get_cond_palette(
+) -> dict:
+    if BLINDING or not PILOT:
+        return {
+            'A': plt.get_cmap('tab20')(18),
+            'B': plt.get_cmap('tab20')(19),
+        }
+    else:
+        return {
+            'HF': plt.get_cmap('tab20')(0),
+            'cTBS': plt.get_cmap('tab20')(2),
+            'iTBS': plt.get_cmap('tab20')(3),
+        }
+
+
+def map_epo_type_labels(
+) -> dict:
+    return {
+        'ObjPres': 'Object Presentation',
+        'MovOn': 'Movement onset',
+        'ContMov': 'Continuous movement',
+        'Static': 'Static',
+    }
+
+
+def map_metric_labels(
+
+) -> dict:
+    return {
+        'abs_pw': 'Absolute band-power',
+        'rel_pw': 'Relative band-power',
+        'osc_snr': 'FOOOF-based SNR',
+    }
+
+
+def map_metric_label(
+        metric_str: str,
+) -> str:
+    return map_metric_labels()[metric_str]
+
+
+def map_band_labels(
+
+) -> dict:
+    return {
+        'theta': 'Theta',
+        'alpha': 'Alpha',
+        '38-42': 'Narrow Gamma',
+    }
+
+
+def get_band_label(
+        metric_str: str,
+) -> str:
+    return map_metric_labels()[metric_str]
+
+
 if __name__ == '__main__':
     pass
