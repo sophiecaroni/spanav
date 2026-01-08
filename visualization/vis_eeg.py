@@ -18,7 +18,8 @@ import seaborn as sns
 import os
 import configparser
 from utils.gen_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols, reveal_cid, \
-                             get_ti_positions, get_ch_by_region, get_epo_palette, get_outputs_path, get_eeg_path
+    get_ti_positions, get_ch_by_region, get_epo_palette, get_outputs_path, get_eeg_path, get_cond_palette, \
+    map_metric_label, map_epo_type_labels, map_metric_labels
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
@@ -603,7 +604,9 @@ def compare_epo_psd(
 def compare_band_metric(
         df: pd.DataFrame,
         metric_name: str,
-        super_col: str,
+        x_by: str,
+        color_by: str,
+        facet_by: str,
         show: bool = True,
         save: bool = False,
 ):
@@ -612,7 +615,9 @@ def compare_band_metric(
     subplots for different stimulation conditions.
     :param df:
     :param metric_name: name of the oscillatory-band metric
-    :param super_col: column containing the variable used to superimpose plots
+    :param x_by: column name of the variable used to color plots
+    :param color_by: column name of the variable used to color plots
+    :param facet_by: column name of the variable used to create different subplots
     :param show:
     :param save:
     :return:
@@ -621,49 +626,50 @@ def compare_band_metric(
     df = df.copy()
     df['metric'] = np.log10(df[metric_name]) if metric_name != 'osc_snr' else df[metric_name]
 
-    n_cids = len(df['cond'].unique())
+    # n_cids = len(df['cond'].unique())
     nrows = 1
-    ncols = n_cids + 1 if super_col == 'epo_len' else n_cids  # extra col for average across conditions
-    with plot_context():
-        fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols * cm, 10 * nrows * cm), sharey=True, sharex=True)
-        _ = plot_band_metric_by_cat(df, cat_col='cond', metric_name='metric', show=False, axes=axes)
+    ncols = len(df[facet_by].unique())  # extra col for average across conditions
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=PendingDeprecationWarning)
+        with plot_context():
+            fig, axes = plt.subplots(nrows, ncols, figsize=(8 * ncols * cm, 10 * nrows * cm), sharey=True, sharex=True)
+            _ = plot_band_metric_by_grp(df, x_by=x_by, facet_by=facet_by, color_by=color_by, metric_name='metric', show=False, axes=axes)
 
-        # If we are comparing epochs-length, in the last subplot put the average PSD across participants and conditions
-        if super_col == 'epo_len':
-            axes[-1] = plot_band_metric(df, axes[-1], metric_name, show=False, legend=False)
-            axes[-1].set_title('Average across Conditions')
+            pids = df['pid'].unique()
+            suptitle = map_metric_label(metric_name)
+            fig.suptitle(f"{suptitle}")
+            ylabel = r'log(Power [$\mu$V])' if metric_name != 'osc_snr' else 'SNR'
+            fig.supylabel(ylabel)
+            xlabel = 'Frequency bands' if x_by == 'bands' else ('Extracted Epoch' if x_by == 'epo_type' else '')
+            fig.supxlabel(xlabel)
+            fig.tight_layout()
 
-        suptitle = 'Object-presentation Epochs' if super_col == 'epo_s' else ''
-        pids = df['pid'].unique()
-        title_pids = 'Absolute band-power' if metric_name == 'abs_pw' else ('Relative band-power' if metric_name == 'rel_pw' else 'SNR')
-        fig.suptitle(f"{suptitle}\n{title_pids}")
-        ylabel = r'log(Power [$\mu$V])' if metric_name != 'osc_snr' else 'SNR'
-        fig.supylabel(ylabel)
-        fig.supxlabel('Frequency bands')
-        fig.tight_layout()
-
-        if save:
-            save_path = get_outputs_path() / 'PSD' if len(pids) > 1 else get_outputs_path() / 'PSD' / pids[0]
-            file_name = f'{metric_name}_{super_col}.png'
-            save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
+            if save:
+                save_path = get_outputs_path() / 'PSD' if len(pids) > 1 else get_outputs_path() / 'PSD' / pids[0]
+                file_name = f'{metric_name}-{color_by}_hue.png'
+                save_figure(save_path, file_name, dpi=900, bbox_inches='tight')
+            if show:
+                plt.show()
+            else:
+                plt.close(fig)
 
 
-def plot_band_metric_by_cat(
+def plot_band_metric_by_grp(
         band_metric_df: pd.DataFrame,
-        cat_col: str,
+        x_by: str,
+        facet_by: str,
+        color_by: str,
         metric_name: str,
         show: bool = False,
         axes : Axes | None = None,
         **kwargs
 ):
     """
-    This function plots a metric in an EEG band of different types/categories in different subplots each
+    This function plots a metric in an EEG band of different categories in different subplots
     :param band_metric_df:
-    :param cat_col: name of column to use to group data in different subplots
+    :param x_by: column name of the variable used to color plots
+    :param color_by: column name of the variable used to color plots
+    :param facet_by: column name of the variable used to create different subplots
     :param metric_name: name of the oscillatory-band metric
     :param show:
     :param axes:
@@ -673,23 +679,23 @@ def plot_band_metric_by_cat(
     with plot_context():
 
         # Define figure structure
-        cats = band_metric_df[cat_col].unique()
+        subplots_vars = band_metric_df[facet_by].unique()
         if axes is None:
-            nrows, ncols = get_nrows_ncols(cats)
+            nrows, ncols = get_nrows_ncols(subplots_vars)
             fig, axes = plt.subplots(nrows, ncols, figsize=(9 * ncols * cm, 7 * nrows * cm), sharey=True, sharex=True)
         else:
             fig = axes.figure if isinstance(axes, Axes) else axes.flatten()[0].figure
         axes = np.atleast_1d(axes).ravel()  # wraps into an array if is an Axes object; flattens.
 
         # Plot each band's power of interest per subplot
-        for i, (ax, (cat, cat_df)) in enumerate(zip(axes, band_metric_df.groupby(cat_col))):
-            legend = i == 0
+        for i, (ax, (facet_val, facet_df)) in enumerate(zip(axes, band_metric_df.groupby(facet_by))):
+            legend = i == (len(band_metric_df[facet_by].unique()) - 1)  # only display legend on the last subplot
 
-            ax = plot_band_metric(cat_df, ax, metric_name, show=False, legend=legend, **kwargs)
-            ax.set_title(cat)
+            ax = plot_band_metric(facet_df, ax, metric_name, color_by, x_by, show=False, legend=legend, **kwargs)
+            ax.set_title(facet_val)
 
         # Customize figure
-        if len(cats) > 2:
+        if len(subplots_vars) > 2:
             fig.supylabel(r'log(Power [$\mu$V])')
             fig.supxlabel('Frequency bands')
 
@@ -702,35 +708,41 @@ def plot_band_metric(
         metric_df: pd.DataFrame,
         ax: Axes,
         metric_name: str,
+        color_by: str,
+        x_by: str,
         show: bool = False,
         legend: bool = True,
         **kwargs
 ):
     with plot_context():
-        palette = get_epo_palette()
-        custom_labels = {
-            'ContMov': 'Continuous movement',
-            'Static': 'Static',
-            'MovOn': 'Movement onset',
-            'ObjPres': 'Object Presentation',
-        }
+        palette = get_cond_palette() if color_by == 'cond' else (get_epo_palette() if color_by == 'epo_type' else 'viridis')
+        xticklabels_mapping = map_epo_type_labels() if x_by == 'epo_type' else map_metric_labels()
 
-        # Plot poin if there is only one observation, else violins/boxes
-        if (metric_df.groupby(['band', 'epo_type'])[metric_name].count() == 1).any().any():
+        # Define arbitrary order of levels on the axis
+        preferred = list(xticklabels_mapping.keys())
+        present = pd.Series(metric_df[x_by].unique())
+        band_order = [b for b in preferred if b in set(present)] + [b for b in present if b not in set(preferred)]
+
+        # Plot point if there is only one observation, else violins/boxes
+        if (metric_df.groupby([color_by, x_by])[metric_name].count() == 1).any().any():
 
             # Add some jitter to points
             jitter = 0.05  # adjust as needed
             rng = np.random.default_rng(SEED)
             metric_df = metric_df.copy()
-            band_cat = pd.Categorical(metric_df["band"])  # ensure band is categorical and get stable numeric codes
-            metric_df["band_code"] = band_cat.codes.astype(float)  # convert to numeric codes
-            metric_df["band_jitt"] = metric_df["band_code"] + rng.uniform(-jitter, jitter, size=len(metric_df))  # add jitter to numeric codes
+            xaxis_cat = pd.Categorical(  # ensure band is categorical
+                metric_df[x_by],
+                categories=band_order,  # and ordered
+                ordered=True
+            )
+            metric_df[f"{x_by}_code"] = xaxis_cat.codes.astype(float)  # convert to numeric codes
+            metric_df[f"{x_by}_jitt"] = metric_df[f"{x_by}_code"] + rng.uniform(-jitter, jitter, size=len(metric_df))  # add jitter to numeric codes
 
             plot = sns.scatterplot(
                 data=metric_df,
-                x='band_jitt',
+                x=f"{x_by}_jitt",
                 y=metric_name,
-                hue='epo_type',
+                hue=color_by,
                 palette=palette,
                 ax=ax,
                 alpha=0.8,
@@ -738,12 +750,17 @@ def plot_band_metric(
                 **kwargs
             )
 
+            # force categorical ticks
+            ax.set_xticks(np.arange(len(xaxis_cat.categories)))
+            ax.set_xticklabels(xaxis_cat.categories)
+
         else:
             plot = sns.boxplot(
                 data=metric_df,
-                x='band',
+                x=x_by,
                 y=metric_name,
-                hue='epo_type',
+                hue=color_by,
+                order=band_order,
                 palette=palette,
                 ax=ax,
                 saturation=0.7,
@@ -754,28 +771,14 @@ def plot_band_metric(
                 # density_norm='count',
                 **kwargs
             )
-            # plot2 = sns.violinplot(
-            #     data=metric_df,
-            #     x='band',
-            #     y=metric_name,
-            #     hue='epo_type',
-            #     palette=palette,
-            #     ax=ax,
-            #     saturation=1,
-            #     legend=legend,
-            #     fill=False,
-            #     inner='point',
-            #     density_norm='count',
-            #     **kwargs
-            # )
-            # plot2.set(xlabel=None, ylabel=None)
         if legend:
             handles, current_labels = ax.get_legend_handles_labels()
-            new_labels = [custom_labels.get(lbl, lbl) for lbl in current_labels]
-            ax.legend(handles, new_labels, loc='upper right')  # , title='Epoch type'
+            new_labels = [xticklabels_mapping.get(lbl, lbl) for lbl in current_labels]
+            leg_title = 'Extracted Epochs' if color_by == 'epo_type' else ('Condition' if color_by == 'cond' else '')
+            ax.legend(handles, new_labels, loc='best', title=leg_title)
 
-        bands = metric_df['band'].unique()
-        ax.set_xlim(-0.5, len(bands) - 0.5)  # no extra whitespace
+        x_vals = metric_df[x_by].unique()
+        ax.set_xlim(-0.5, len(x_vals) - 0.5)  # no extra whitespace
         ax.margins(x=0.05)  # small outer margin
         plot.set(xlabel=None, ylabel=None)  # they are set elsewehre
 
