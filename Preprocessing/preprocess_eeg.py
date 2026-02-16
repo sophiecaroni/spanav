@@ -22,7 +22,7 @@ from utils.gen_utils import set_for_save, save_figure, plot_context, get_trigger
 config = configparser.ConfigParser()
 config.read('../config.ini')
 
-SEED = config.getboolean('General', 'seed')
+SEED = config.getint('General', 'seed')
 
 
 def load_raw(

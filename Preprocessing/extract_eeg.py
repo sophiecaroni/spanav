@@ -17,7 +17,8 @@ EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
 config = configparser.ConfigParser()
 config.read('../config.ini')
 
-SEED = config.getboolean('General', 'seed')
+SEED = config.getint('General', 'seed')
+PILOT = config.getboolean('General', 'pilot')
 
 
 def get_all_epo_objects(
