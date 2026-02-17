@@ -15,8 +15,8 @@ import pandas as pd
 import os
 
 from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
-from utils.gen_utils import get_pids, set_for_save, parse_epo_filename, parse_prepro_filename, get_tables_path, \
-    get_eeg_path, get_clean_eeg_path
+from utils.gen_utils import get_sids, set_for_save, parse_epo_fname, parse_prepro_fname, get_tables_path, \
+    get_clean_eeg_path, get_epo_path
 from fooof.analysis import get_band_peak_fm
 
 
@@ -32,7 +32,6 @@ def compute_avg_epo_psd(
     :param test:
     :param fmin:
     :param fmax: default takes all frequencies (up to Nyquist frequency)
-    :param plot:
     :return: PSD
     """
     ch_psd, freqs = compute_psd(rec, log_space=True, fmin=fmin, fmax=fmax, test=test)
@@ -67,12 +66,12 @@ def get_psd_df(
         avg_across_epochs: bool = True,
 ) -> pd.DataFrame:
     if load:
-        file_name = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
+        fname = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
             'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
-        file_path = set_for_save(get_tables_path()) / file_name
-        psd_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
+        file_path = set_for_save(get_tables_path()) / fname
+        psd_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
-        pids = get_pids(test=test)
+        sids = get_sids(test=test)
         all_parts = []
         sfreq = 250
         psd_kwargs = dict(
@@ -86,15 +85,15 @@ def get_psd_df(
             window="hamming"  # common
         )
 
-        for pid in pids:
+        for sid in sids:
 
-            epo_path = get_eeg_path() / 'Epo' / pid
-            pid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
-            raw_path = get_clean_eeg_path() / pid
-            pid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('final_raw.fif')]  # Also compute metrics on full raw data
-            pid_files = pid_epo_files # + pid_raw_files
+            epo_path = get_epo_path(sid)
+            sid_epo_files = [file for file in os.listdir(epo_path) if file.endswith('.fif')]
+            raw_path = get_clean_eeg_path(sid)
+            sid_raw_files = [file for file in os.listdir(raw_path) if file.endswith('.fif')]  # Also compute metrics on full raw data
+            sid_files = sid_epo_files # + sid_raw_files
 
-            for i, file in enumerate(pid_files):
+            for i, file in enumerate(sid_files):
                 if test and i > 0:
                     break
                 if file.startswith('RS'):  # ignore for the moment
@@ -104,10 +103,10 @@ def get_psd_df(
 
                 if is_epo:
                     rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
-                    cond, block_n, epo_type = parse_epo_filename(file, pid=pid)
+                    cond, block_n, epo_type = parse_epo_fname(file, sid=sid)
                 else:
                     rec = mne.io.read_raw_fif(raw_path / file, preload=True, verbose=False)
-                    cond, block_n, epo_type = parse_prepro_filename(file)
+                    cond, block_n, epo_type = parse_prepro_fname(file)
 
                 if rec is None or len(rec) == 0:
                     continue
@@ -120,7 +119,7 @@ def get_psd_df(
                     full_psd = np.log10(full_psd)
 
                 # Prepare columns with base information to include to each df/row
-                base_cols = dict(pid=pid, cond=cond, block=block_n, epo_type=epo_type)
+                base_cols = dict(sid=sid, cond=cond, block=block_n, epo_type=epo_type)
 
                 # Compute average PSD
                 if avg_across_epochs:
@@ -172,9 +171,9 @@ def get_psd_df(
         assert (psd_df['freq'].unique() == list(range(psd_kwargs['fmin'], psd_kwargs['fmax']+1))).all()
 
         if save:
-            file_name = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
+            fname = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
                 'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
-            file_path = set_for_save(get_tables_path()) / file_name
+            file_path = set_for_save(get_tables_path()) / fname
             psd_df.to_csv(file_path)
 
     return psd_df
@@ -186,15 +185,15 @@ def get_psd_avg_df(
         log: bool = False,
 ) -> pd.DataFrame:
     if load:
-        file_name = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
-        file_path = set_for_save(get_tables_path()) / file_name
-        psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
+        fname = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
+        file_path = set_for_save(get_tables_path()) / fname
+        psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
         df_subj = psd_df.groupby(
-            ['pid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
+            ['sid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
             pw_avg=('pw_avg', 'mean'),
         )
 
@@ -202,22 +201,22 @@ def get_psd_avg_df(
             # Convert in log space
             df_subj['pw_avg'] = np.log10(df_subj['pw_avg'])
 
-        # Then average PSD of the same epoch-type and condition across different participants
+        # Then average PSD of the same epoch-type and condition across different subjects
         psd_avg_df = df_subj.groupby(
             ['cond', 'epo_type', 'freq'], as_index=False).agg(
             pw_avg=('pw_avg', 'mean'),
             pw_std=('pw_avg', 'std'),
             N=('pw_avg', 'count'),
         )
-        psd_avg_df.loc[psd_avg_df["N"] == 1, "pw_std"] = 0.0  # replace with zeros the NaNs appearing as std if there's only one participant
+        psd_avg_df.loc[psd_avg_df["N"] == 1, "pw_std"] = 0.0  # replace with zeros the NaNs appearing as std if there's only one subject
 
         raw = psd_avg_df[psd_avg_df["epo_type"] == "Raw"]
         grp_to_check = raw.groupby("cond")["N"].agg(["min", "max"])
         assert (grp_to_check['min'] == grp_to_check['max']).all()
 
         if save:
-            file_name = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
-            file_path = set_for_save(get_tables_path()) / file_name
+            fname = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
+            file_path = set_for_save(get_tables_path()) / fname
             psd_avg_df.to_csv(file_path)
     return psd_avg_df
 
@@ -229,19 +228,19 @@ def get_band_metrics_df(
         avg_across_epochs: bool = True,
 ) -> pd.DataFrame:
     if load:
-        file_name = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
-        file_path = set_for_save(get_tables_path()) / file_name
-        osc_df = pd.read_csv(file_path, index_col=0, dtype={'pid': str})  # make sure participant ID's are strings
+        fname = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
+        file_path = set_for_save(get_tables_path()) / fname
+        osc_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(test=test, log=False, avg_across_epochs=avg_across_epochs)  # load power spectra in linear scale
         bands = ['theta'] if test else ['theta', 'alpha', '38-42']
         df_rows = []
 
         # Define variables within which the PSD will be computed (for each of these there will be one)
-        group_by = ['pid', 'cond', 'epo_type'] if avg_across_epochs else ['pid', 'cond', 'epo_type', 'n_epo']
+        group_by = ['sid', 'cond', 'epo_type'] if avg_across_epochs else ['sid', 'cond', 'epo_type', 'n_epo']
         for by_vals, grouped_df in psd_df.groupby(group_by):
 
-            # Average across blocks of the grouping_vars-combination condition (of the same epo_type, cond, and pid (and n_epo when not avg_across_epochs)
+            # Average across blocks of the grouping_vars-combination condition (of the same epo_type, cond, and sid (and n_epo when not avg_across_epochs)
             mean_psd_df = (
                 grouped_df
                 .groupby('freq', as_index=False)['pw_avg']
@@ -260,13 +259,13 @@ def get_band_metrics_df(
                 pk = False if np.isnan(pk_pw) else True
 
                 if avg_across_epochs:
-                    pid, cond, epo_type = by_vals
+                    sid, cond, epo_type = by_vals
                 else:
-                    pid, cond, epo_type, n_epo = by_vals
+                    sid, cond, epo_type, n_epo = by_vals
 
                 # Define a row of the df
                 row = dict(
-                    pid=pid,
+                    sid=sid,
                     cond=cond,
                     epo_type=epo_type,
                     band=band,
@@ -286,11 +285,15 @@ def get_band_metrics_df(
 
         # Create df
         osc_df = pd.DataFrame(df_rows)
-        osc_df['pid'] = osc_df['pid'].astype('str')
-        osc_df.sort_values(by=['pid', 'cond'])  # sort conveniently
+        osc_df['sid'] = osc_df['sid'].astype('str')
+        osc_df.sort_values(by=['sid', 'cond'])  # sort conveniently
 
         if save:
-            file_name = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
-            file_path = set_for_save(get_tables_path()) / file_name
+            fname = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
+            file_path = set_for_save(get_tables_path()) / fname
             osc_df.to_csv(file_path)
     return osc_df
+
+
+if __name__ == '__main__':
+    get_psd_df(load=False, test=False)

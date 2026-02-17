@@ -24,7 +24,6 @@ from pathlib import Path
 config = configparser.ConfigParser()
 config.read('../config.ini')
 
-PILOT = config.getboolean('General', 'pilot')
 SERVER = config.getboolean('General', 'server')
 BLINDING = config.getboolean('General', 'blinding')
 
@@ -76,25 +75,25 @@ def set_for_save(
 
 
 def save_figure(
-        save_path: str | Path,
-        file_name: str,
+        save_dir: str,
+        fname: str,
         fig: matplotlib.figure.Figure | None = None,
+        sid: str | None = None,
         dpi: int = 900,
         prevent_overwrite: bool = False,
         **kwargs,
 ) -> None:
-    save_path = set_for_save(save_path)
-    # final_path = save_path / file_name
-    final_path = f'{save_path}/{file_name}'
+    save_path = set_for_save(get_outputs_path(sid) / save_dir)
+    full_save_path = save_path / fname
 
-    if prevent_overwrite and os.path.exists(final_path):
-        prefix = 'NO_PSD_KWARGS'
-        final_path = f'{save_path}/{prefix}_{file_name}'
+    if prevent_overwrite and os.path.exists(full_save_path):
+        prefix = 'NEW_'
+        full_save_path = save_path / f'{prefix}_{fname}'
 
     if fig is None:
-        plt.savefig(final_path, dpi=dpi, **kwargs)
+        plt.savefig(full_save_path, dpi=dpi, **kwargs)
     else:
-        fig.savefig(final_path, dpi=dpi, **kwargs)
+        fig.savefig(full_save_path, dpi=dpi, **kwargs)
 
 
 def layout_subplots_grid(
@@ -140,7 +139,7 @@ def get_nrows_ncols(
     return nrows, ncols
 
 
-def get_pids(
+def get_sids(
     test: bool = False,
 ) -> list[str]:
     """
@@ -148,25 +147,33 @@ def get_pids(
     :param test:
     :return:
     """
-    raw_dir = get_eeg_path() / '00_raw'
-    rec_folders = os.listdir(raw_dir)
-    pids = sorted([f for i, f in enumerate(rec_folders) if not (f.startswith('.')) and not (f.startswith('test'))])
-    return pids if not test else [pids[0]]
+    raw_path = get_main_path() / 'raw'
+    sids = []
+    for element in os.listdir(raw_path):
+        group_path = os.path.join(raw_path, element)
+        if os.path.isdir(group_path):
+            group_sids = [
+                sid.replace('sub-73', '') for sid in os.listdir(group_path)
+                if os.path.isdir(os.path.join(group_path, sid))
+            ]
+            sids += group_sids
+    sids = sorted(sids)
+    return sids if not test else [sids[0]]
 
 
 def get_conds(
-        pid: str,
+        sid: str,
         task: bool,
         test: bool = False,
 ) -> list[str]:
     """
 
-    :param pid:
+    :param sid:
     :param task:
     :param test:
     :return:
     """
-    if pid == '02':
+    if sid == '02':
         if task:
             return ['task_HF'] if test else [
                 'task_HF',
@@ -178,7 +185,7 @@ def get_conds(
                 'RS_EO',
                 'RS_EC'
             ]
-    elif pid == '03':
+    elif sid == '03':
         if task:
             return ['task_HF'] if test else [
                 'task_HF',
@@ -202,23 +209,23 @@ def get_conds(
             ]
 
 
-def get_pid_cids(
-        pid: str,
+def get_sid_cids(
+        sid: str,
         test: bool = False,
 ) -> list[str]:
     """
 
-    :param pid:
+    :param sid:
     :param task:
     :param test:
     :return:
     """
     cids = []
-    raw_dir = get_clean_eeg_path() / pid
-    pid_files = os.listdir(raw_dir)
-    for file in pid_files:
+    raw_path = get_clean_eeg_path(sid, task='SpaNav')
+    sid_files = os.listdir(raw_path)
+    for file in sid_files:
         if file.endswith('final_raw.fif') or file.endswith('iclean-raw.fif') :
-            cid, _, _ = parse_prepro_filename(file)
+            cid, _, _ = parse_prepro_fname(file)
             cids.append(cid)
             if len(cids) > 0 and test:  # stop after finding first cid when in testing mode
                 break
@@ -227,18 +234,18 @@ def get_pid_cids(
     return cids
 
 
-def get_pid_cid_from_block(
-        pid: str,
+def get_sid_cid_from_block(
+        sid: str,
         block_n: int | str,
 ) -> str:
     """
 
-    :param pid:
+    :param sid:
     :param block_n:
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    stim_file_path = get_eeg_path() / '00_raw' / pid / 'stimulations.xlsx'
+    stim_file_path = get_main_path() / 'Raw' / sid / 'stimulations.xlsx'
     conv_table = pd.read_excel(stim_file_path)
     block_str_variants = [f'block{block_n}', f'block_{block_n}']  # possible variants of how block was reported in excel file
     block_str_variants_lower = {v.lower() for v in block_str_variants}  # normalize to lower once
@@ -252,7 +259,7 @@ def get_pid_cid_from_block(
     else:
         # This runs only if the loop completes with no break
         raise ValueError(
-            f'File stimulations.xlsx of participant {pid} does not contain a valid column for block {block_n}'
+            f'File stimulations.xlsx of subject {sid} does not contain a valid column for block {block_n}'
         )
 
     conv_cell = str(conv_table.loc[0, block_str])
@@ -262,27 +269,27 @@ def get_pid_cid_from_block(
         return f'task_{match.group(0)}_{block_n}'  # group(0) returns the entire matched string
     else:
         raise ValueError(
-            f'Conversion cell for block {block_n} in stimulations.xlsx of participant {pid} does not contain a valid stimulation '
+            f'Conversion cell for block {block_n} in stimulations.xlsx of subject {sid} does not contain a valid stimulation '
             f'condition ID (contains "{conv_cell}")')
 
 
 def get_cid_with_block(
-        pid: str,
+        sid: str,
         cid: str,
 ) -> str:
     """
 
-    :param pid:
+    :param sid:
     :param cid:
     :return:
     """
-    if pid == '02':
+    if sid == '02':
         return {
             'task_HF': 'task_HF_1',
             'task_iTBS': 'task_iTBS_2',
             'task_cTBS': 'task_cTBS_3'
         }[cid]
-    elif pid == '03':
+    elif sid == '03':
         return {
             'task_HF': 'task_HF_1',
             'task_iTBS': 'task_iTBS_2',
@@ -290,64 +297,55 @@ def get_cid_with_block(
 
 
 def reveal_cid(
-        pid: str,
+        sid: str,
         cid: str | None = None,
         block_n: int | str | None = None,
-        pilot: bool = PILOT,
 ):
     """
 
-    :param pid:
+    :param sid:
     :param cid:
     :param block_n:
-    :param pilot:
     :return:
     """
-    if pilot:
-        if cid is not None:
-            if cid[-1] in ['1', '2', '3', '4', '5', '6'] or cid.startswith('RS'):
-                print(f'Condition ID of participant {pid} is already the full one: {cid}')
-                return cid
-            else:
-                if pid == '02' or pid == '03':
-                    return get_cid_with_block(pid, cid)
-                else:
-                    raise ValueError(f'Something is wrong here. {pid = }, {cid = }')
-        else:
-            return get_pid_cid_from_block(pid, block_n)
-    else:
-        # Keep blinding atm
-        return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
+    # Keep blinding atm
+    return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
+
+
+def get_group_letter(
+        sid: str,
+) -> str:
+    return 'T' if 't' in sid.lower() else 'A'
 
 
 def get_block_stim(
-        pid: str,
+        sid: str,
         block_n: int | str,
 ) -> str:
     """
 
-    :param pid:
+    :param sid:
     :param block_n:
     :return:
     """
     stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    cid = get_pid_cid_from_block(pid, block_n)
+    cid = get_sid_cid_from_block(sid, block_n)
     return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
 
 
 def get_ti_positions(
-        pid: str,
+        sid: str,
 ) -> list:
     """
 
-    :param pid:
+    :param sid:
     :return:
     """
-
-    stim_file_path = get_eeg_path() / '00_raw' / pid
-    spanav_files = list(stim_file_path.glob('SpaNav_*.csv'))
+    exp_grp = get_group_letter(sid)
+    stim_file_path = get_main_path() / f'Data_WP73{exp_grp}' / 'TI_and_EEG' / 'Montage' / f'73{sid}'
+    spanav_files = list(stim_file_path.glob(f'log_73{sid}*.csv'))
     if len(spanav_files) != 1:
-        raise RuntimeError(f'Expected exactly one SpaNav CSV for {pid}, found {len(spanav_files)}')
+        raise RuntimeError(f'Expected exactly one SpaNav CSV for {sid}, found {len(spanav_files)}')
     conv_table = pd.read_csv(spanav_files[0], sep=';')
     eeg_ti_positions = conv_table.loc[:, 'Old channel name'].to_list()
     return eeg_ti_positions
@@ -385,156 +383,202 @@ def get_epo_types(
 
 
 def get_main_path(
-        server: bool = SERVER,
+        server: bool | None = None,
 ) -> Path:
     """
 
     :param server:
     :return:
     """
-    if server:
-        return Path('/Volumes/Hummel-Data/mnt/Hummel-Data/TI/TI_EEG')
+    SERVER = get_server() if server is None else server
+    if SERVER:
+        return Path('/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG')
     else:
         return Path('/Volumes/My Passport/SpaNav/Sophie_backup')
 
 
-def get_eeg_path(
-        server: bool = SERVER,
+def get_raw_eeg_path(
+        sid: str,
 ) -> Path:
-    main_root = get_main_path()
-    if server:
-        return main_root / 'EEG'
+    root = get_main_path()
+    group = get_group_letter(sid)
+    return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
+
+
+def get_beh_path(
+        sid: str,
+) -> Path:
+    root = get_main_path()
+    group = get_group_letter(sid)
+    return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
+
+
+def get_epo_path(
+        sid: str,
+) -> Path:
+    root = get_main_path()
+    group = get_group_letter(sid)
+    return root / 'epo' / f'WP73{group}' / f'sub-{sid}'
+
+
+def get_derivatives_path(
+        sid: str,
+) -> Path:
+    root = get_main_path()
+    group = get_group_letter(sid)
+    return root / 'intermediate' / f'WP73{group}' / f'sub-{sid}'
+
+
+def get_data_path(
+        proc_stage: str,
+        sid: str,
+        acq: str | None = None,
+        task: str | None = 'SpaNav',
+) -> Path:
+    include_fname = acq is not None and task is not None
+    fname = f'sub-{sid}_ses-1_task-{task}_acq-{acq}' if include_fname else ''  # BIDS name
+    fpath, fext = None, None
+    proc_stage = proc_stage.lower()  # easier for following comparison with strings
+
+    if 'raw' in proc_stage:
+        fext = 'vhdr'
+        fpath = get_raw_eeg_path(sid)
+
+    elif 'beh' in proc_stage:
+        fext = 'txt'
+        fpath = get_beh_path(sid)
+        fname += '_beh'
+
     else:
-        exp_phase = get_exp_phase()
-        return main_root / 'data' / exp_phase / 'EEG'
+        fext = 'fif'
+
+        if 'epo' in proc_stage:
+            fext = 'fif'
+            fpath = get_epo_path(sid)
+            fname += '_desc-epo_eeg'
+
+        else:
+            deriv_path = get_derivatives_path(sid)
+
+            if 'annot' in proc_stage and 'reannot' not in proc_stage:
+                fpath = deriv_path / '01_annot'
+                fname += '_desc-annot_eeg'
+
+            elif 'filt' in proc_stage.lower():
+                fpath = deriv_path / '02_filt_ds'
+                fname += '_desc-FiltDs_eeg'
+
+            elif 'reannot' in proc_stage:
+                fpath = deriv_path / '03_reannot'
+                fname += '_desc-reannot_eeg'
+
+            elif 'ica' in proc_stage:
+                fpath = deriv_path / '04_ica'
+                fname += '_desc-ica_eeg'
+
+            elif 'reconst' in proc_stage:
+                fpath = deriv_path / '05_reconstructed'
+                fname += '_desc-reconst_eeg'
+
+            elif 'preproc' in proc_stage:
+                fpath = deriv_path / '06_preproc'
+                fname += '_desc-preproc_eeg'
+
+    if fpath is None or fext is None:
+        raise ValueError('Please pass a valid proc_stage!')
+
+    set_for_save(fpath)
+
+    if include_fname:
+        return fpath / f"{fname}.{fext}"
+    else:
+        return fpath
 
 
 def get_clean_eeg_path(
-        server: bool = SERVER,
+        sid: str,
+        acq: str | None = None,
+        task: str | None = 'SpaNav'
 ) -> Path:
-    main_root = get_main_path()
-    if server:
-        return main_root / 'EEG'
-    else:
-        exp_phase = get_exp_phase()
-        clean_folder = '03_ica' if exp_phase == 'main' else 'RawClean'
-        return main_root / 'data' / exp_phase / 'EEG' / clean_folder
-
-def get_behav_path(
-        server: bool = SERVER,
-) -> Path:
-    main_root = get_main_path()
-    if server:
-        return main_root / 'behav'
-    else:
-        exp_phase = get_exp_phase()
-        return main_root / 'data' / exp_phase / 'behav'
+    return get_data_path('preproc', sid, acq, task)
 
 
 def get_outputs_path(
-        server: bool = SERVER,
+        sid: str | None = None,
 ) -> Path:
-    main_root = get_main_path()
-    if server:
-        return main_root / 'outputs'
+    root = get_main_path()
+    if sid is None:
+        return set_for_save(root / 'outputs')
     else:
-        exp_phase = get_exp_phase()
-        print(f"\n\n\n ### {exp_phase.upper()} ### \n\n\n ")
-        return main_root / 'outputs' / exp_phase
+        # If a subject ID is passed, then the group-specific path is returned
+        group = get_group_letter(sid)
+        return set_for_save(root / 'outputs' / f'WP73{group}')
 
 
 def get_tables_path(
 ) -> Path:
-    output_root = get_outputs_path()
-    return output_root / 'tables'
+    outputs_path = get_outputs_path()
+    return outputs_path / 'Tables'
 
 
-def get_exp_phase(
-        pilot: bool = PILOT,
-) -> str:
-    if pilot:
-        return 'pilot'
-    else:
-        return 'main'
-
-
-def parse_epo_filename(
-        filename: str,
-        pilot: bool = PILOT,
-        pid: str | None = None,
+def parse_epo_fname(
+        fname: str,
+        sid: str | None = None,
 ) -> tuple[str, str | None, str]:
     """
 
-    :param filename:
-    :param pilot:
-    :param pid:
+    :param fname:
+    :param sid:
     :return:
     """
-    if filename.startswith('RS'):
+    if fname.startswith('RS'):
         block_n = None
-        m = re.match(r"RS_(.+?)_(.+?)-epo\.fif$", filename)
+        m = re.match(r"RS_(.+?)_(.+?)-epo\.fif$", fname)
         if m:
             rs_cond, epo_type = m.groups()
             cond = f'RS_{rs_cond}'
         else:
-            other_m = re.match(r"RS_(.+?)-epo\.fif$", filename)
+            other_m = re.match(r"RS_(.+?)-epo\.fif$", fname)
             (epo_type, ) = other_m.groups()
             cond = 'RS'
     else:
-        if pilot:
-            m = re.match(r".*task_(.+?)_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
-            if m:
-                cond, block_n, epo_type = m.groups()
-            else:
-                other_m = re.match(r".*task_(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
-                cond, epo_type = other_m.groups()
-                block_n = None
-        else:
-            m = re.match(r".*block(.+?)_(.+?)-epo\.fif$", filename)  # .* allows anything before
-            block_n, epo_type = m.groups()
+        m = re.match(r".*block(.+?)_(.+?)-epo\.fif$", fname)  # .* allows anything before
+        block_n, epo_type = m.groups()
 
-            if BLINDING:
-                runned_blocks = len(get_pid_cids(pid, test=False))
-                if runned_blocks == 4:  # this is a patient (4 blocks runned)
-                    cond = 'A' if int(block_n) in (1, 4) else 'B'  # blocks 1-4 of conditions ABBA
-                else:  # this is a healthy control (6 blocks runned)
-                    cond = 'A' if int(block_n) in (1, 6) else ('B' if int(block_n) in (2, 5) else 'C')  # blocks 1-6 of conditions ABCCBA
-            else:
-                cond = reveal_cid(pid, block_n=block_n)
+        BLINDING = get_blinding()
+        if BLINDING:
+            runned_blocks = len(get_sid_cids(sid, test=False))
+            if runned_blocks == 4:  # this is a patient (4 blocks runned)
+                cond = 'A' if int(block_n) in (1, 4) else 'B'  # blocks 1-4 of conditions ABBA
+            else:  # this is a healthy control (6 blocks runned)
+                cond = 'A' if int(block_n) in (1, 6) else ('B' if int(block_n) in (2, 5) else 'C')  # blocks 1-6 of conditions ABCCBA
+        else:
+            cond = reveal_cid(sid, block_n=block_n)
 
     return cond, block_n, epo_type
 
 
-def parse_prepro_filename(
-        filename: str,
-        pilot: bool = PILOT,
+def parse_prepro_fname(
+        fname: str,
 ) -> tuple[str | None, str | None, str]:
     """
 
-    :param filename:
-    :param pilot:
+    :param fname:
     :return:
     """
     cid = None
     epo_type = 'Raw'
     block_n = None
-    if filename.startswith('RS'):
+    if fname.startswith('RS'):
         block_n = None
-        m = re.match(r"RS_(.+?)-raw\.fif$", filename)
+        m = re.match(r"RS_(.+?)-raw\.fif$", fname)
         if m:
             (rs_cond, ) = m.groups()
             cid = f'RS_{rs_cond}'
     else:
-        if pilot:
-            m = re.match(r".*task_(.+?)-raw\.fif$", filename)  # .* allows anything before
-            if m:
-                (task_cid, ) = m.groups()
-                cid = f'task_{task_cid}'
-                block_n = cid[-1]
-        else:
-            m = re.match(r".*block(.+?)_(.+?)_raw\.fif$", filename)  # .* allows anything before
-            block_n, _ = m.groups()
-            cid = f'block{block_n}'
+        m = re.match(r".*block(.+?)_(.+?)_raw\.fif$", fname)  # .* allows anything before
+        block_n, _ = m.groups()
+        cid = f'block{block_n}'
 
     return cid, block_n, epo_type
 
@@ -575,16 +619,23 @@ def get_epo_palette(
 
 def get_cond_palette(
 ) -> dict:
-    if BLINDING or not PILOT:
+    BLINDING = get_blinding()
+    print(
+        f"{BLINDING = }"
+    )
+    if BLINDING:
         return {
             'A': plt.get_cmap('tab20')(18),
             'B': plt.get_cmap('tab20')(19),
         }
     else:
         return {
-            'HF': plt.get_cmap('tab20')(0),
-            'cTBS': plt.get_cmap('tab20')(2),
-            'iTBS': plt.get_cmap('tab20')(3),
+            # 'HF': '#4293f5',  # blue
+            'HF': '#a558ed',
+            # 'cTBS': '#f77c99',  # pink
+            'cTBS': '#f5a6d4',
+            # 'iTBS':  '#5ad676',  # green
+            'iTBS': '#edcd58',
         }
 
 
@@ -599,7 +650,6 @@ def map_epo_type_labels(
 
 
 def map_metric_labels(
-
 ) -> dict:
     return {
         'abs_pw': 'Absolute band-power',
@@ -615,7 +665,6 @@ def map_metric_label(
 
 
 def map_band_labels(
-
 ) -> dict:
     return {
         'theta': 'Theta',
@@ -625,10 +674,10 @@ def map_band_labels(
 
 
 def get_band_label(
-        metric_str: str,
+        band_str: str,
 ) -> str:
-    return map_metric_labels()[metric_str]
+    return map_band_labels()[band_str]
 
 
 if __name__ == '__main__':
-    pass
+    print(get_sids())
