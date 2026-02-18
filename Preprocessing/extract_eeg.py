@@ -6,7 +6,8 @@ import configparser
 
 from mne import Epochs
 from mne.epochs import EpochsFIF
-from utils.gen_utils import get_epo_types, get_task_epo_types, set_for_save, get_trigger_str, reveal_cid, get_data_path
+from spanav_eeg_utils.spanav_utils import get_task_epo_types, get_trigger_str, reveal_cid, get_epo_types
+from spanav_eeg_utils.io_utils import set_for_save, get_data_path
 from mne.baseline import rescale
 from autoreject import AutoReject
 

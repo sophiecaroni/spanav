@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 import os
 
-from utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
-from utils.gen_utils import get_sids, set_for_save, parse_epo_fname, parse_prepro_fname, get_tables_path, \
-    get_clean_eeg_path, get_epo_path
+from spanav_eeg_utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
+from spanav_eeg_utils.parsing_utils import parse_epo_fname, parse_prepro_fname
+from spanav_eeg_utils.io_utils import get_sids, set_for_save, get_tables_path, get_clean_eeg_path, get_epo_path
 from fooof.analysis import get_band_peak_fm
 
 

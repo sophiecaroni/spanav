@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import configparser
 
-from utils.gen_utils import set_for_save, get_data_path, get_outputs_path
+from spanav_eeg_utils.io_utils import set_for_save, get_data_path, get_outputs_path
 
 config = configparser.ConfigParser()
 config.read('../config.ini')

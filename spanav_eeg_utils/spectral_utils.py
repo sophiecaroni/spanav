@@ -1,3 +1,14 @@
+"""
+********************************************************************************
+    Title: Spectral analysis utilities
+
+    Author: Sophie Caroni
+    Date of creation: 06.10.2025
+
+    Description:
+    This script contains helper functions for EEG spectral analysis.
+********************************************************************************
+"""
 import mne
 import numpy as np
 
