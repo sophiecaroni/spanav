@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 
 """
-Automated BIDS Converter for EEG
---------------------------------
-Scans a source directory for EEG files, parses their filenames according to
-a specific convention (SubjectID_SessionID_...), and organizes them into
-a BIDS-compliant directory structure.
+********************************************************************************
+    Title: BIDS format converter
 
+    Original author: Andràs Puszta
+    Refactored by: Sophie Caroni
+    Last modified: 10.02.2026
 
+    Description:
+    This script allows to convert EEG files and organize them into a BIDS-
+    compliant format. It was originally shared internally by Andràs Puszta and
+    later refactored by Sophie Caroni.
+********************************************************************************
 """
 
 import os
