@@ -23,8 +23,11 @@ from pathlib import Path
 from datetime import datetime
 
 # Configuration
-SOURCE_FOLDER = ""  # <--- EDIT THIS PATH if running directly
-OUTPUT_FOLDER = ""  # <--- EDIT THIS PATH if running directly
+group = "T"
+SOURCE_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/Data_WP73{group}/TI_and_EEG/Raw"  # <--- EDIT THIS PATH if running directly
+OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
+TESTING_MODE = True
+
 
 def parse_vhdr(file_path):
     """
@@ -57,6 +60,7 @@ def parse_vhdr(file_path):
         print(f"Warning: Could not fully parse header {file_path.name}: {e}")
         
     return sampling_frequency, channel_names
+
 
 def parse_vmrk(file_path, sampling_freq):
     """
@@ -92,7 +96,7 @@ def parse_vmrk(file_path, sampling_freq):
                     
                     events.append({
                         "onset": round(onset, 5),
-                        "duration": 0, # Duration is usually not specified in simple markers
+                        "duration": 0,  # Duration is usually not specified in simple markers
                         "trial_type": description
                     })
                 except (ValueError, IndexError):
@@ -102,7 +106,8 @@ def parse_vmrk(file_path, sampling_freq):
         
     return events
 
-def create_bids_root_files(bids_root, participants):
+
+def create_bids_root_files(bids_root, subjects):
     """
     Creates the required top-level BIDS files.
     """
@@ -125,8 +130,8 @@ def create_bids_root_files(bids_root, participants):
 
     # 3. participants.tsv
     # Extract unique subjects from the list of processed items
-    unique_subs = sorted(list(participants))
-    
+    unique_subs = sorted(list(subjects))
+
     participants_file = bids_root / "participants.tsv"
     with open(participants_file, 'w', newline='') as f:
         writer = csv.writer(f, delimiter='\t')
@@ -142,6 +147,7 @@ def create_bids_root_files(bids_root, participants):
     }
     with open(bids_root / "participants.json", 'w') as f:
         json.dump(part_json, f, indent=4)
+
 
 def process_directory(source_dir, output_dir):
     """
@@ -164,7 +170,11 @@ def process_directory(source_dir, output_dir):
     # Walk through all files
     for root, dirs, files in os.walk(source_path):
         for file in files:
-            # We focus on .vhdr files as the "anchor" for a run. 
+
+            if file.startswith('WRONG'):
+                continue
+
+            # We focus on .vhdr files as the "anchor" for a run.
             # Associated .eeg and .vmrk files are handled when we find the .vhdr.
             if file.endswith(".vhdr"):
                 
@@ -224,8 +234,9 @@ def process_directory(source_dir, output_dir):
                 for ext in extensions:
                     original_file = file_path_vhdr.with_suffix(ext)
                     if original_file.exists():
-                        shutil.copy2(original_file, dest_dir / (bids_basename + ext))
-                
+                        if not TESTING_MODE:
+                            shutil.copy2(original_file, dest_dir / (bids_basename + ext))
+
                 # --- 6. Generate _eeg.json Sidecar ---
                 eeg_json = {
                     "TaskName": task_name,
@@ -265,13 +276,16 @@ def process_directory(source_dir, output_dir):
                         writer.writerow(["0.0", "0.0", "start_placeholder"])
 
     # --- 9. Final Root Files ---
-    create_bids_root_files(output_path, participants_set)
-    print("\nconversion Complete!")
-    print(f"Data stored in: {output_path.absolute()}")
+    if not TESTING_MODE:
+        create_bids_root_files(output_path, participants_set)
+        print("\nconversion Complete!")
+        print(f"Data stored in: {output_path.absolute()}")
+
 
 if __name__ == "__main__":
     # If you want to use command line arguments:
     import argparse
+
     parser = argparse.ArgumentParser(description="Automated BIDS Converter")
     parser.add_argument("--source", type=str, help="Path to source EEG directory")
     parser.add_argument("--output", type=str, default="BIDS_EEG", help="Output BIDS directory")
