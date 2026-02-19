@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-##CRITICAL: Modify lines 179-180 if you have multiple underscores in your file (for example if you have Rev_2_ses2_tas.vhdr) to this
-# raw_sub = parts[1] 
-# raw_ses = parts[2]
-
 """
 Automated BIDS Converter for EEG
 --------------------------------
@@ -15,18 +11,68 @@ a BIDS-compliant directory structure.
 """
 
 import os
-import shutil
 import json
 import csv
 import re
 from pathlib import Path
 from datetime import datetime
+from mne_bids.copyfiles import copyfile_brainvision
 
 # Configuration
 group = "T"
 SOURCE_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/Data_WP73{group}/TI_and_EEG/Raw"  # <--- EDIT THIS PATH if running directly
 OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
+AUTO_RENAME = True
 TESTING_MODE = True
+
+
+def get_rs_file_suff(
+        fname_parts: list,
+) -> str:
+    assert len(
+        fname_parts) == 3, f'Unknown format of rsEEG file name. Need 3 elements, got {len(fname_parts)}: {fname_parts}'
+    eyes_cond = fname_parts[2].upper()
+    acq = fname_parts[1]
+    return f"Rest{eyes_cond}_{acq}"
+
+
+def get_impedances_file_suff(
+        fname_parts: list,
+) -> str:
+    assert len(fname_parts) == 1 or len(
+        fname_parts) == 2, f'Unknown format of impedances file name. Need 1 or 2 elements, got {len(fname_parts)}: {fname_parts}'
+    if len(fname_parts) == 2:
+        return '_'.join(fname_parts).replace('task',
+                                             '')  # join the two words with _ ; remove 'task' where it was added (e.g. posttask)
+    else:  # it means fname_parts is just one word (the impedances file name)
+        return f"{fname_parts[0]}_pre"  # join all words with - and append 'pre'
+
+
+def get_block_file_suff(
+        fname_parts: list,
+) -> str:
+    assert len(
+        fname_parts) == 1, f'Unknown format of block file name. Need 1 element, got {len(fname_parts)}: {fname_parts}'
+    return f"SpaNav_{''.join(fname_parts[0])}"
+
+
+def auto_rename(
+        file_name: str,
+        file_path: str | Path,
+) -> str:
+    ses = 1  # in our experiment we only have one experimental session
+    path_parts = file_path.split('/')
+    sid = path_parts[-1]
+    name_parts = file_name.replace('.vhdr', '').split('_')
+    if file_name.lower().startswith('rs'):  # resting state
+        new_file_name = f'{sid}_{ses}_{get_rs_file_suff(name_parts)}'
+    elif file_name.lower().startswith('imp'):  # impedances
+        new_file_name = f'{sid}_{ses}_{get_impedances_file_suff(name_parts)}'
+    elif file_name.lower().startswith('block'):  # spanav task
+        new_file_name = f'{sid}_{ses}_{get_block_file_suff(name_parts)}'
+    else:
+        new_file_name = f'{sid}_{ses}_{file_name}'
+    return new_file_name
 
 
 def parse_vhdr(file_path):
@@ -179,16 +225,30 @@ def process_directory(source_dir, output_dir):
             if file.endswith(".vhdr"):
                 
                 # --- 1. Filename Parsing ---
-                # Expected format: SubjectID_SessionID_RestOfName.vhdr
                 parts = file.split('_')
-                
-                if len(parts) < 2:
-                    print(f"Skipping {file}: Filename does not match 'Subject_Session_...' pattern.")
+
+                if len(parts) < 4:
+                    if AUTO_RENAME:
+                        new_fname = auto_rename(file, root)
+                        # print(f"{file = }\n{new_fname = }")
+                        parts = new_fname.split('_')
+                    else:
+                        print(f"Skipping {file}: Filename does not match 'Subject_Session_Task_Acq' pattern.")
+                        continue
+
+                # Expected format: SubjectID_SessionID_TaskName_AcqName.vhdr
+                raw_sub = parts[0]  # e.g. TIP34 or sub-TIP34
+                raw_ses = parts[1]  # e.g. ses01, ses1, 1
+                raw_task = parts[2]
+                raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
+
+                # if file in ['block3.vhdr', 'block1.vhdr'] and raw_sub.endswith('02'):
+                #     print(f'\nSkipping {raw_sub} file {file}\n')
+                #     continue
+                if 'RS' not in file:
+                    print(f'\nSkipping {file}\n')
                     continue
-                
-                raw_sub = parts[0] # e.g. TIP34 or sub-TIP34
-                raw_ses = parts[1] # e.g. ses01, ses1, 1
-                
+
                 # Clean up Subject ID
                 sub_id = raw_sub.replace("sub-", "")
                 
@@ -201,18 +261,9 @@ def process_directory(source_dir, output_dir):
                     ses_id = raw_ses.replace("ses-", "").replace("ses", "")
                 
                 participants_set.add(sub_id)
-                
-                # Determine Task Name
-                # Everything after session ID is considered part of the task name
-                # We strip the extension and sanitize
-                if len(parts) > 2:
-                    remainder = "_".join(parts[2:]).replace(".vhdr", "")
-                    # Sanitize: BIDS task names should be alphanumeric
-                    task_name = re.sub(r'[^a-zA-Z0-9]', '', remainder)
-                else:
-                    task_name = "rest" # Default if no other info provided
-                
-                if not task_name: task_name = "rest"
+
+                # Determine Task Name and sanitize (BIDS task names should be alphanumeric)
+                task_name = re.sub(r'[^a-zA-Z0-9]', '', raw_task)
 
                 # --- 2. Create Destination Directory ---
                 # Structure: BIDS_EEG/sub-{id}/ses-{id}/eeg/
@@ -220,60 +271,58 @@ def process_directory(source_dir, output_dir):
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 
                 # --- 3. Base BIDS Filename ---
-                # Format: sub-{id}_ses-{id}_task-{task}_eeg
-                bids_basename = f"sub-{sub_id}_ses-{ses_id}_task-{task_name}_eeg"
-                
+                # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
+                bids_basename = f"sub-{sub_id}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
+
                 print(f"Processing: {file} -> {bids_basename}")
 
                 # --- 4. Parse Metadata ---
                 file_path_vhdr = Path(root) / file
                 sfreq, channels = parse_vhdr(file_path_vhdr)
-                
-                # --- 5. Copy Files (.vhdr, .vmrk, .eeg) ---
-                extensions = [".vhdr", ".vmrk", ".eeg"]
-                for ext in extensions:
-                    original_file = file_path_vhdr.with_suffix(ext)
-                    if original_file.exists():
-                        if not TESTING_MODE:
-                            shutil.copy2(original_file, dest_dir / (bids_basename + ext))
 
-                # --- 6. Generate _eeg.json Sidecar ---
-                eeg_json = {
-                    "TaskName": task_name,
-                    "SamplingFrequency": sfreq,
-                    "EEGReference": "n/a",
-                    "PowerLineFrequency": 50,
-                    "SoftwareFilters": "n/a",
-                    "CapManufacturer": "n/a",
-                    "EEGChannelCount": len(channels),
-                    "Manufacturer": "BrainProducts" # Assumed based on file type
-                }
-                
-                with open(dest_dir / (bids_basename + ".json"), 'w') as f:
-                    json.dump(eeg_json, f, indent=4)
-                    
-                # --- 7. Generate _channels.tsv ---
-                # Only write if it doesn't exist (shared by runs of same task usually, but here specific)
-                # Actually, BIDS allows per-run channels.tsv
-                with open(dest_dir / (bids_basename.replace("_eeg", "_channels.tsv")), 'w', newline='') as f:
-                    writer = csv.writer(f, delimiter='\t')
-                    writer.writerow(["name", "type", "units"])
-                    for ch in channels:
-                        writer.writerow([ch, "EEG", "microV"])
+                # Automatically rename and copy .vhdr, .vmrk, .eeg files
+                dest_file_path = dest_dir / (bids_basename + '_eeg.vhdr')
 
-                # --- 8. Generate _events.tsv ---
-                original_vmrk = file_path_vhdr.with_suffix(".vmrk")
-                events = parse_vmrk(original_vmrk, sfreq)
-                
-                events_tsv = dest_dir / (bids_basename + "_events.tsv")
-                with open(events_tsv, 'w', newline='') as f:
-                    writer = csv.writer(f, delimiter='\t')
-                    writer.writerow(["onset", "duration", "trial_type"])
-                    if events:
-                        for ev in events:
-                            writer.writerow([ev["onset"], ev["duration"], ev["trial_type"]])
-                    else:
-                        writer.writerow(["0.0", "0.0", "start_placeholder"])
+                if not TESTING_MODE:
+                    copyfile_brainvision(file_path_vhdr, dest_file_path, verbose=True)
+
+                    # --- 6. Generate _eeg.json Sidecar ---
+                    eeg_json = {
+                        "TaskName": task_name,
+                        "AcqName": raw_acq,
+                        "SamplingFrequency": sfreq,
+                        "EEGReference": "n/a",
+                        "PowerLineFrequency": 50,
+                        "SoftwareFilters": "n/a",
+                        "CapManufacturer": "n/a",
+                        "EEGChannelCount": len(channels),
+                        "Manufacturer": "BrainProducts"  # Assumed based on file type
+                    }
+
+                    with open(dest_dir / (bids_basename + "_eeg.json"), 'w') as f:
+                        json.dump(eeg_json, f, indent=4)
+
+                    # --- 7. Generate _channels.tsv ---
+                    # Only write if it doesn't exist (shared by runs of same task usually, but here specific)
+                    # Actually, BIDS allows per-run channels.tsv
+                    with open(dest_dir / (bids_basename + "_channels.tsv"), 'w', newline='') as f:
+                        writer = csv.writer(f, delimiter='\t')
+                        writer.writerow(["name", "type", "units"])
+                        for ch in channels:
+                            writer.writerow([ch, "EEG", "microV"])
+
+                    # --- 8. Generate _events.tsv ---
+                    original_vmrk = file_path_vhdr.with_suffix(".vmrk")
+                    events = parse_vmrk(original_vmrk, sfreq)
+                    events_tsv = dest_dir / (bids_basename + "_events.tsv")
+                    with open(events_tsv, 'w', newline='') as f:
+                        writer = csv.writer(f, delimiter='\t')
+                        writer.writerow(["onset", "duration", "trial_type"])
+                        if events:
+                            for ev in events:
+                                writer.writerow([ev["onset"], ev["duration"], ev["trial_type"]])
+                        else:
+                            writer.writerow(["0.0", "0.0", "start_placeholder"])
 
     # --- 9. Final Root Files ---
     if not TESTING_MODE:
