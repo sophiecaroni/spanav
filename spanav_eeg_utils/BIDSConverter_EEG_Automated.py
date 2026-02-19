@@ -99,7 +99,10 @@ def parse_vhdr(file_path):
                     try:
                         parts = line.split('=', 1)[1].split(',')
                         name = parts[0]
-                        channel_names.append(name)
+
+                        # Don't append duplicates nor names that only are a digit
+                        if name not in channel_names and not name.isdigit():
+                            channel_names.append(name)
                     except IndexError:
                         pass
     except Exception as e:
