@@ -12,7 +12,42 @@
 import re
 
 from spanav_eeg_utils.config_utils import get_blinding
-from spanav_eeg_utils.spanav_utils import reveal_cid, get_group_letter
+
+
+def get_cid_cond(
+        sid: str,
+        cid: str,
+) -> str:
+    runned_blocks = 4 if sid.startswith('T') else 6
+    block_n = cid[-1]
+    if runned_blocks == 4:  # this is a patient (4 blocks runned)
+        cond = 'A' if int(block_n) in (1, 4) else 'B'  # blocks 1-4 of conditions ABBA
+    else:  # this is a healthy control (6 blocks runned)
+        cond = 'A' if int(block_n) in (1, 6) else (
+            'B' if int(block_n) in (2, 5) else 'C')  # blocks 1-6 of conditions ABCCBA
+    return cond
+
+
+def reveal_cid(
+        sid: str,
+        cid: str | None = None,
+        block_n: int | str | None = None,
+):
+    """
+
+    :param sid:
+    :param cid:
+    :param block_n:
+    :return:
+    """
+    # Keep blinding atm
+    return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
+
+
+def get_group_letter(
+        sid: str,
+) -> str:
+    return 'T' if 't' in sid.lower() else 'A'
 
 
 def parse_epo_fname(
@@ -41,11 +76,7 @@ def parse_epo_fname(
 
         BLINDING = get_blinding()
         if BLINDING:
-            runned_blocks = 4 if get_group_letter(sid) == 'T' else 6
-            if runned_blocks == 4:  # this is a patient (4 blocks runned)
-                cond = 'A' if int(block_n) in (1, 4) else 'B'  # blocks 1-4 of conditions ABBA
-            else:  # this is a healthy control (6 blocks runned)
-                cond = 'A' if int(block_n) in (1, 6) else ('B' if int(block_n) in (2, 5) else 'C')  # blocks 1-6 of conditions ABCCBA
+            cond = get_cid_cond(sid, block_n)
         else:
             cond = reveal_cid(sid, block_n=block_n)
 

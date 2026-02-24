@@ -12,11 +12,12 @@
 import os
 import pandas as pd
 import re
+import mne
 
 from pathlib import Path
 from spanav_eeg_utils.config_utils import get_server
-from spanav_eeg_utils.spanav_utils import get_group_letter
-from spanav_eeg_utils.parsing_utils import parse_prepro_fname
+from spanav_eeg_utils.parsing_utils import get_group_letter
+from mne.epochs import EpochsArray
 
 
 def set_for_save(
@@ -43,7 +44,7 @@ def get_main_path(
     if SERVER:
         return Path('/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG')
     else:
-        return Path('/Volumes/My Passport/SpaNav/Sophie_backup')
+        return Path('/Users/sophiecaroni/epfl_hes/spanav-tbi/data')
 
 
 def get_raw_eeg_path(
@@ -78,14 +79,27 @@ def get_derivatives_path(
     return root / 'intermediate' / f'WP73{group}' / f'sub-{sid}'
 
 
-def get_data_path(
+def get_base_bids_filename(
+        sid: str,
+        task: str | None,
+        acq: str | None,
+) -> str:
+    fname = f'sub-{sid}_ses-1'
+    if task is not None:
+        fname += f'_task-{task}'
+    if acq is not None:
+        fname += f'_acq-{acq}'
+    return fname
+
+
+def get_cont_data_path(
         proc_stage: str,
         sid: str,
         acq: str | None = None,
         task: str | None = 'SpaNav',
 ) -> Path:
-    include_fname = acq is not None and task is not None
-    fname = f'sub-{sid}_ses-1_task-{task}_acq-{acq}' if include_fname else ''  # BIDS name
+    include_fname = acq is not None and task is not None  # both acq and task are needed in behavioral data filenames
+    fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
     fpath, fext = None, None
     proc_stage = proc_stage.lower()  # easier for following comparison with strings
 
@@ -93,45 +107,33 @@ def get_data_path(
         fext = 'vhdr'
         fpath = get_raw_eeg_path(sid)
 
-    elif 'beh' in proc_stage:
-        fext = 'txt'
-        fpath = get_beh_path(sid)
-        fname += '_beh'
-
     else:
         fext = 'fif'
+        deriv_path = get_derivatives_path(sid)
 
-        if 'epo' in proc_stage:
-            fext = 'fif'
-            fpath = get_epo_path(sid)
-            fname += '_desc-epo_eeg'
+        if 'annot' in proc_stage and 'reannot' not in proc_stage:
+            fpath = deriv_path / '01_annot'
+            fname += '_desc-annot_eeg'
 
-        else:
-            deriv_path = get_derivatives_path(sid)
+        elif 'filt' in proc_stage:
+            fpath = deriv_path / '02_filt_ds'
+            fname += '_desc-FiltDs_eeg'
 
-            if 'annot' in proc_stage and 'reannot' not in proc_stage:
-                fpath = deriv_path / '01_annot'
-                fname += '_desc-annot_eeg'
+        elif 'reannot' in proc_stage:
+            fpath = deriv_path / '03_reannot'
+            fname += '_desc-reannot_eeg'
 
-            elif 'filt' in proc_stage.lower():
-                fpath = deriv_path / '02_filt_ds'
-                fname += '_desc-FiltDs_eeg'
+        elif 'ica' in proc_stage:
+            fpath = deriv_path / '04_ica'
+            fname += '_desc-ica_eeg'
 
-            elif 'reannot' in proc_stage:
-                fpath = deriv_path / '03_reannot'
-                fname += '_desc-reannot_eeg'
+        elif 'reconst' in proc_stage:
+            fpath = deriv_path / '05_reconstructed'
+            fname += '_desc-reconst_eeg'
 
-            elif 'ica' in proc_stage:
-                fpath = deriv_path / '04_ica'
-                fname += '_desc-ica_eeg'
-
-            elif 'reconst' in proc_stage:
-                fpath = deriv_path / '05_reconstructed'
-                fname += '_desc-reconst_eeg'
-
-            elif 'preproc' in proc_stage:
-                fpath = deriv_path / '06_preproc'
-                fname += '_desc-preproc_eeg'
+        elif 'preproc' in proc_stage:
+            fpath = deriv_path / '06_preproc'
+            fname += '_desc-preproc_eeg'
 
     if fpath is None or fext is None:
         raise ValueError('Please pass a valid proc_stage!')
@@ -144,12 +146,50 @@ def get_data_path(
         return fpath
 
 
+def get_beh_data_path(
+        sid: str,
+        acq: str | None = None,
+        task: str | None = 'SpaNav',
+) -> Path:
+    include_fname = acq is not None and task is not None  # both acq and task are needed in behavioral data filenames
+    fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
+    fname += '_beh.txt'
+    fpath = get_beh_path(sid)
+    set_for_save(fpath)
+
+    if include_fname:
+        return fpath / fname
+    else:
+        return fpath
+
+
+def get_epo_data_path(
+        epo_type: str,
+        sid: str,
+        acq: str | None = None,
+        task: str | None = 'SpaNav'
+) -> Path:
+    include_fname = acq is not None  # acq is needed in epoched data filenames (task not)
+    fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
+    fname += f'_desc-{epo_type}_eeg.fif'
+    fpath = get_epo_path(sid)
+    set_for_save(fpath)
+    print(
+        f"{fname = }"
+    )
+
+    if include_fname:
+        return fpath / fname
+    else:
+        return fpath
+
+
 def get_clean_eeg_path(
         sid: str,
         acq: str | None = None,
         task: str | None = 'SpaNav'
 ) -> Path:
-    return get_data_path('preproc', sid, acq, task)
+    return get_cont_data_path('preproc', sid, acq, task)
 
 
 def get_outputs_path(
@@ -167,11 +207,11 @@ def get_outputs_path(
 def get_tables_path(
 ) -> Path:
     outputs_path = get_outputs_path()
-    return outputs_path / 'Tables'
+    return set_for_save(outputs_path / 'Tables')
 
 
 def get_sids(
-    test: bool = False,
+        test: bool = False,
 ) -> list[str]:
     """
 
@@ -192,6 +232,27 @@ def get_sids(
     return sids if not test else [sids[0]]
 
 
+def get_group_sids(
+        group_letter: str,
+        test: bool = False,
+) -> list[str]:
+    """
+
+    :param group_letter:
+    :param test:
+    :return:
+    """
+    group_path = get_main_path() / 'raw' / f'BIDS_Data_WP73{group_letter}'
+    group_sids = []
+    for element in os.listdir(group_path):
+        if os.path.isdir(os.path.join(group_path, element)):
+            group_sids.append(
+                element.replace('sub-73', '')
+            )
+    group_sids = sorted(group_sids)
+    return group_sids if not test else [group_sids[0]]
+
+
 def get_sid_cids(
         sid: str,
         test: bool = False,
@@ -207,8 +268,8 @@ def get_sid_cids(
     raw_path = get_clean_eeg_path(sid, task='SpaNav')
     sid_files = os.listdir(raw_path)
     for file in sid_files:
-        if file.endswith('final_raw.fif') or file.endswith('iclean-raw.fif') :
-            cid, _, _ = parse_prepro_fname(file)
+        if file.endswith('.fif'):
+            cid = re.search(r"block(.+?)", file).group()
             cids.append(cid)
             if len(cids) > 0 and test:  # stop after finding first cid when in testing mode
                 break
@@ -271,7 +332,6 @@ def get_block_stim(
     return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
 
 
-
 def get_ti_positions(
         sid: str,
 ) -> list:
@@ -289,3 +349,31 @@ def get_ti_positions(
     eeg_ti_positions = conv_table.loc[:, 'Old channel name'].to_list()
     return eeg_ti_positions
 
+
+def get_groups_letters(
+) -> list:
+    root = get_main_path() / 'raw'
+    groups = [element for element in os.listdir(root) if os.path.isdir(root / element)]
+    groups_letters = [group[-1] for group in groups]
+    return groups_letters
+
+
+def get_concat_epo_recs(
+        sid: str,
+        cids_to_concat: list[str],
+        epo_type: str,
+        # epo_recs: list[EpochsFIF],
+) -> EpochsArray:
+    """
+    Load epoched recordings and concatenate them.
+    :param sid:
+    :param cids_to_concat:
+    :param epo_type:
+    :return:
+    """
+    recs_list = []
+    for cid in cids_to_concat:
+        epo_path = get_epo_data_path(epo_type, sid, cid)
+        epo_rec = mne.read_epochs(epo_path, preload=False, proj=False)
+        recs_list.append(epo_rec)
+    return mne.concatenate_epochs(recs_list)

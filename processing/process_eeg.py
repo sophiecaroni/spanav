@@ -16,7 +16,7 @@ import os
 
 from spanav_eeg_utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
 from spanav_eeg_utils.parsing_utils import parse_epo_fname, parse_prepro_fname
-from spanav_eeg_utils.io_utils import get_sids, set_for_save, get_tables_path, get_clean_eeg_path, get_epo_path
+from spanav_eeg_utils.io_utils import get_sids, get_tables_path, get_clean_eeg_path, get_epo_path
 from fooof.analysis import get_band_peak_fm
 
 
@@ -68,7 +68,7 @@ def get_psd_df(
     if load:
         fname = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
             'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
-        file_path = set_for_save(get_tables_path()) / fname
+        file_path = get_tables_path() / fname
         psd_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         sids = get_sids(test=test)
@@ -102,7 +102,7 @@ def get_psd_df(
                 is_epo = file.endswith('-epo.fif')
 
                 if is_epo:
-                    rec = mne.read_epochs(epo_path / file, preload=True, verbose=False)
+                    rec = mne.read_epochs(epo_path / file, preload=True, verbose=False, proj=False)
                     cond, block_n, epo_type = parse_epo_fname(file, sid=sid)
                 else:
                     rec = mne.io.read_raw_fif(raw_path / file, preload=True, verbose=False)
@@ -173,7 +173,7 @@ def get_psd_df(
         if save:
             fname = ('psd_df_log.csv' if log else 'psd_df_lin.csv') if avg_across_epochs else (
                 'psd_df_epo_log.csv' if log else 'psd_df_epo_lin.csv')
-            file_path = set_for_save(get_tables_path()) / fname
+            file_path = get_tables_path() / fname
             psd_df.to_csv(file_path)
 
     return psd_df
@@ -186,7 +186,7 @@ def get_psd_avg_df(
 ) -> pd.DataFrame:
     if load:
         fname = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
-        file_path = set_for_save(get_tables_path()) / fname
+        file_path = get_tables_path() / fname
         psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
@@ -216,7 +216,7 @@ def get_psd_avg_df(
 
         if save:
             fname = 'psd_avg_df_log.csv' if log else 'psd_avg_df_lin.csv'
-            file_path = set_for_save(get_tables_path()) / fname
+            file_path = get_tables_path() / fname
             psd_avg_df.to_csv(file_path)
     return psd_avg_df
 
@@ -229,7 +229,7 @@ def get_band_metrics_df(
 ) -> pd.DataFrame:
     if load:
         fname = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
-        file_path = set_for_save(get_tables_path()) / fname
+        file_path = get_tables_path() / fname
         osc_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
         psd_df = get_psd_df(test=test, log=False, avg_across_epochs=avg_across_epochs)  # load power spectra in linear scale
@@ -290,7 +290,7 @@ def get_band_metrics_df(
 
         if save:
             fname = 'band_metrics_df.csv' if avg_across_epochs else 'band_metrics_df_epo.csv'
-            file_path = set_for_save(get_tables_path()) / fname
+            file_path = get_tables_path() / fname
             osc_df.to_csv(file_path)
     return osc_df
 

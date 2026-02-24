@@ -6,8 +6,9 @@ import configparser
 
 from mne import Epochs
 from mne.epochs import EpochsFIF
-from spanav_eeg_utils.spanav_utils import get_task_epo_types, get_trigger_str, reveal_cid, get_epo_types
-from spanav_eeg_utils.io_utils import set_for_save, get_data_path
+from spanav_eeg_utils.spanav_utils import get_task_epo_types, get_trigger_str, get_epo_types
+from spanav_eeg_utils.io_utils import get_epo_data_path, get_epo_path, get_cont_data_path
+from spanav_eeg_utils.parsing_utils import reveal_cid
 from mne.baseline import rescale
 from autoreject import AutoReject
 
@@ -68,9 +69,9 @@ def get_epo_rec(
     if load:
         real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
         task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
-        files_path = get_data_path('epo', sid, acq=real_cid, task=task)
+        files_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
         try:
-            epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False)
+            epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False, proj=False)
             return epo_rec_clean
         except FileNotFoundError:
             print(f'\nFile not found for subject {sid} - potentially not existing \n\t--> returning None')
@@ -101,7 +102,7 @@ def get_epo_rec(
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                     task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
-                    files_path = get_data_path('epo', sid, acq=real_cid, task=task)
+                    files_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
                     epo_rec_clean.save(files_path, overwrite=True)
             return epo_rec_clean
 
@@ -170,7 +171,7 @@ def get_epo_def(
         cid: str,
 ) -> pd.DataFrame:
     fname = 'eeg_epochs.csv'
-    file_path = set_for_save(get_eeg_path() / 'Epo' / sid) / fname
+    file_path = get_epo_path(sid) / fname
     epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID
@@ -260,8 +261,7 @@ def get_retrieval_raw_rec(
         cid: str,
         verbose: bool = True,
 ) -> mne.io.BaseRaw:
-    fname = f'{cid}_final_raw.fif'
-    file_path = get_clean_eeg_path() / sid / fname
+    file_path = get_cont_data_path('preproc', sid, acq=cid)
     raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
     # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)

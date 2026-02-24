@@ -11,9 +11,10 @@
 """
 import matplotlib.pyplot as plt
 import mne
-import numpy as np
 
 from spanav_eeg_utils.config_utils import get_blinding
+from spanav_eeg_utils.io_utils import get_sid_cids
+from spanav_eeg_utils.parsing_utils import get_cid_cond
 
 
 def get_trigger_str(
@@ -105,27 +106,6 @@ def get_cid_with_block(
             'task_iTBS': 'task_iTBS_2',
         }[cid]
 
-
-def reveal_cid(
-        sid: str,
-        cid: str | None = None,
-        block_n: int | str | None = None,
-):
-    """
-
-    :param sid:
-    :param cid:
-    :param block_n:
-    :return:
-    """
-    # Keep blinding atm
-    return f'block{block_n}' if isinstance(block_n, int) or isinstance(block_n, np.int_) else (block_n if block_n.startswith('block') else f'block{block_n}')
-
-
-def get_group_letter(
-        sid: str,
-) -> str:
-    return 'T' if 't' in sid.lower() else 'A'
 
 
 def get_task_epo_types(
@@ -253,4 +233,39 @@ def get_band_label(
         band_str: str,
 ) -> str:
     return map_band_labels()[band_str]
+
+
+def get_full_pid(
+        in_pid: str,
+) -> str:
+    in_pid = in_pid.lower()  # work in lowercase
+
+    # Case 1: in_pid is already the correct participant ID
+    if in_pid.startswith('73') and len(in_pid) == 5:
+        out_pid = in_pid
+
+    # Case 2: in_pid is missing the initial 73
+    elif (in_pid.startswith('t') or in_pid.startswith('a')) and 2 <= len(in_pid) <= 3:  # len is 2 if participant number is not in 02d format
+        in_pid = f'{in_pid[0]}{int(in_pid[1:]):02d}'  # make sure participant number is in 02d format
+        out_pid = f'73{in_pid}'
+
+    # Case 3: in_pid isn't any of the above cases -> invalid, re-ask input and recall function
+    else:
+        in_pid = input(f'Given participant ID ({in_pid}) is unrecognized. Please input a valid one: ')
+        out_pid = get_full_pid(in_pid)
+
+    return out_pid.upper()  # letters in participant IDs are always capitalized
+
+
+def group_cids_by_cond(
+        sid: str,
+        test: bool,
+) -> dict[str, list[str]]:
+    cids = get_sid_cids(sid, test)
+    cids_by_cond = {}
+    for cid in cids:
+        cond = get_cid_cond(sid, cid)
+        cids_by_cond.setdefault(cond, []).append(cid)
+    return cids_by_cond
+
 
