@@ -23,13 +23,6 @@ from pathlib import Path
 from datetime import datetime
 from mne_bids.copyfiles import copyfile_brainvision
 
-# Configuration
-group = "T"
-SOURCE_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/Data_WP73{group}/TI_and_EEG/Raw"  # <--- EDIT THIS PATH if running directly
-OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
-AUTO_RENAME = True
-TESTING_MODE = True
-
 
 def get_rs_file_suff(
         fname_parts: list,
@@ -250,11 +243,8 @@ def process_directory(source_dir, output_dir):
                 raw_task = parts[2]
                 raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
 
-                # if file in ['block3.vhdr', 'block1.vhdr'] and raw_sub.endswith('02'):
-                #     print(f'\nSkipping {raw_sub} file {file}\n')
-                #     continue
-                if 'RS' not in file:
-                    print(f'\nSkipping {file}\n')
+                if SUBJECTS and raw_sub not in SUBJECTS:
+                    print(f'\nSkipping {raw_sub} file {file}\n')
                     continue
 
                 # Clean up Subject ID
@@ -340,23 +330,34 @@ def process_directory(source_dir, output_dir):
 
 
 if __name__ == "__main__":
-    # If you want to use command line arguments:
-    import argparse
 
-    parser = argparse.ArgumentParser(description="Automated BIDS Converter")
-    parser.add_argument("--source", type=str, help="Path to source EEG directory")
-    parser.add_argument("--output", type=str, default="BIDS_EEG", help="Output BIDS directory")
-    
-    args = parser.parse_args()
-    
-    if args.source:
-        process_directory(args.source, args.output)
-    else:
-        # Use the hardcoded path from the top of the file
-        print("No command line arguments provided. Using default configuration.")
-        # Ask for input if default is placeholder
-        if "Path\\To" in SOURCE_FOLDER:
-            folder = input("Please enter the full path to your raw EEG folder: ").strip().replace('"', '')
-            process_directory(folder, OUTPUT_FOLDER)
+    # Configuration
+    groups = ["T", "A"]
+    for group in groups:
+        src_dir_name = 'TBI' if group == 'T' else 'Healthy_Agematched'
+        SOURCE_FOLDER = f"/Volumes/PlasMA_WP73/Raw/{src_dir_name}/TI_and_EEG/Raw"  # <--- EDIT THIS PATH if running directly
+        OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
+        AUTO_RENAME = True
+        TESTING_MODE = False
+        SUBJECTS = ['73T04']  # set to None or empty to process all subjects possible
+
+        # If you want to use command line arguments:
+        import argparse
+
+        parser = argparse.ArgumentParser(description="Automated BIDS Converter")
+        parser.add_argument("--source", type=str, help="Path to source EEG directory")
+        parser.add_argument("--output", type=str, default="BIDS_EEG", help="Output BIDS directory")
+
+        args = parser.parse_args()
+
+        if args.source:
+            process_directory(args.source, args.output)
         else:
-            process_directory(SOURCE_FOLDER, OUTPUT_FOLDER)
+            # Use the hardcoded path from the top of the file
+            print("No command line arguments provided. Using default configuration.")
+            # Ask for input if default is placeholder
+            if "Path\\To" in SOURCE_FOLDER:
+                folder = input("Please enter the full path to your raw EEG folder: ").strip().replace('"', '')
+                process_directory(folder, OUTPUT_FOLDER)
+            else:
+                process_directory(SOURCE_FOLDER, OUTPUT_FOLDER)
