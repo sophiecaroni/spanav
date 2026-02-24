@@ -140,7 +140,7 @@ def get_task_epo_types(
         'ObjPres',
         'MovOn',
         'ContMov',
-        'Static',
+        'Stasis',
     ] if not test else ['ContMov']
 
 
@@ -155,7 +155,7 @@ def get_epo_types(
         'ObjPres',
         'MovOn',
         'ContMov',
-        'Static',
+        'Stasis',
     ]
 
 
@@ -186,7 +186,7 @@ def get_epo_palette(
 ) -> dict:
     return {
         'ContMov': 'tab:green',
-        'Static': 'tab:blue',
+        'Stasis': 'tab:blue',
         'MovOn': 'OrangeRed',
         'ObjPres': 'orange',
         'Raw': 'purple',
@@ -221,7 +221,7 @@ def map_epo_type_labels(
         'ObjPres': 'Object Presentation',
         'MovOn': 'Movement onset',
         'ContMov': 'Continuous movement',
-        'Static': 'Static',
+        'Stasis': 'Stasis',
     }
 
 

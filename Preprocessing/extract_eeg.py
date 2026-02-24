@@ -81,7 +81,7 @@ def get_epo_rec(
         if epo_type == 'ObjPres':
             epo_rec = get_obj_pres_epochs(raw_rec)
 
-        elif epo_type in ['ContMov', 'Static', 'MovOn']:
+        elif epo_type in ['ContMov', 'Stasis', 'MovOn']:
             epo_def = get_epo_def(sid, cid) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
@@ -248,7 +248,7 @@ def get_epo_type_id(
         epo_type: str,
 ) -> int:
     epo_types_ids = {
-        'Static': 111,
+        'Stasis': 111,
         'MovOn': 222,
         'ContMov': 333,
     }

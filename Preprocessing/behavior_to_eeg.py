@@ -180,17 +180,17 @@ def extract_beh_events(
 
             trial_trace_df = select_trial_df(sid, block_n, trace_df, start, end)
 
-            # Create new column state; set to Moving when there are values in x and y, otherwise to Static
+            # Create new column state; set to Moving when there are values in x and y, otherwise to Stasis
             trial_trace_df['state'] = trial_trace_df.apply(
-                lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Static', axis=1)
+                lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Stasis', axis=1)
 
-            # Change each "Moving" value that is preceded by "Static" to "MovOn" (movement onset)
+            # Change each "Moving" value that is preceded by "Stasis" to "MovOn" (movement onset)
             trial_trace_df['state'] = trial_trace_df.apply(
-                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name - 1, 'state'] == 'Static' and r[
+                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name - 1, 'state'] == 'Stasis' and r[
                     'state'] == 'Moving') else r['state'], axis=1
             )
 
-            # Iterate over states (Static, MovOn, Moving) of the block
+            # Iterate over states (Stasis, MovOn, Moving) of the block
             current_state = trial_trace_df.loc[0, 'state']
             state_start = trial_trace_df.loc[0, 'time']
             for i in range(1, len(trial_trace_df)):  # in every line of dataframe trial_df
@@ -399,13 +399,13 @@ def define_eeg_epochs(
                     'TrialEnd': row['TrialEnd'],
                 }
 
-                # 1. Static epochs
-                if row['State'] == 'Static' and duration >= static_min_s:
+                # 1. Stasis epochs
+                if row['State'] == 'Stasis' and duration >= static_min_s:
                     if segment_epochs:
                         segment_epoch(
                             events_list=events,
                             epoch_info=base_event_info,
-                            epoch_type='Static',
+                            epoch_type='Stasis',
                             epoch_start=state_start,
                             epoch_end=state_start + duration,
                         )
@@ -415,7 +415,7 @@ def define_eeg_epochs(
                         stat_epoch_end = state_start + static_epo_window[1]
                         events.append({
                             **base_event_info,
-                            'EpochType': 'Static',
+                            'EpochType': 'Stasis',
                             'EpochStart': stat_epoch_start,
                             'EpochEnd': stat_epoch_end,
                             'EpochDuration': stat_epoch_end - stat_epoch_start,
@@ -431,7 +431,7 @@ def define_eeg_epochs(
 
                         # Check if preceding and following states qualify
                         if (
-                                prev['State'] == 'Static' and prev['Duration'] >= static_min_s_before_mov
+                                prev['State'] == 'Stasis' and prev['Duration'] >= static_min_s_before_mov
                         ) and (
                                 following['State'] == 'Moving' and following['Duration'] >= mov_min_s
                         ):

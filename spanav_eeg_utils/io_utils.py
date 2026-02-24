@@ -20,8 +20,8 @@ from spanav_eeg_utils.parsing_utils import parse_prepro_fname
 
 
 def set_for_save(
-        save_path: str | Path,
-) -> str | Path:
+        save_path: Path,
+) -> Path:
     """
 
     :param save_path:

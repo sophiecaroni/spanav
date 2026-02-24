@@ -478,7 +478,7 @@ def compare_epo_psd(
 
                 labels = {
                     'ContMov': 'Continuous movement',
-                    'Static': 'Static',
+                    'Stasis': 'Stasis',
                     'MovOn': 'Movement onset',
                     'ObjPres': 'Object presentation',
                     'Raw': 'Continuous data',
@@ -872,7 +872,7 @@ def plot_schematic_eeg_epochs(
 
     # Vertical position
     patch_height = 0.1
-    y_levels = {'Static': 0, 'MovOn': 0.5, 'ContMov': 1-patch_height}
+    y_levels = {'Stasis': 0, 'MovOn': 0.5, 'ContMov': 1-patch_height}
 
     with plot_context():
         plotted_epos = []
@@ -923,7 +923,7 @@ def compare_found_peaks(
 
             # Create list to define plotting order
             bands = ["theta", "alpha", "38-42"]
-            epo_types = ["Raw", "ObjPres", "Static", "MovOn", "ContMov"] if 'Raw' in facet_df['epo_type'].unique() else ["ObjPres", "Static", "MovOn", "ContMov"]
+            epo_types = ["Raw", "ObjPres", "Stasis", "MovOn", "ContMov"] if 'Raw' in facet_df['epo_type'].unique() else ["ObjPres", "Stasis", "MovOn", "ContMov"]
 
             # Sum numer of peaks for each band and epoch-type
             plot_df = (facet_df
