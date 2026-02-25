@@ -18,6 +18,7 @@ from spanav_eeg_utils.spectral_utils import compute_psd, get_band_power, model_p
 from spanav_eeg_utils.parsing_utils import parse_epo_fname, parse_prepro_fname
 from spanav_eeg_utils.io_utils import get_sids, get_tables_path, get_clean_eeg_path, get_epo_path
 from fooof.analysis import get_band_peak_fm
+from mne.epochs import BaseEpochs, EpochsArray, Epochs
 
 
 def compute_avg_epo_psd(
@@ -293,6 +294,24 @@ def get_band_metrics_df(
             file_path = get_tables_path() / fname
             osc_df.to_csv(file_path)
     return osc_df
+
+
+def average_channels_across_epochs(epo_in: BaseEpochs) -> EpochsArray:
+    info = mne.create_info(
+        ch_names=["avg_channels"],
+        sfreq=epo_in.info["sfreq"],
+        ch_types="eeg"
+    )
+    data = epo_in.get_data()
+    ch_avg = np.average(data, axis=1)
+
+    epo_out = mne.EpochsArray(
+        ch_avg[:, np.newaxis, :],  # keep 3D
+        info=info,
+        events=epo_in.events,
+        event_id=epo_in.event_id
+    )
+    return epo_out
 
 
 if __name__ == '__main__':
