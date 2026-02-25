@@ -176,9 +176,6 @@ def get_epo_data_path(
     fname += f'_desc-{epo_type}_eeg.fif'
     fpath = get_epo_path(sid)
     set_for_save(fpath)
-    print(
-        f"{fname = }"
-    )
 
     if include_fname:
         return fpath / fname
@@ -218,7 +215,7 @@ def get_outputs_path(
 def get_tables_path(
 ) -> Path:
     outputs_path = get_outputs_path()
-    return set_for_save(outputs_path / 'Tables')
+    return outputs_path / 'Tables'
 
 
 def get_sids(
@@ -385,7 +382,7 @@ def get_concat_epo_recs(
     recs_list = []
     for cid in cids_to_concat:
         epo_path = get_epo_data_path(epo_type, sid, cid)
-        epo_rec = mne.read_epochs(epo_path, preload=False, proj=False)
+        epo_rec = mne.read_epochs(epo_path, preload=False, proj=False, verbose=False)
         recs_list.append(epo_rec)
     return mne.concatenate_epochs(recs_list)
 

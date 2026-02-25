@@ -22,7 +22,7 @@ from mne.epochs import BaseEpochs, EpochsArray, Epochs
 
 
 def compute_avg_epo_psd(
-        rec: mne.Epochs,
+        rec: Epochs,
         fmin: float = 0.0,
         fmax: float = np.inf,
         test: bool = False,
@@ -42,7 +42,7 @@ def compute_avg_epo_psd(
 
 
 def compute_psd_by_key(
-        epos_dict: dict[str, mne.Epochs],
+        epos_dict: dict[str, Epochs],
 ) -> dict[str, tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]]:
     """
     Compute PSD for each recording of a dict.
@@ -190,6 +190,7 @@ def get_psd_avg_df(
         file_path = get_tables_path() / fname
         psd_avg_df = pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
     else:
+        # Load full (non-aggregated) PSD dataframe
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
 
         # For each patient, average PSD of the same condition and epoch-type across different blocks
