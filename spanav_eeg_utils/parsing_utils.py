@@ -106,3 +106,14 @@ def parse_prepro_fname(
         cid = f'block{block_n}'
 
     return cid, block_n, epo_type
+
+
+def get_group_letter_from_path(
+        path_parts: tuple[str, ...]
+) -> str:
+    if "WP73T" in path_parts or "T" in path_parts:
+        return "T"
+    if "WP73A" in path_parts or "A" in path_parts:
+        return "A"
+    raise ValueError("Cannot infer group letter (WP73T/WP73A not found in path parts).")
+

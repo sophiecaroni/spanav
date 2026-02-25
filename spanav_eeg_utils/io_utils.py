@@ -16,7 +16,7 @@ import mne
 
 from pathlib import Path
 from spanav_eeg_utils.config_utils import get_server
-from spanav_eeg_utils.parsing_utils import get_group_letter
+from spanav_eeg_utils.parsing_utils import get_group_letter, get_group_letter_from_path
 from mne.epochs import EpochsArray
 
 
@@ -28,8 +28,10 @@ def set_for_save(
     :param save_path:
     :return:
     """
-    os.makedirs(save_path, exist_ok=True)
-    return save_path
+    # Check correctness of the path
+    save_path_ok = check_path_sid(save_path)
+    os.makedirs(save_path_ok, exist_ok=True)
+    return save_path_ok
 
 
 def get_main_path(
@@ -377,3 +379,30 @@ def get_concat_epo_recs(
         epo_rec = mne.read_epochs(epo_path, preload=False, proj=False)
         recs_list.append(epo_rec)
     return mne.concatenate_epochs(recs_list)
+
+
+def check_path_sid(path: Path) -> Path:
+    subject_part_re = re.compile(
+        r"^(?:sub[-_ ]*)?(?:(?P<grp>[TA])(?P<num1>\d{2})|(?P<num2>\d{1,2}))$",
+        re.IGNORECASE,
+    )
+
+    parts = path.parts
+    group_letter = get_group_letter_from_path(parts)
+    new_parts = list(parts)
+
+    for i, part in enumerate(parts):
+        m = subject_part_re.match(part)
+        if not m:
+            continue
+
+        # avoid accidentally rewriting WP73T / WP73A themselves
+        if part in ("WP73T", "WP73A"):
+            continue
+
+        grp = m.group("grp")
+        num = m.group("num1") or m.group("num2")
+        grp_final = (grp or group_letter).upper()
+        new_parts[i] = f"sub-{grp_final}{int(num):02d}"
+
+    return Path(*new_parts)
