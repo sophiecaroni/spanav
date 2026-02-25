@@ -196,14 +196,23 @@ def get_clean_eeg_path(
 
 def get_outputs_path(
         sid: str | None = None,
+        group_parent_dir: str | None = None,
 ) -> Path:
     root = get_main_path()
+    outputs_path = root / 'outputs'
+
     if sid is None:
-        return set_for_save(root / 'outputs')
-    else:
-        # If a subject ID is passed, then the group-specific path is returned
-        group = get_group_letter(sid)
-        return set_for_save(root / 'outputs' / f'WP73{group}')
+        return outputs_path
+
+    # If a subject ID is passed, then the group-specific path is returned
+    group = get_group_letter(sid)
+
+    if group_parent_dir:
+        outputs_path /= group_parent_dir
+
+    outputs_path /= f"WP73{group}"
+
+    return outputs_path
 
 
 def get_tables_path(

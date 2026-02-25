@@ -70,15 +70,19 @@ def layout_subplots_grid(
 
 
 def save_figure(
-        save_dir: str,
+        save_dir: str | None,
         fname: str,
         fig: Figure | None = None,
         sid: str | None = None,
         dpi: int = 900,
         prevent_overwrite: bool = False,
+        group_parent_dir: str | None = None,
         **kwargs,
 ) -> None:
-    save_path = set_for_save(get_outputs_path(sid) / save_dir)
+    outputs_path = get_outputs_path(sid, group_parent_dir=group_parent_dir)
+    if save_dir is not None:
+        outputs_path /= save_dir
+    save_path = set_for_save(outputs_path)
     full_save_path = save_path / fname
 
     if prevent_overwrite and os.path.exists(full_save_path):
