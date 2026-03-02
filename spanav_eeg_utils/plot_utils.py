@@ -77,12 +77,15 @@ def save_figure(
         dpi: int = 900,
         prevent_overwrite: bool = False,
         group_parent_dir: str | None = None,
+        check_path_sid_strings: bool = True,
         **kwargs,
 ) -> None:
     outputs_path = get_outputs_path(sid, group_parent_dir=group_parent_dir)
     if save_dir is not None:
         outputs_path /= save_dir
-    save_path = set_for_save(outputs_path)
+
+    save_path = set_for_save(outputs_path, check_sid_strings=check_path_sid_strings)
+
     full_save_path = save_path / fname
 
     if prevent_overwrite and os.path.exists(full_save_path):

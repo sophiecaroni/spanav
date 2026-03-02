@@ -22,16 +22,19 @@ from mne.epochs import EpochsArray
 
 def set_for_save(
         save_path: Path,
+        check_sid_strings: bool = True,
 ) -> Path:
     """
 
+    :param check_sid_strings:
     :param save_path:
     :return:
     """
-    # Check correctness of the path
-    save_path_ok = check_path_sid(save_path)
-    os.makedirs(save_path_ok, exist_ok=True)
-    return save_path_ok
+    if check_sid_strings:
+        # Check correctness of the path
+        save_path = check_path_sid(save_path)
+    os.makedirs(save_path, exist_ok=True)
+    return save_path
 
 
 def get_main_path(
