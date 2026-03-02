@@ -10,6 +10,7 @@
 ********************************************************************************
 """
 import re
+import numpy as np
 
 from spanav_eeg_utils.config_utils import get_blinding
 
