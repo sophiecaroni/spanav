@@ -5,7 +5,14 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spanav-tbi"
 version = "0.0.0"
-dependencies = []
+dependencies = [
+    "numpy",
+    "pandas",
+    "mne",
+    "matplotlib",
+    "fooof",
+    "yasa",
+]
 
 [tool.setuptools]
 include-package-data = true
