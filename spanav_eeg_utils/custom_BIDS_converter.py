@@ -60,7 +60,7 @@ def auto_rename(
 ) -> str:
     ses = 1  # in our experiment we only have one experimental session
     path_parts = file_path.split('/')
-    sid = path_parts[-1]
+    sid = path_parts[-1].replace('73', '')
     name_parts = file_name.replace('.vhdr', '').split('_')
     if file_name.lower().startswith('rs'):  # resting state
         new_file_name = f'{sid}_{ses}_{get_rs_file_suff(name_parts)}'
@@ -248,8 +248,8 @@ def process_directory(source_dir, output_dir):
                     continue
 
                 # Clean up Subject ID
-                sub_id = raw_sub.replace("sub-", "")
-                
+                sub_id = raw_sub.replace("73", "")
+
                 # Clean up Session ID: Extract digits strictly
                 ses_match = re.search(r'\d+', raw_ses)
                 if ses_match:
@@ -339,7 +339,7 @@ if __name__ == "__main__":
         OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
         AUTO_RENAME = True
         TESTING_MODE = False
-        SUBJECTS = ['73T04']  # set to None or empty to process all subjects possible
+        SUBJECTS = ['T04']  # set to None or empty to process all subjects possible
 
         # If you want to use command line arguments:
         import argparse
