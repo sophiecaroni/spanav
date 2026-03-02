@@ -16,7 +16,7 @@ import mne
 
 from pathlib import Path
 from spanav_eeg_utils.config_utils import get_server
-from spanav_eeg_utils.parsing_utils import get_group_letter, get_group_letter_from_path
+from spanav_eeg_utils.parsing_utils import get_group_letter
 from mne.epochs import EpochsArray
 
 
@@ -111,6 +111,7 @@ def get_cont_data_path(
     if 'raw' in proc_stage:
         fext = 'vhdr'
         fpath = get_raw_eeg_path(sid)
+        fname += '_eeg'
 
     else:
         fext = 'fif'
