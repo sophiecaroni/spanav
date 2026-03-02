@@ -12,6 +12,7 @@
 import re
 import numpy as np
 
+from pathlib import Path
 from spanav_eeg_utils.config_utils import get_blinding
 
 
@@ -109,27 +110,26 @@ def parse_prepro_fname(
     return cid, block_n, epo_type
 
 
-def get_group_letter_from_path(
-        path_parts: tuple[str, ...]
-) -> str:
-    # Search for group-dir (e.g. BIDS_Data_WP73T, or WP73A, or Data_WP73A, ...)
-    exact_pattern = re.compile(
-        r"^(?:WP)?73?([AT])(0[1-9]|[1-9][0-9])$"
-    )
+def check_path_sid(fpath: Path) -> Path:
+    group_dir_re = re.compile(r"^(?:(?:BIDS_Data|Data)_)WP73[AT]$", re.IGNORECASE)
+    subject_dir_re = re.compile(r"^(?:sub[- ]*)?(?:(?:WP)?73)?(?P<grp>[TA])(?P<num>0[1-9]|[1-9]\d)$", re.IGNORECASE,)
 
-    for element in path_parts:
-        el = element.upper()  # make sure we deal with upper case strings only
+    parts = list(fpath.parts)
 
-        # ---- Exact match case ----
-        match = exact_pattern.match(el)
-        if match:
-            return match.group(1)  # A/T letter part is retured
+    for i, part in enumerate(parts):
 
-        # ---- Substring case ----
-        if "73T" in el:
-            return "T"
-        if "73A" in el:
-            return "A"
+        if group_dir_re.match(part):  # don't edit group directories in this function
+            continue
 
-    raise ValueError(f"Cannot infer group letter from {path_parts}.")
+        match = subject_dir_re.match(part)
+        if not match:
+            continue
+
+        grp = match.group("grp").upper()
+        sid_n = int(match.group("num"))
+
+        # Replace elements in parts with correct subject-direcotry name
+        parts[i] = f"sub-{grp}{sid_n:02d}"
+
+    return Path(*parts)
 
