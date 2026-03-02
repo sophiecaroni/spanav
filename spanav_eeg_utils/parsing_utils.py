@@ -111,9 +111,24 @@ def parse_prepro_fname(
 def get_group_letter_from_path(
         path_parts: tuple[str, ...]
 ) -> str:
-    if "WP73T" in path_parts or "T" in path_parts:
-        return "T"
-    if "WP73A" in path_parts or "A" in path_parts:
-        return "A"
-    raise ValueError("Cannot infer group letter (WP73T/WP73A not found in path parts).")
+    # Search for group-dir (e.g. BIDS_Data_WP73T, or WP73A, or Data_WP73A, ...)
+    exact_pattern = re.compile(
+        r"^(?:WP)?73?([AT])(0[1-9]|[1-9][0-9])$"
+    )
+
+    for element in path_parts:
+        el = element.upper()  # make sure we deal with upper case strings only
+
+        # ---- Exact match case ----
+        match = exact_pattern.match(el)
+        if match:
+            return match.group(1)  # A/T letter part is retured
+
+        # ---- Substring case ----
+        if "73T" in el:
+            return "T"
+        if "73A" in el:
+            return "A"
+
+    raise ValueError(f"Cannot infer group letter from {path_parts}.")
 
