@@ -266,8 +266,7 @@ def process_directory(source_dir, output_dir):
                 # --- 2. Create Destination Directory ---
                 # Structure: BIDS_EEG/sub-{id}/ses-{id}/eeg/
                 dest_dir = output_path / f"sub-{sub_id}" / f"ses-{ses_id}" / "eeg"
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 # --- 3. Base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sub_id}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
