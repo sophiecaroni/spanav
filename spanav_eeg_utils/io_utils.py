@@ -203,13 +203,13 @@ def get_outputs_path(
     root = get_main_path()
     outputs_path = root / 'outputs'
 
+    if group_parent_dir:
+        outputs_path /= group_parent_dir
+
     if sid is None:
         return outputs_path
 
     # If a subject ID is passed, then the group-specific path is returned
-
-    if group_parent_dir:
-        outputs_path /= group_parent_dir
     group = prs.get_group_letter(sid)
 
     outputs_path /= f"WP73{group}"
