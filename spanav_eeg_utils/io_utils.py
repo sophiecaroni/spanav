@@ -46,11 +46,10 @@ def get_main_path(
     :return:
     """
     SERVER = cfg.get_server() if server is None else server
-    proj_rel_path = cfg.get_project_rel()
     if SERVER:
-        return Path('/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG')
+        return cfg.get_server_root()
     else:
-        return Path('/Users/sophiecaroni/epfl_hes/spanav-tbi/data')
+        return cfg.get_local_root()
 
 
 def get_raw_eeg_path(
@@ -273,7 +272,6 @@ def get_sid_cids(
     """
 
     :param sid:
-    :param task:
     :param test:
     :return:
     """
