@@ -11,10 +11,9 @@
 """
 import matplotlib.pyplot as plt
 import mne
-
-from spanav_eeg_utils.config_utils import get_blinding
-from spanav_eeg_utils.io_utils import get_sid_cids
-from spanav_eeg_utils.parsing_utils import get_cid_cond
+import spanav_eeg_utils.parsing_utils as prs
+import spanav_eeg_utils.io_utils as io
+import spanav_eeg_utils.config_utils as cfg
 
 
 def get_trigger_str(
@@ -103,7 +102,7 @@ def get_epo_palette(
 
 def get_cond_palette(
 ) -> dict:
-    BLINDING = get_blinding()
+    BLINDING = cfg.get_blinding()
     print(
         f"{BLINDING = }"
     )

@@ -3,16 +3,17 @@ import mne
 import numpy as np
 import pandas as pd
 import configparser
+import spanav_eeg_utils.parsing_utils as prs
+import spanav_eeg_utils.spanav_utils as sn
+import spanav_eeg_utils.io_utils as io
 
 from mne import Epochs
 from mne.epochs import EpochsFIF
-from spanav_eeg_utils.spanav_utils import get_task_epo_types, get_trigger_str, get_epo_types
-from spanav_eeg_utils.io_utils import get_epo_data_path, get_epo_path, get_cont_data_path
 from spanav_eeg_utils.parsing_utils import reveal_cid
 from mne.baseline import rescale
 from autoreject import AutoReject
 
-EPO_TYPES = set(get_epo_types())
+EPO_TYPES = set(sn.get_epo_types())
 EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
 
 config = configparser.ConfigParser()
@@ -38,7 +39,7 @@ def get_all_epo_objects(
     if cid.startswith('RS'):
         epo_types = ['RS']
     else:
-        epo_types = get_task_epo_types(test=test) if epo_types is None else epo_types
+        epo_types = sn.get_task_epo_types(test=test) if epo_types is None else epo_types
     for epo_type in epo_types:
 
         if verbose:
@@ -67,9 +68,9 @@ def get_epo_rec(
         raise ValueError(f"Invalid epo_type: {epo_type!r}. Expected one of {EPO_TYPES}.")
 
     if load:
-        real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+        real_cid = prs.get_stim(sid, acq=cid)
         task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
-        files_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
+        files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
         try:
             epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False, proj=False)
             return epo_rec_clean
@@ -102,7 +103,7 @@ def get_epo_rec(
                 if save:
                     real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                     task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
-                    files_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
+                    files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
                     epo_rec_clean.save(files_path, overwrite=True)
             return epo_rec_clean
 
@@ -118,7 +119,7 @@ def get_obj_pres_epochs(
         'baseline': None,  # baseline was already applied on raw_rec
     }
     all_events, all_event_ids = mne.events_from_annotations(raw_rec, verbose=kwargs['verbose'])
-    obj_pres_gone = get_trigger_str('retr_obj_gone')
+    obj_pres_gone = sn.get_trigger_str('retr_obj_gone')
     epo3 = mne.Epochs(
         raw_rec,
         all_events, event_id={obj_pres_gone: all_event_ids[obj_pres_gone]},
@@ -171,7 +172,7 @@ def get_epo_def(
         cid: str,
 ) -> pd.DataFrame:
     fname = 'eeg_epochs.csv'
-    file_path = get_epo_path(sid) / fname
+    file_path = io.get_epo_path(sid) / fname
     epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID
@@ -261,7 +262,7 @@ def get_retrieval_raw_rec(
         cid: str,
         verbose: bool = True,
 ) -> mne.io.BaseRaw:
-    file_path = get_cont_data_path('preproc', sid, acq=cid)
+    file_path = io.get_cont_path('preproc', sid, acq=cid)
     raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
     # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)
@@ -273,8 +274,8 @@ def get_retrieval_raw_rec(
 
     # Crop retrieval recording based on annotated triggers
     desc = raw_rec.annotations.description
-    retr_start = onsets[desc == get_trigger_str('trial_start')][0]  # start of the first trial
-    retr_end = onsets[desc == get_trigger_str('trial_end')][-1]  # end of the last trial
+    retr_start = onsets[desc == sn.get_trigger_str('trial_start')][0]  # start of the first trial
+    retr_end = onsets[desc == sn.get_trigger_str('trial_end')][-1]  # end of the last trial
     raw_corr.crop(tmin=retr_start, tmax=retr_end)
     if verbose:
         print(
@@ -305,8 +306,8 @@ def task_bl_corr(
     :param verbose:
     :return: baseline-corrected continuous recording
     """
-    trigger_trial_start = get_trigger_str('trial_start')
-    trigger_trial_end = get_trigger_str('trial_end')
+    trigger_trial_start = sn.get_trigger_str('trial_start')
+    trigger_trial_end = sn.get_trigger_str('trial_end')
     annots = raw_rec.annotations
 
     # Initialise variables

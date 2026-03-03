@@ -13,10 +13,10 @@ import os
 import pandas as pd
 import re
 import mne
+import spanav_eeg_utils.config_utils as cfg
+import spanav_eeg_utils.parsing_utils as prs
 
 from pathlib import Path
-from spanav_eeg_utils.config_utils import get_server
-from spanav_eeg_utils.parsing_utils import get_group_letter, check_path_sid
 from mne.epochs import EpochsArray
 
 
@@ -32,7 +32,7 @@ def set_for_save(
     """
     if check_sid_strings:
         # Check correctness of the path
-        save_path = check_path_sid(save_path)
+        save_path = prs.check_path_sid(save_path)
     os.makedirs(save_path, exist_ok=True)
     return save_path
 
@@ -45,7 +45,8 @@ def get_main_path(
     :param server:
     :return:
     """
-    SERVER = get_server() if server is None else server
+    SERVER = cfg.get_server() if server is None else server
+    proj_rel_path = cfg.get_project_rel()
     if SERVER:
         return Path('/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG')
     else:
@@ -56,7 +57,7 @@ def get_raw_eeg_path(
         sid: str,
 ) -> Path:
     root = get_main_path()
-    group = get_group_letter(sid)
+    group = prs.get_group_letter(sid)
     return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
 
 
@@ -64,7 +65,7 @@ def get_beh_path(
         sid: str,
 ) -> Path:
     root = get_main_path()
-    group = get_group_letter(sid)
+    group = prs.get_group_letter(sid)
     return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
 
 
@@ -72,7 +73,7 @@ def get_epo_path(
         sid: str,
 ) -> Path:
     root = get_main_path()
-    group = get_group_letter(sid)
+    group = prs.get_group_letter(sid)
     return root / 'epo' / f'WP73{group}' / f'sub-{sid}'
 
 
@@ -80,7 +81,7 @@ def get_derivatives_path(
         sid: str,
 ) -> Path:
     root = get_main_path()
-    group = get_group_letter(sid)
+    group = prs.get_group_letter(sid)
     return root / 'intermediate' / f'WP73{group}' / f'sub-{sid}'
 
 
@@ -97,7 +98,7 @@ def get_base_bids_filename(
     return fname
 
 
-def get_cont_data_path(
+def get_cont_path(
         proc_stage: str,
         sid: str,
         acq: str | None = None,
@@ -192,7 +193,7 @@ def get_clean_eeg_path(
         acq: str | None = None,
         task: str | None = 'SpaNav'
 ) -> Path:
-    return get_cont_data_path('preproc', sid, acq, task)
+    return get_cont_path('preproc', sid, acq, task)
 
 
 def get_outputs_path(
@@ -206,10 +207,10 @@ def get_outputs_path(
         return outputs_path
 
     # If a subject ID is passed, then the group-specific path is returned
-    group = get_group_letter(sid)
 
     if group_parent_dir:
         outputs_path /= group_parent_dir
+    group = prs.get_group_letter(sid)
 
     outputs_path /= f"WP73{group}"
 
@@ -352,9 +353,9 @@ def get_ti_positions(
     :param sid:
     :return:
     """
-    exp_grp = get_group_letter(sid)
-    stim_file_path = get_main_path() / f'Data_WP73{exp_grp}' / 'TI_and_EEG' / 'Montage' / f'73{sid}'
-    spanav_files = list(stim_file_path.glob(f'log_73{sid}*.csv'))
+    exp_grp = prs.get_group_letter(sid)
+    ti_pos_fpath = get_main_path() / f'Data_WP73{exp_grp}' / 'TI_and_EEG' / 'Montage' / f'73{sid}'
+    spanav_files = list(ti_pos_fpath.glob(f'log_73{sid}*.csv'))
     if len(spanav_files) != 1:
         raise RuntimeError(f'Expected exactly one SpaNav CSV for {sid}, found {len(spanav_files)}')
     conv_table = pd.read_csv(spanav_files[0], sep=';')

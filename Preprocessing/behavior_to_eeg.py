@@ -2,8 +2,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import configparser
-
-from spanav_eeg_utils.io_utils import get_cont_data_path, get_outputs_path
+import spanav_eeg_utils.io_utils as io
 
 config = configparser.ConfigParser()
 config.read('../config.ini')
@@ -20,7 +19,7 @@ def get_times_retrieval_phases(
     :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
     retrieval_starts_to_check = []
-    file = get_cont_data_path('beh', sid, 'TaskLog')
+    file = io.get_cont_path('beh', sid, 'TaskLog')
     with open(file, 'r') as f:
         times_by_retrieval_phase = {}
         block_n = 1
@@ -47,7 +46,7 @@ def get_trace_df(
 ) -> pd.DataFrame:
     tracelog = []
 
-    file = get_cont_data_path('beh', sid, 'TraceLog')
+    file = io.get_cont_path('beh', sid, 'TraceLog')
     with open(file, 'r') as f:
         for raw in f:
             line = raw.strip()
@@ -123,7 +122,7 @@ def get_retrieval_df(
         sid: str,
 ) -> pd.DataFrame:
 
-    file = get_cont_data_path('beh', sid, 'RetrievalLog')
+    file = io.get_cont_path('beh', sid, 'RetrievalLog')
     df = pd.read_csv(
         file,
         sep=',',
@@ -237,7 +236,7 @@ def extract_beh_events(
 
     if save:
         fname = 'beh_events.csv'
-        file_path = get_outputs_path(sid) / 'Epo' / sid / fname
+        file_path = io.get_outputs_path(sid) / 'Epo' / sid / fname
         events_df.to_csv(file_path, index=False)
 
     return events_df
@@ -492,7 +491,7 @@ def define_eeg_epochs(
 
     if save:
         fname = 'eeg_epochs.csv'
-        file_path = get_outputs_path(sid) / 'Epo' / sid / fname
+        file_path = io.get_outputs_path(sid) / 'Epo' / sid / fname
         events_df.to_csv(file_path, index=False)
 
     return events_df

@@ -12,10 +12,10 @@
 import matplotlib.pyplot as plt
 import os
 import numpy as np
+import spanav_eeg_utils.io_utils as io
 
 from contextlib import contextmanager
 from matplotlib.figure import Figure
-from spanav_eeg_utils.io_utils import set_for_save, get_outputs_path
 from pathlib import Path
 
 
@@ -80,11 +80,11 @@ def save_figure(
         check_path_sid_strings: bool = True,
         **kwargs,
 ) -> None:
-    outputs_path = get_outputs_path(sid, group_parent_dir=group_parent_dir)
+    outputs_path = io.get_outputs_path(sid, group_parent_dir=group_parent_dir)
     if save_dir is not None:
         outputs_path /= save_dir
 
-    save_path = set_for_save(outputs_path, check_sid_strings=check_path_sid_strings)
+    save_path = io.set_for_save(outputs_path, check_sid_strings=check_path_sid_strings)
 
     full_save_path = save_path / fname
 
@@ -104,3 +104,4 @@ def get_nrows_ncols(
     n = int(len(subplots_elements))
     nrows, ncols = (2, int(np.ceil(n/2))) if n > 2 else (1, n)
     return nrows, ncols
+

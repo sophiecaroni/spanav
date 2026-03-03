@@ -1,13 +1,14 @@
 import warnings
 import matplotlib.pyplot as plt
+import spanav_eeg_utils.io_utils as io
+import spanav_eeg_utils.plot_utils as plu
+import spanav_eeg_utils.parsing_utils as prs
 
 from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_beh_events, \
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
 from spanav_eeg_utils.spanav_utils import reveal_cid
-from spanav_eeg_utils.io_utils import get_sid_cids
 from visualization.vis_eeg import plot_evk_by_grp
-from spanav_eeg_utils.plot_utils import plot_context, save_figure
 
 warnings.filterwarnings('ignore')  # Suppress all warnings
 
@@ -35,7 +36,7 @@ def gen_contmov_epos(
     epos_dict = {}
     for sid in sids:
         epos_dict[sid] = {}
-        cids = get_sid_cids(sid, task=True, test=test)
+        cids = io.get_sid_cids(sid, test=test)
 
         for cid in cids:
             epos_dict[sid][cid] = {}
@@ -84,13 +85,13 @@ def plot_contmov_epos(
         show: bool = True,
         save: bool = False,
 ):
-    with plot_context():
+    with plu.plot_context():
         for sid, sid_dict in epos_dict.items():
             for cid, epo_by_mov_def in sid_dict.items():
                 plot_evk_by_grp(epo_by_mov_def, sid=sid, cid=cid, show=False, save=False)
                 if save:
-                    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
                     save_figure(f'Evoked/{sid}/{real_cid}', 'mov_durations.png', sid=sid, bbox_inches='tight')
+                    plu.save_figure(f'Evoked/{sid}/{real_cid}', 'mov_durations.png', sid=sid, bbox_inches='tight')
         if show:
             plt.show()
         else:
