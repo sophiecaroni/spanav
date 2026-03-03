@@ -7,7 +7,6 @@ import spanav_eeg_utils.parsing_utils as prs
 from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_beh_events, \
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
-from spanav_eeg_utils.spanav_utils import reveal_cid
 from visualization.vis_eeg import plot_evk_by_grp
 
 warnings.filterwarnings('ignore')  # Suppress all warnings
@@ -90,7 +89,7 @@ def plot_contmov_epos(
             for cid, epo_by_mov_def in sid_dict.items():
                 plot_evk_by_grp(epo_by_mov_def, sid=sid, cid=cid, show=False, save=False)
                 if save:
-                    save_figure(f'Evoked/{sid}/{real_cid}', 'mov_durations.png', sid=sid, bbox_inches='tight')
+                    real_cid = prs.get_stim(sid, cid)
                     plu.save_figure(f'Evoked/{sid}/{real_cid}', 'mov_durations.png', sid=sid, bbox_inches='tight')
         if show:
             plt.show()

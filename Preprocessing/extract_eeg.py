@@ -9,7 +9,6 @@ import spanav_eeg_utils.io_utils as io
 
 from mne import Epochs
 from mne.epochs import EpochsFIF
-from spanav_eeg_utils.parsing_utils import reveal_cid
 from mne.baseline import rescale
 from autoreject import AutoReject
 
@@ -101,7 +100,7 @@ def get_epo_rec(
                 epo_rec_clean = None
             else:
                 if save:
-                    real_cid = reveal_cid(sid, block_n=cid[-1]) if cid.startswith('block') else reveal_cid(sid, cid=cid)
+                    real_cid = prs.get_stim(sid, acq=cid)
                     task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
                     files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
                     epo_rec_clean.save(files_path, overwrite=True)

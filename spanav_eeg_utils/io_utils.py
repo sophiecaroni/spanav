@@ -291,58 +291,12 @@ def get_sid_cids(
     return cids
 
 
-def get_sid_cid_from_block(
-        sid: str,
-        block_n: int | str,
-) -> str:
-    """
-
-    :param sid:
-    :param block_n:
-    :return:
-    """
-    stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    stim_file_path = get_main_path() / 'Raw' / sid / 'stimulations.xlsx'
-    conv_table = pd.read_excel(stim_file_path)
-    block_str_variants = [f'block{block_n}', f'block_{block_n}']  # possible variants of how block was reported in excel file
-    block_str_variants_lower = {v.lower() for v in block_str_variants}  # normalize to lower once
-
-    block_str = None
-    for col in conv_table.columns:
-        col_lower = col.lower()
-        if col_lower in block_str_variants_lower:
-            block_str = col
-            break
-    else:
-        # This runs only if the loop completes with no break
-        raise ValueError(
-            f'File stimulations.xlsx of subject {sid} does not contain a valid column for block {block_n}'
-        )
-
-    conv_cell = str(conv_table.loc[0, block_str])
-    match = re.search(stim_conds, conv_cell)
-
-    if match:
-        return f'task_{match.group(0)}_{block_n}'  # group(0) returns the entire matched string
-    else:
-        raise ValueError(
-            f'Conversion cell for block {block_n} in stimulations.xlsx of subject {sid} does not contain a valid stimulation '
-            f'condition ID (contains "{conv_cell}")')
-
-
-def get_block_stim(
-        sid: str,
-        block_n: int | str,
-) -> str:
-    """
-
-    :param sid:
-    :param block_n:
-    :return:
-    """
-    stim_conds = "|".join(('HF', 'iTBS', 'cTBS'))
-    cid = get_sid_cid_from_block(sid, block_n)
-    return f'task_{re.search(stim_conds, cid).group(0)}'  # group(0) returns the entire matched string
+def load_stim_mapping_table(sid: str) -> pd.DataFrame:
+    BLINDING = cfg.get_blinding()
+    group = prs.get_group_letter(sid)
+    table_fname = f'WP73{group}_RandomizationTable_BLIND.xlsx' if BLINDING else f'WP73{group}_RandomizationTable.xlsx'
+    table_fpath = get_main_path() / f'Data_WP73{group}' / 'TI_and_EEG' / table_fname
+    return pd.read_excel(table_fpath, index_col=0)
 
 
 def get_ti_positions(

@@ -191,7 +191,7 @@ def group_cids_by_cond(
     cids = get_sid_cids(sid, test)
     cids_by_cond = {}
     for cid in cids:
-        cond = get_cid_cond(sid, cid)
+        cond = prs.get_stim(sid, cid)
         cids_by_cond.setdefault(cond, []).append(cid)
     return cids_by_cond
 
