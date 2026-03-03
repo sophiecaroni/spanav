@@ -187,8 +187,10 @@ def get_full_pid(
 def group_cids_by_cond(
         sid: str,
         test: bool,
+        cids: list[str] | None = None,
 ) -> dict[str, list[str]]:
-    cids = get_sid_cids(sid, test)
+    if cids is None:
+        cids = io.get_sid_cids(sid, test)
     cids_by_cond = {}
     for cid in cids:
         cond = prs.get_stim(sid, cid)
