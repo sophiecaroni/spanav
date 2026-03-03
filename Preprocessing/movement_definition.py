@@ -42,7 +42,7 @@ def gen_contmov_epos(
             raw_rec = get_raw_to_epoch(sid, cid)
 
             for segment_bool in segment_epoch_options:
-                epo_def_df = get_epo_def(sid, cid, segmented_epochs=segment_bool)
+                epo_def_df = get_epo_def(sid, cid)
                 epochs = get_epo_rec(
                     'ContMov',
                     sid,
