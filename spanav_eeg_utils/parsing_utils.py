@@ -17,7 +17,12 @@ from pathlib import Path
 def get_group_letter(
         sid: str,
 ) -> str:
-    return 'T' if 't' in sid.lower() else 'A'
+    if sid[-2:].isdigit():
+        if 't' in sid.lower():
+            return 'T'
+        elif 'a' in sid.lower():
+            return 'A'
+    raise ValueError(f'Subject ID {sid} is invalid')
 
 
 def parse_epo_fname(
