@@ -270,17 +270,21 @@ def process_directory(source_dir, output_dir):
                 # --- 3. Base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sub_id}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
+                dest_file_path = dest_dir / (bids_basename + '_eeg.vhdr')
 
-                print(f"Processing: {file} -> {bids_basename}")
+                if dest_file_path.exists():
+                    print(f"\nSkipping {file} because already present in the directory")
+                    continue
+
+                print(f"\nProcessing: {file} -> {bids_basename}")
 
                 # --- 4. Parse Metadata ---
                 file_path_vhdr = Path(root) / file
                 sfreq, channels = parse_vhdr(file_path_vhdr)
 
-                # Automatically rename and copy .vhdr, .vmrk, .eeg files
-                dest_file_path = dest_dir / (bids_basename + '_eeg.vhdr')
-
                 if not TESTING_MODE:
+
+                    # Automatically rename and copy .vhdr, .vmrk, .eeg files
                     copyfile_brainvision(file_path_vhdr, dest_file_path, verbose=True)
 
                     # --- 6. Generate _eeg.json Sidecar ---
