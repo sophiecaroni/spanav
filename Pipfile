@@ -7,6 +7,7 @@ name = "pypi"
 jupyter = "*"
 ipykernel = "*"
 seaborn = "*"
+pytest = "*"
 
 [dev-packages]
 
