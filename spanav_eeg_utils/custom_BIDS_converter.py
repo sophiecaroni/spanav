@@ -62,14 +62,19 @@ def auto_rename(
     path_parts = file_path.split('/')
     sid = path_parts[-1].replace('73', '')
     name_parts = file_name.replace('.vhdr', '').split('_')
+
     if file_name.lower().startswith('rs'):  # resting state
         new_file_name = f'{sid}_{ses}_{get_rs_file_suff(name_parts)}'
+
     elif file_name.lower().startswith('imp'):  # impedances
         new_file_name = f'{sid}_{ses}_{get_impedances_file_suff(name_parts)}'
+
     elif file_name.lower().startswith('block'):  # spanav task
         new_file_name = f'{sid}_{ses}_{get_block_file_suff(name_parts)}'
+
     else:
         new_file_name = f'{sid}_{ses}_{file_name}'
+
     return new_file_name
 
 
@@ -212,7 +217,7 @@ def process_directory(source_dir, output_dir):
     # Track participants found
     participants_set = set()
     
-    print(f"Scanning {source_path}...")
+    print(f"\nScanning {source_path}...\n")
     
     # Walk through all files
     for root, dirs, files in os.walk(source_path):
@@ -342,7 +347,7 @@ if __name__ == "__main__":
         OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
         AUTO_RENAME = True
         TESTING_MODE = False
-        SUBJECTS = ['T04']  # set to None or empty to process all subjects possible
+        SUBJECTS = ['A01', 'T01',  'T02',  'T03',  'T04',  'T05']  # set to None or empty to process all subjects possible
 
         # If you want to use command line arguments:
         import argparse

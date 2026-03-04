@@ -162,26 +162,26 @@ def get_band_label(
     return map_band_labels()[band_str]
 
 
-def get_full_pid(
-        in_pid: str,
+def get_full_sid(
+        in_sid: str,
 ) -> str:
-    in_pid = in_pid.lower()  # work in lowercase
+    in_sid = in_sid.lower()  # work in lowercase
 
-    # Case 1: in_pid is already the correct participant ID
-    if in_pid.startswith('73') and len(in_pid) == 5:
-        out_pid = in_pid
+    # Case 1: in_sid is already the correct participant ID
+    if in_sid.startswith('73') and len(in_sid) == 5:
+        out_sid = in_sid.replace('73', '')
 
-    # Case 2: in_pid is missing the initial 73
-    elif (in_pid.startswith('t') or in_pid.startswith('a')) and 2 <= len(in_pid) <= 3:  # len is 2 if participant number is not in 02d format
-        in_pid = f'{in_pid[0]}{int(in_pid[1:]):02d}'  # make sure participant number is in 02d format
-        out_pid = f'73{in_pid}'
+    # Case 2: in_sid is missing the initial 73
+    elif (in_sid.startswith('t') or in_sid.startswith('a')) and 2 <= len(in_sid) <= 3:  # len is 2 if participant number is not in 02d format
+        in_sid = f'{in_sid[0]}{int(in_sid[1:]):02d}'  # make sure participant number is in 02d format
+        out_sid = f'{in_sid}'
 
-    # Case 3: in_pid isn't any of the above cases -> invalid, re-ask input and recall function
+    # Case 3: in_sid isn't any of the above cases -> invalid, re-ask input and recall function
     else:
-        in_pid = input(f'Given participant ID ({in_pid}) is unrecognized. Please input a valid one: ')
-        out_pid = get_full_pid(in_pid)
+        in_sid = input(f'Given participant ID ({in_sid}) is unrecognized. Please input a valid one: ')
+        out_sid = get_full_sid(in_sid)
 
-    return out_pid.upper()  # letters in participant IDs are always capitalized
+    return out_sid.upper()  # letters in participant IDs are always capitalized
 
 
 def group_cids_by_cond(
