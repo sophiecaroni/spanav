@@ -236,7 +236,7 @@ def get_sids(
         group_path = os.path.join(raw_path, element)
         if os.path.isdir(group_path):
             group_sids = [
-                sid.replace('sub-73', '') for sid in os.listdir(group_path)
+                sid.replace('sub-', '').replace('73', '') for sid in os.listdir(group_path)
                 if os.path.isdir(os.path.join(group_path, sid))
             ]
             sids += group_sids
@@ -259,7 +259,7 @@ def get_group_sids(
     for element in os.listdir(group_path):
         if os.path.isdir(os.path.join(group_path, element)):
             group_sids.append(
-                element.replace('sub-73', '')
+                element.replace('sub-', '').replace('73', '')
             )
     group_sids = sorted(group_sids)
     return group_sids if not test else [group_sids[0]]
