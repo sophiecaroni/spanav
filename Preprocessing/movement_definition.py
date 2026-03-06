@@ -35,18 +35,18 @@ def gen_contmov_epos(
     epos_dict = {}
     for sid in sids:
         epos_dict[sid] = {}
-        cids = io.get_sid_cids(sid, test=test)
+        blocks = io.get_sid_blocks(sid, test=test)
 
-        for cid in cids:
-            epos_dict[sid][cid] = {}
-            raw_rec = get_raw_to_epoch(sid, cid)
+        for block in blocks:
+            epos_dict[sid][block] = {}
+            raw_rec = get_raw_to_epoch(sid, block)
 
             for segment_bool in segment_epoch_options:
-                epo_def_df = get_epo_def(sid, cid)
+                epo_def_df = get_epo_def(sid, block)
                 epochs = get_epo_rec(
                     'ContMov',
                     sid,
-                    cid,
+                    block,
                     raw_rec,
                     load=False,
                     epo_def_df=epo_def_df,
@@ -55,7 +55,7 @@ def gen_contmov_epos(
                 if epochs is not None:
                     if len(epochs) > 0:
                         key = 'ContMov_seg' if segment_bool else 'ContMov'
-                        epos_dict[sid][cid][key] = epochs
+                        epos_dict[sid][block][key] = epochs
 
     return epos_dict
 

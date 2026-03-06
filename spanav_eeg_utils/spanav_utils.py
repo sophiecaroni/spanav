@@ -190,7 +190,7 @@ def group_cids_by_cond(
         cids: list[str] | None = None,
 ) -> dict[str, list[str]]:
     if cids is None:
-        cids = io.get_sid_cids(sid, test)
+        cids = io.get_sid_blocks(sid, test)
     cids_by_cond = {}
     for cid in cids:
         cond = prs.get_stim(sid, cid)

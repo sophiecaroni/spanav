@@ -56,7 +56,7 @@ def test_check_path_sid_preserves_parent_path():
     ],
 )
 def test_get_rec_block_dir_cases(inp, expected):
-    assert prs.get_rec_block_dir(**inp) == expected
+    assert prs.get_rec_acq_dir(**inp) == expected
 
 
 @pytest.mark.parametrize(

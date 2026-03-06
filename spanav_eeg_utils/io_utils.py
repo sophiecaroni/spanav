@@ -265,7 +265,7 @@ def get_group_sids(
     return group_sids if not test else [group_sids[0]]
 
 
-def get_sid_cids(
+def get_sid_blocks(
         sid: str,
         test: bool = False,
 ) -> list[str]:

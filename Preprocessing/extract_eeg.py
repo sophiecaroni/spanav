@@ -55,7 +55,7 @@ def get_all_epo_objects(
 def get_epo_rec(
         epo_type: str,
         sid: str,
-        cid: str,
+        block: str,
         raw_rec: mne.io.BaseRaw | None = None,
         load: bool = True,
         save: bool = False,
@@ -67,7 +67,7 @@ def get_epo_rec(
         raise ValueError(f"Invalid epo_type: {epo_type!r}. Expected one of {EPO_TYPES}.")
 
     if load:
-        real_cid = prs.get_stim(sid, acq=cid)
+        real_cid = prs.get_stim(sid, acq=block)
         task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
         files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
         try:
@@ -83,7 +83,7 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec)
 
         elif epo_type in ['ContMov', 'Stasis', 'MovOn']:
-            epo_def = get_epo_def(sid, cid) if epo_def_df is None else epo_def_df
+            epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         else:  # if epo_type == 'RS':
@@ -100,7 +100,7 @@ def get_epo_rec(
                 epo_rec_clean = None
             else:
                 if save:
-                    real_cid = prs.get_stim(sid, acq=cid)
+                    real_cid = prs.get_stim(sid, acq=block)
                     task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
                     files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
                     epo_rec_clean.save(files_path, overwrite=True)
@@ -168,14 +168,14 @@ def get_rs_epochs(
 
 def get_epo_def(
         sid: str,
-        cid: str,
+        block: str | int,
 ) -> pd.DataFrame:
     fname = 'eeg_epochs.csv'
     file_path = io.get_epo_path(sid) / fname
     epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID
-    block_n = int(cid[-1]) if sid != '02' else int(reveal_cid(sid, cid)[-1])
+    block_n = int(block[-1])
     epo_table_block = epo_table[epo_table['RetrievalBlock'] == block_n]
     return epo_table_block
 
