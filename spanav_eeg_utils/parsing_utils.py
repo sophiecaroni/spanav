@@ -117,3 +117,13 @@ def get_stim(sid: str, acq: str | int) -> str:
     cond = map_table.loc[f'73{sid}', block.title()]
 
     return cond
+
+
+def get_rec_acq_dir(acq, task) -> str:
+    if task.lower().startswith('rest'):
+        return f'{task}_{acq}'
+    else:  # if task is spanav
+        if len(str(acq)) == 1:
+            return f'block{acq}'
+        else:
+            return acq
