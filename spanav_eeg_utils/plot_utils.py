@@ -46,7 +46,7 @@ def plot_context(
     }
 
     # Other specific customizations are stored in the despine.mplstyle file
-    style_path = (Path(__file__).resolve().parent / ".." / "visualization" / "despine.mplstyle").resolve()
+    style_path = (Path(__file__).resolve().parent / ".." / "viz" / "despine.mplstyle").resolve()
 
     # Create figure applying the custom context
     with plt.rc_context(rc=params), plt.style.context(str(style_path)):
