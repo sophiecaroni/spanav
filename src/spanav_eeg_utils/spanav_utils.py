@@ -11,9 +11,9 @@
 """
 import matplotlib.pyplot as plt
 import mne
-import spanav_eeg_utils.parsing_utils as prs
-import spanav_eeg_utils.io_utils as io
-import spanav_eeg_utils.config_utils as cfg
+import src.spanav_eeg_utils.parsing_utils as prs
+import src.spanav_eeg_utils.io_utils as io
+import src.spanav_eeg_utils.config_utils as cfg
 
 
 def get_trigger_str(

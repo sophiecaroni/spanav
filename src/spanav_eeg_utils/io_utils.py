@@ -13,8 +13,8 @@ import os
 import pandas as pd
 import re
 import mne
-import spanav_eeg_utils.config_utils as cfg
-import spanav_eeg_utils.parsing_utils as prs
+import src.spanav_eeg_utils.config_utils as cfg
+import src.spanav_eeg_utils.parsing_utils as prs
 
 from pathlib import Path
 from mne.epochs import EpochsArray

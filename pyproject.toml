@@ -16,7 +16,8 @@ dependencies = [
 
 [tool.setuptools]
 include-package-data = true
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = ["src"]
 include = ["spanav_eeg_utils*"]
