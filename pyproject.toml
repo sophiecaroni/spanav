@@ -20,4 +20,4 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["spanav_eeg_utils*"]
+include = ["spanav_eeg_utils*", "spanav_tbi*"]
