@@ -4,10 +4,11 @@ import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.plot_utils as plu
 import spanav_eeg_utils.parsing_utils as prs
 
-from preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_beh_events, \
+from spanav_tbi.preprocessing.behavior_to_eeg import get_times_retrieval_phases, get_trace_df, get_retrieval_df, extract_beh_events, \
     define_eeg_epochs
 from extract_eeg import get_raw_to_epoch, get_epo_def, get_epo_rec
-from viz.vis_eeg import plot_evk_by_grp
+from spanav_tbi.visualization.vis_eeg import plot_evk_by_grp
+
 
 warnings.filterwarnings('ignore')  # Suppress all warnings
 

@@ -19,7 +19,7 @@ import os
 import configparser
 from spanav_eeg_utils.plot_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols
 from spanav_eeg_utils.io_utils import get_ti_positions
-from spanav_eeg_utils.stim import get_stim
+from spanav_eeg_utils.parsing_utils import get_stim
 from spanav_eeg_utils.spanav_utils import get_ch_by_region, get_epo_palette, get_cond_palette, map_metric_label, map_epo_type_labels, map_metric_labels
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
