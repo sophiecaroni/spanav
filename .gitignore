@@ -6,3 +6,6 @@ __pycache__/
 .idea/
 *.DS_Store
 config.ini
+.pytest_cache/
+*.egg-info/
+dist/
