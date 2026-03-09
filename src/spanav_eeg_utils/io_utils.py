@@ -195,6 +195,7 @@ def get_clean_eeg_path(
 def get_outputs_path(
         sid: str | None = None,
         group_parent_dir: str | None = None,
+        group_letter: str | None = None,
 ) -> Path:
     root = get_main_path()
     outputs_path = root / 'outputs'
@@ -202,11 +203,11 @@ def get_outputs_path(
     if group_parent_dir:
         outputs_path /= group_parent_dir
 
-    if sid is None:
+    if sid is None and group_letter is None:
         return outputs_path
 
-    # If a subject ID is passed, then the group-specific path is returned
-    group = prs.get_group_letter(sid)
+    # If a subject ID or a group letter is passed, then the group-specific path is returned
+    group = group_letter or prs.get_group_letter(sid)
 
     outputs_path /= f"WP73{group}"
 
