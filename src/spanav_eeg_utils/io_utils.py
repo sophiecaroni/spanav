@@ -11,7 +11,6 @@
 """
 import os
 import pandas as pd
-import re
 import mne
 import src.spanav_eeg_utils.config_utils as cfg
 import src.spanav_eeg_utils.parsing_utils as prs
@@ -276,16 +275,14 @@ def get_sid_blocks(
     :return:
     """
     cids = []
-    raw_path = get_clean_eeg_path(sid, task='SpaNav')
-    sid_files = os.listdir(raw_path)
-    for file in sid_files:
-        if file.endswith('.fif'):
-            cid = re.search(r"block(.+?)", file).group()
-            cids.append(cid)
-            if len(cids) > 0 and test:  # stop after finding first cid when in testing mode
+    group = prs.get_group_letter(sid)
+    potential_blocks = [f'block{i}' for i in range(1, 5)] if group == 'A' else [f'block{i}' for i in range(1, 7)]
+    for block in potential_blocks:
+        raw_path = get_clean_eeg_path(sid, acq=block, task='SpaNav')
+        if raw_path.exists():
+            cids.append(block)
+            if test:  # stop after finding first cid when in testing mode
                 break
-            else:
-                continue
     return cids
 
 
