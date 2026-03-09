@@ -36,7 +36,7 @@ def get_band_freqs(
 
 
 def compute_psd(
-        rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
+        rec: mne.io.BaseRaw | mne.BaseEpochs | mne.Evoked,
         log_space: bool = False,
         fmin: float = 0.0,
         fmax: float = np.inf,
