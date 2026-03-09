@@ -15,7 +15,7 @@ import pandas as pd
 import os
 
 from spanav_eeg_utils.spectral_utils import compute_psd, get_band_power, model_psd, compute_osc_snr, get_band_freqs
-from spanav_eeg_utils.parsing_utils import parse_epo_fname, parse_prepro_fname
+from spanav_eeg_utils.parsing_utils import parse_epo_fname, parse_prepro_fname, get_group_letter
 from spanav_eeg_utils.io_utils import get_sids, get_tables_path, get_clean_eeg_path, get_epo_path
 from fooof.analysis import get_band_peak_fm
 from mne.epochs import BaseEpochs, EpochsArray, Epochs
@@ -120,7 +120,7 @@ def get_psd_df(
                     full_psd = np.log10(full_psd)
 
                 # Prepare columns with base information to include to each df/row
-                base_cols = dict(sid=sid, cond=cond, block=block_n, epo_type=epo_type)
+                base_cols = dict(sid=sid, group=get_group_letter(sid), cond=cond, block=block_n, epo_type=epo_type)
 
                 # Compute average PSD
                 if avg_across_epochs:
@@ -193,10 +193,11 @@ def get_psd_avg_df(
         # Load full (non-aggregated) PSD dataframe
         psd_df = get_psd_df(load=True, log=False)  # always start by linear df (to apply log afterwards)
 
-        # For each patient, average PSD of the same condition and epoch-type across different blocks
+        # For each subject, average PSD of the same condition and epoch-type across different blocks
         df_subj = psd_df.groupby(
             ['sid', 'cond', 'epo_type', 'freq'], as_index=False).agg(
             pw_avg=('pw_avg', 'mean'),
+            group=('group', 'first'),
         )
 
         if log:
@@ -205,7 +206,7 @@ def get_psd_avg_df(
 
         # Then average PSD of the same epoch-type and condition across different subjects
         psd_avg_df = df_subj.groupby(
-            ['cond', 'epo_type', 'freq'], as_index=False).agg(
+            ['group', 'cond', 'epo_type', 'freq'], as_index=False).agg(
             pw_avg=('pw_avg', 'mean'),
             pw_std=('pw_avg', 'std'),
             N=('pw_avg', 'count'),
