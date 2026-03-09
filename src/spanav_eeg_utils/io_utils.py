@@ -212,13 +212,13 @@ def get_outputs_path(
 
     outputs_path /= f"WP73{group}"
 
-    return outputs_path
+    return set_for_save(outputs_path)
 
 
 def get_tables_path(
 ) -> Path:
     outputs_path = get_outputs_path()
-    return outputs_path / 'Tables'
+    return set_for_save(outputs_path / 'Tables')
 
 
 def get_sids(
