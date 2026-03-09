@@ -9,11 +9,9 @@
     This script contains helper functions specific to the SpaNav study.
 ********************************************************************************
 """
-import matplotlib.pyplot as plt
 import mne
 import src.spanav_eeg_utils.parsing_utils as prs
 import src.spanav_eeg_utils.io_utils as io
-import src.spanav_eeg_utils.config_utils as cfg
 
 
 def get_trigger_str(
@@ -87,39 +85,6 @@ def get_ch_by_region(
         else:
             print(f'Skipping channel {ch}')
     return ch_by_region
-
-
-def get_epo_palette(
-) -> dict:
-    return {
-        'ContMov': 'tab:green',
-        'Stasis': 'tab:blue',
-        'MovOn': 'OrangeRed',
-        'ObjPres': 'orange',
-        'Raw': 'purple',
-    }
-
-
-def get_cond_palette(
-) -> dict:
-    BLINDING = cfg.get_blinding()
-    print(
-        f"{BLINDING = }"
-    )
-    if BLINDING:
-        return {
-            'A': plt.get_cmap('tab20')(18),
-            'B': plt.get_cmap('tab20')(19),
-        }
-    else:
-        return {
-            # 'HF': '#4293f5',  # blue
-            'HF': '#a558ed',
-            # 'cTBS': '#f77c99',  # pink
-            'cTBS': '#f5a6d4',
-            # 'iTBS':  '#5ad676',  # green
-            'iTBS': '#edcd58',
-        }
 
 
 def map_epo_type_labels(
