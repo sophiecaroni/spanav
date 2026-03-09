@@ -11,12 +11,10 @@
 """
 import os
 import pandas as pd
-import mne
 import src.spanav_eeg_utils.config_utils as cfg
 import src.spanav_eeg_utils.parsing_utils as prs
 
 from pathlib import Path
-from mne.epochs import EpochsArray
 
 
 def set_for_save(
@@ -318,26 +316,5 @@ def get_groups_letters(
     groups = [element for element in os.listdir(root) if os.path.isdir(root / element)]
     groups_letters = [group[-1] for group in groups]
     return groups_letters
-
-
-def get_concat_epo_recs(
-        sid: str,
-        cids_to_concat: list[str],
-        epo_type: str,
-        # epo_recs: list[EpochsFIF],
-) -> EpochsArray:
-    """
-    Load epoched recordings and concatenate them.
-    :param sid:
-    :param cids_to_concat:
-    :param epo_type:
-    :return:
-    """
-    recs_list = []
-    for cid in cids_to_concat:
-        epo_path = get_epo_data_path(epo_type, sid, cid)
-        epo_rec = mne.read_epochs(epo_path, preload=False, proj=False, verbose=False)
-        recs_list.append(epo_rec)
-    return mne.concatenate_epochs(recs_list)
 
 
