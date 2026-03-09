@@ -1,6 +1,15 @@
+"""
+    Title: Spectral processing pipeline
+
+    Author: Sophie Caroni
+    Date of creation: 09.03.2026
+
+    Description:
+    This script performs spectral processing (power spectra, oscillations, TFR) of EEG.
+"""
 from spanav_tbi.processing.psd import get_epo_level_psd_df, get_sid_level_psd_df, get_group_level_psd_df
 from spanav_tbi.processing.osc import get_epo_level_osc_df, get_sid_level_osc_df, get_group_level_osc_df
-# from spanav_tbi.processing.tfr import get_tfr_df, get_agg_tfr_df
+from spanav_tbi.processing.tfr import get_epo_level_tfr_df, get_sid_level_tfr_df, get_group_level_tfr_df
 
 
 def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
@@ -18,7 +27,7 @@ def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
         )
         epo_level_psd_df = get_epo_level_psd_df(load=load, test=test, save=save, log=ls)
         if verbose:
-            print(epo_level_psd_df)
+            print(f"\t\t{epo_level_psd_df = }")
 
     print(
         f"\n\t#### 2) Get subject-level PSD table ####"
@@ -30,7 +39,7 @@ def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
 
         sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save, log=ls)
         if verbose:
-            print(sid_level_df)
+            print(f"\t\t{sid_level_df = }")
 
     print(
         f"\n\t#### 3) Get group-level PSD table"
@@ -42,7 +51,7 @@ def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
         )
         group_level_df = get_group_level_psd_df(load=load, test=test, save=save, log=ls)
         if verbose:
-            print(group_level_df)
+            print(f"\t\t{group_level_df = }")
 
 
 def run_osc_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
@@ -55,7 +64,7 @@ def run_osc_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
 
     epo_level_osc_df = get_epo_level_osc_df(load=load, test=test, save=save)
     if verbose:
-        print(epo_level_osc_df)
+        print(f"\t\t{epo_level_osc_df = }")
 
     print(
         f"\n\t\t#### 2) Get subject-level oscillatory features table ####"
@@ -63,20 +72,49 @@ def run_osc_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
 
     sid_level_df = get_sid_level_osc_df(load=load, test=test, save=save)
     if verbose:
-        print(sid_level_df)
+        print(f"\t\t{sid_level_df = }")
 
     print(
         f"\n\t\t#### 3) Get group-level oscillatory features table"
     )
     group_level_df = get_group_level_osc_df(load=load, test=test, save=save)
     if verbose:
-        print(group_level_df)
+        print(f"\t\t{group_level_df = }")
+
+
+def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
+    print(
+        f"\n\t#### Compute TFR across different aggregation-levels and store results in tables #### "
+    )
+    print(
+        f"\n\t\t#### 1) Get epoch-level TFR table ####"
+    )
+
+    epo_level_tfr_df = get_epo_level_tfr_df(load=load, test=test, save=save)
+    if verbose:
+        print(f"{epo_level_tfr_df = }")
+
+    print(
+        f"\n\t\t#### 2) Get subject-level TFR table ####"
+    )
+
+    sid_level_tfr_df = get_sid_level_tfr_df(test=test, save=save)
+    if verbose:
+        print(f"\t\t{sid_level_tfr_df = }")
+
+    print(
+        f"\n\t\t#### 3) Get group-level TFR table"
+    )
+    group_level_tfr_df = get_group_level_tfr_df(test=test, save=save)
+    if verbose:
+        print(f"\t\t{group_level_tfr_df = }")
 
 
 def run_spectral_processing(**kwargs) -> None:
 
     run_psd_processing(**kwargs)
     run_osc_processing(**kwargs)
+    run_tfr_processing(**kwargs)
 
 
 if __name__ == '__main__':
