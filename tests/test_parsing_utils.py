@@ -9,19 +9,19 @@ from contextlib import nullcontext
     [
         # subject dirs rewritten
         (Path("/outputs/Cleaning/73T04"),
-         Path("/outputs/Cleaning/sub-T04")),
+         Path("/outputs/Cleaning/sub-73T04")),
 
         (Path("/outputs/Cleaning/T04"),
-         Path("/outputs/Cleaning/sub-T04")),
+         Path("/outputs/Cleaning/sub-73T04")),
 
-        (Path("/x/y/sub-73T01"), Path("/x/y/sub-T01")),
+        (Path("/x/y/sub-73T01"), Path("/x/y/sub-73T01")),
 
-        (Path("/x/y/WP73A01"), Path("/x/y/sub-A01")),
+        (Path("/x/y/WP73A01"), Path("/x/y/sub-73A01")),
+
+        (Path("/intermediate/WP73A/sub-A01"),
+         Path("/intermediate/WP73A/sub-73A01")),
 
         # Examples with group directories never modified
-        (Path("/intermediate/WP73A/sub-A01"),
-         Path("/intermediate/WP73A/sub-A01")),
-
         (Path("/x/y/BIDS_Data_WP73T"), Path("/x/y/BIDS_Data_WP73T")),
 
         # Whole noisy path untouched
@@ -36,7 +36,7 @@ def test_check_path_sid_preserves_parent_path():
     p = Path("/a/b/WP73T/73T04")
     out = prs.check_path_sid(p)
     assert out.parent == p.parent
-    assert out.name == "sub-T04"
+    assert out.name == "sub-73T04"
 
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def test_get_rec_block_dir_cases(inp, expected):
     "inp, expected, context",
     [
         ('sub-T01', 'T', nullcontext()),
-        ('A01', 'A', nullcontext()),
+        ('73A01', 'A', nullcontext()),
         ('T1', None, pytest.raises(ValueError)),
         ('B01', None, pytest.raises(ValueError)),
 

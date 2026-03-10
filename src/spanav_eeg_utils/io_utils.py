@@ -234,7 +234,7 @@ def get_sids(
         group_path = os.path.join(raw_path, element)
         if os.path.isdir(group_path):
             group_sids = [
-                sid.replace('sub-', '').replace('73', '') for sid in os.listdir(group_path)
+                sid.replace('sub-', '') for sid in os.listdir(group_path)
                 if os.path.isdir(os.path.join(group_path, sid))
             ]
             sids += group_sids
@@ -257,7 +257,7 @@ def get_group_sids(
     for element in os.listdir(group_path):
         if os.path.isdir(os.path.join(group_path, element)):
             group_sids.append(
-                element.replace('sub-', '').replace('73', '')
+                element.replace('sub-', '')
             )
     group_sids = sorted(group_sids)
     return group_sids if not test else [group_sids[0]]
@@ -302,8 +302,8 @@ def get_ti_positions(
     :return:
     """
     exp_grp = prs.get_group_letter(sid)
-    ti_pos_fpath = get_main_path() / f'Data_WP73{exp_grp}' / 'TI_and_EEG' / 'Montage' / f'73{sid}'
-    spanav_files = list(ti_pos_fpath.glob(f'log_73{sid}*.csv'))
+    ti_pos_fpath = get_main_path() / f'Data_WP73{exp_grp}' / 'TI_and_EEG' / 'Montage' / sid
+    spanav_files = list(ti_pos_fpath.glob(f'log_{sid}*.csv'))
     if len(spanav_files) != 1:
         raise RuntimeError(f'Expected exactly one SpaNav CSV for {sid}, found {len(spanav_files)}')
     conv_table = pd.read_csv(spanav_files[0], sep=';')

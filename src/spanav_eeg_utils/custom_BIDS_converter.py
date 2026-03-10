@@ -60,7 +60,7 @@ def auto_rename(
 ) -> str:
     ses = 1  # in our experiment we only have one experimental session
     path_parts = file_path.split('/')
-    sid = path_parts[-1].replace('73', '')
+    sid = path_parts[-1]
     name_parts = file_name.replace('.vhdr', '').split('_')
 
     if file_name.lower().startswith('rs'):  # resting state
@@ -243,17 +243,16 @@ def process_directory(source_dir, output_dir):
                         continue
 
                 # Expected format: SubjectID_SessionID_TaskName_AcqName.vhdr
-                raw_sub = parts[0]  # e.g. TIP34 or sub-TIP34
+                sid = parts[0]  # e.g. TIP34 or sub-TIP34
                 raw_ses = parts[1]  # e.g. ses01, ses1, 1
                 raw_task = parts[2]
                 raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
 
-                if SUBJECTS and raw_sub not in SUBJECTS:
-                    print(f'\nSkipping {raw_sub} file {file}\n')
+                if SUBJECTS and sid not in SUBJECTS:
+                    print(f'\nSkipping {sid} file {file}\n')
                     continue
 
                 # Clean up Subject ID
-                sub_id = raw_sub.replace("73", "")
 
                 # Clean up Session ID: Extract digits strictly
                 ses_match = re.search(r'\d+', raw_ses)
@@ -263,18 +262,18 @@ def process_directory(source_dir, output_dir):
                     # Fallback if no digits found (e.g. 'pre', 'post')
                     ses_id = raw_ses.replace("ses-", "").replace("ses", "")
                 
-                participants_set.add(sub_id)
+                participants_set.add(sid)
 
                 # Determine Task Name and sanitize (BIDS task names should be alphanumeric)
                 task_name = re.sub(r'[^a-zA-Z0-9]', '', raw_task)
 
                 # --- 2. Create Destination Directory ---
                 # Structure: BIDS_EEG/sub-{id}/ses-{id}/eeg/
-                dest_dir = output_path / f"sub-{sub_id}" / f"ses-{ses_id}" / "eeg"
+                dest_dir = output_path / f"sub-{sid}" / f"ses-{ses_id}" / "eeg"
 
                 # --- 3. Base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
-                bids_basename = f"sub-{sub_id}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
+                bids_basename = f"sub-{sid}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
                 dest_file_path = dest_dir / (bids_basename + '_eeg.vhdr')
 
                 if dest_file_path.exists():
@@ -347,7 +346,7 @@ if __name__ == "__main__":
         OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
         AUTO_RENAME = True
         TESTING_MODE = False
-        SUBJECTS = ['A01', 'T01',  'T02',  'T03',  'T04',  'T05']  # set to None or empty to process all subjects possible
+        SUBJECTS = ['73A01', '73T01',  '73T02',  '73T03',  '73T04',  '73T05']  # set to None or empty to process all subjects possible
 
         # If you want to use command line arguments:
         import argparse

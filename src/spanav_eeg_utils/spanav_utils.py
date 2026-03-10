@@ -134,12 +134,11 @@ def get_full_sid(
 
     # Case 1: in_sid is already the correct participant ID
     if in_sid.startswith('73') and len(in_sid) == 5:
-        out_sid = in_sid.replace('73', '')
+        out_sid = in_sid
 
     # Case 2: in_sid is missing the initial 73
     elif (in_sid.startswith('t') or in_sid.startswith('a')) and 2 <= len(in_sid) <= 3:  # len is 2 if participant number is not in 02d format
-        in_sid = f'{in_sid[0]}{int(in_sid[1:]):02d}'  # make sure participant number is in 02d format
-        out_sid = f'{in_sid}'
+        out_sid = f'73{in_sid[0]}{int(in_sid[1:]):02d}'  # make sure participant number is in 02d format
 
     # Case 3: in_sid isn't any of the above cases -> invalid, re-ask input and recall function
     else:

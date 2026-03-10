@@ -4,7 +4,7 @@ import spanav_eeg_utils.parsing_utils as prs
 
 def test_get_sid_blocks_only_returns_existing(tmp_path, monkeypatch):
 
-    sid = 'T01'
+    sid = 'T7301'
 
     def mock_get_group_letter(sid):
         return "T"

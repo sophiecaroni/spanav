@@ -98,7 +98,7 @@ def check_path_sid(fpath: Path) -> Path:
         sid_n = int(match.group("num"))
 
         # Replace elements in parts with correct subject-direcotry name
-        parts[i] = f"sub-{grp}{sid_n:02d}"
+        parts[i] = f"sub-73{grp}{sid_n:02d}"
 
     return Path(*parts)
 
@@ -114,7 +114,7 @@ def get_stim(sid: str, acq: str | int) -> str:
     block = acq if acq.startswith('block') else f'block{acq}'
     from spanav_eeg_utils.io_utils import load_stim_mapping_table
     map_table = load_stim_mapping_table(sid)
-    cond = map_table.loc[f'73{sid}', block.title()]
+    cond = map_table.loc[sid, block.title()]
 
     return cond
 
