@@ -1,5 +1,5 @@
 """
-    Title: Time-Frequency (TFR)
+    Title: Time-Frequency Representations (TFR)
 
     Author: Sophie Caroni
     Date of creation: 09.03.2026
@@ -157,10 +157,8 @@ def get_sid_level_tfr_df(
     # Load epoch-level TFR dataframe
     epo_level_df = get_epo_level_tfr_df(test, load=True, save=False)
 
-    # For each subject, aggregate TFR of the same condition and epoch-type across different blocks
-    # group_cols = ['sid', 'group', 'cond', 'epo_type']
-    # grouped_df = epo_level_df.groupby(group_cols, as_index=False)
-    # sid_level_df = grouped_df['tfr'].apply(lambda tfr: tfr.average()).reset_index(drop=True)
+    # For each subject, TFR of the same condition and epoch-type were concatenated across different blocks; so simply
+    # average across epochs of the concatenated TFR object to get one TFR for subject, condition and epoch-type
     sid_level_df = epo_level_df.copy()
     sid_level_df['tfr'] = epo_level_df['tfr'].apply(
             lambda tfr: tfr.average(method='mean', dim='epochs')
