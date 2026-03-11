@@ -217,7 +217,7 @@ def get_outputs_path(
 def get_tables_path(
 ) -> Path:
     outputs_path = get_outputs_path()
-    return set_for_save(outputs_path / 'Tables')
+    return set_for_save(outputs_path / 'tables')
 
 
 def get_sids(
