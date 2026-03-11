@@ -20,7 +20,7 @@ def load_config(
     cfg = configparser.ConfigParser()
 
     if config_path is None:
-        config_path = Path(__file__).resolve().parents[1] / "config.ini"
+        config_path = Path(__file__).resolve().parents[2] / "config.ini"
     else:
         config_path = Path(config_path)
 
