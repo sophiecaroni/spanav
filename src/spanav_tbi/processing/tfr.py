@@ -10,14 +10,13 @@
 import numpy as np
 import pandas as pd
 
-import spanav_eeg_utils.comp_utils
+import spanav_eeg_utils.comp_utils as compu
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.spanav_utils as sn
 
 from mne.time_frequency import EpochsTFR, AverageTFR, read_tfrs, combine_tfr
 from mne.epochs import BaseEpochs
-from spanav_tbi.processing.psd import average_channels_across_epochs
 
 TFR = EpochsTFR | AverageTFR
 
@@ -86,14 +85,12 @@ def custom_tfr_norm(tfr_in: TFR) -> TFR:
     return tfr_out
 
 
-def compute_cond_epo_tfr(sid, cids: list[str], epo_type) -> EpochsTFR:
-    epo_rec_full = spanav_eeg_utils.comp_utils.get_concat_epo_recs(sid, cids, epo_type)
+def compute_cond_tfr(sid, cids: list[str], epo_type) -> EpochsTFR:
+    # Concatenate epoched recordings across block of the same condition (and subject)
+    epo_rec_full = compu.get_concat_epo_recs(sid, cids, epo_type)
 
-    # Average across channels
-    epo_rec_ch_avg = average_channels_across_epochs(epo_rec_full)  # average across channels
-
-    # Compute TFR on all epochs and return
-    return compute_tfr(epo_rec_ch_avg, log=True, norm=True)  # log-transform and normalize
+    # Compute TFR on all epochs and channels and return
+    return compute_tfr(epo_rec_full, log=True, norm=True)  # log-transform and normalize
 
 
 def get_epo_level_tfr_df(
@@ -124,7 +121,7 @@ def get_epo_level_tfr_df(
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
 
                     else:
-                        cond_epo_tfr = compute_cond_epo_tfr(sid, cids, epo_type)
+                        cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
 
                         if save:
                             # Export
