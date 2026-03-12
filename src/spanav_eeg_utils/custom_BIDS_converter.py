@@ -269,65 +269,76 @@ def process_directory(source_dir, output_dir):
                 # Structure: BIDS_EEG/sub-{id}/ses-{id}/eeg/
                 dest_dir = output_path / f"sub-{sid}" / f"ses-{ses_id}" / "eeg"
 
-                # --- 3. Base BIDS Filename ---
+                # --- 3. Define base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sid}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
-                bids_eeg_fpath = dest_dir / (bids_basename + '_eeg.vhdr')
 
-                if bids_eeg_fpath.exists():
-                    print(f"\nSkipping because already present in the directory: {bids_eeg_fpath}")
-                    continue
+                print(f"\nProcessing {file = } \n\t ==> would generate files in format: {bids_basename}")
 
-                print(f"\nProcessing: {file = } \n\t ==> becomes: {bids_basename}")
-
-                # --- 4. Parse Metadata ---
+                # --- 4. Parse Metadata needed for next files---
                 file_path_vhdr = Path(root) / file
                 sfreq, channels = parse_vhdr(file_path_vhdr)
 
                 if not TESTING_MODE:
+                    # --- 5. Generate files in BIDS format ---
 
-                    # Automatically rename and copy .vhdr, .vmrk, .eeg files
-                    copyfile_brainvision(file_path_vhdr, bids_eeg_fpath, verbose=True)
+                    # --- 5a. _eeg.eeg, _eeg.vhdr, _eeg.vmrk, files ---
+                    bids_eeg_fpath = dest_dir / (bids_basename + '_eeg.vhdr')
+                    if not bids_eeg_fpath.exists():
+                        # --- Rename _eeg.eeg, _eeg.vhdr, _eeg.vmrk, files ---
+                        copyfile_brainvision(file_path_vhdr, bids_eeg_fpath, verbose=True)
+                    else:
+                        print(f"\n\tSkipping because already present in the directory: {bids_eeg_fpath}")
 
-                    # --- 6. Generate _eeg.json Sidecar ---
+                    # --- 5b. _eeg.json file ---
                     bids_json_fpath = dest_dir / (bids_basename + "_eeg.json")
-                    eeg_json = {
-                        "TaskName": task_name,
-                        "AcqName": raw_acq,
-                        "SamplingFrequency": sfreq,
-                        "EEGReference": "n/a",
-                        "PowerLineFrequency": 50,
-                        "SoftwareFilters": "n/a",
-                        "CapManufacturer": "n/a",
-                        "EEGChannelCount": len(channels),
-                        "Manufacturer": "BrainProducts"  # Assumed based on file type
-                    }
+                    if not bids_json_fpath.exists():
+                        # --- Generate _eeg.json file ---
+                        eeg_json = {
+                            "TaskName": task_name,
+                            "AcqName": raw_acq,
+                            "SamplingFrequency": sfreq,
+                            "EEGReference": "n/a",
+                            "PowerLineFrequency": 50,
+                            "SoftwareFilters": "n/a",
+                            "CapManufacturer": "n/a",
+                            "EEGChannelCount": len(channels),
+                            "Manufacturer": "BrainProducts"  # Assumed based on file type
+                        }
+                        with open(bids_json_fpath, 'w') as f:
+                            json.dump(eeg_json, f, indent=4)
+                    else:
+                        print(f"\n\tSkipping because already present in the directory: {bids_json_fpath}")
 
-                    with open(bids_json_fpath, 'w') as f:
-                        json.dump(eeg_json, f, indent=4)
-
-                    # --- 7. Generate _channels.tsv ---
-                    # Only write if it doesn't exist (shared by runs of same task usually, but here specific)
-                    # Actually, BIDS allows per-run channels.tsv
+                    # --- 5c. _channels.tsv file ---
                     bids_ch_fpath = dest_dir / (bids_basename + "_channels.tsv")
-                    with open(bids_ch_fpath, 'w', newline='') as f:
-                        writer = csv.writer(f, delimiter='\t')
-                        writer.writerow(["name", "type", "units"])
-                        for ch in channels:
-                            writer.writerow([ch, "EEG", "microV"])
+                    if not bids_ch_fpath.exists():
+                        # --- Generate _channels.tsv ---
+                        # Only write if it doesn't exist (shared by runs of same task usually, but here specific)
+                        # Actually, BIDS allows per-run channels.tsv
+                        with open(bids_ch_fpath, 'w', newline='') as f:
+                            writer = csv.writer(f, delimiter='\t')
+                            writer.writerow(["name", "type", "units"])
+                            for ch in channels:
+                                writer.writerow([ch, "EEG", "microV"])
+                    else:
+                        print(f"\n\tSkipping because already present in the directory: {bids_ch_fpath}")
 
-                    # --- 8. Generate _events.tsv ---
+                    # --- 5d. _events.tsv file ---
                     original_vmrk = file_path_vhdr.with_suffix(".vmrk")
                     events = parse_vmrk(original_vmrk, sfreq)
                     bids_events_fpath = dest_dir / (bids_basename + "_events.tsv")
-                    with open(bids_events_fpath, 'w', newline='') as f:
-                        writer = csv.writer(f, delimiter='\t')
-                        writer.writerow(["onset", "duration", "trial_type"])
-                        if events:
-                            for ev in events:
-                                writer.writerow([ev["onset"], ev["duration"], ev["trial_type"]])
-                        else:
-                            writer.writerow(["0.0", "0.0", "start_placeholder"])
+                    if not bids_events_fpath.exists():
+                        # --- Generate _events.tsv ---
+
+                        with open(bids_events_fpath, 'w', newline='') as f:
+                            writer = csv.writer(f, delimiter='\t')
+                            writer.writerow(["onset", "duration", "trial_type"])
+                            if events:
+                                for ev in events:
+                                    writer.writerow([ev["onset"], ev["duration"], ev["trial_type"]])
+                            else:
+                                writer.writerow(["0.0", "0.0", "start_placeholder"])
 
     # --- 9. Final Root Files ---
     if not TESTING_MODE:
