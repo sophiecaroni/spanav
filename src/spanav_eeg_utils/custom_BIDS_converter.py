@@ -239,7 +239,7 @@ def process_directory(source_dir, output_dir):
                         # print(f"{file = }\n{new_fname = }")
                         parts = new_fname.split('_')
                     else:
-                        print(f"Skipping {file}: Filename does not match 'Subject_Session_Task_Acq' pattern.")
+                        print(f"Skipping because filename does not match 'Subject_Session_Task_Acq' pattern: {file = }.")
                         continue
 
                 # Expected format: SubjectID_SessionID_TaskName_AcqName.vhdr
@@ -249,10 +249,8 @@ def process_directory(source_dir, output_dir):
                 raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
 
                 if SUBJECTS and sid not in SUBJECTS:
-                    print(f'\nSkipping {sid} file {file}\n')
+                    print(f'\nSkipping {file = } ({sid = })\n')
                     continue
-
-                # Clean up Subject ID
 
                 # Clean up Session ID: Extract digits strictly
                 ses_match = re.search(r'\d+', raw_ses)
@@ -274,13 +272,13 @@ def process_directory(source_dir, output_dir):
                 # --- 3. Base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sid}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
-                dest_file_path = dest_dir / (bids_basename + '_eeg.vhdr')
+                bids_eeg_fpath = dest_dir / (bids_basename + '_eeg.vhdr')
 
-                if dest_file_path.exists():
-                    print(f"\nSkipping {file} because already present in the directory")
+                if bids_eeg_fpath.exists():
+                    print(f"\nSkipping because already present in the directory: {bids_eeg_fpath}")
                     continue
 
-                print(f"\nProcessing: {file} -> {bids_basename}")
+                print(f"\nProcessing: {file = } \n\t ==> becomes: {bids_basename}")
 
                 # --- 4. Parse Metadata ---
                 file_path_vhdr = Path(root) / file
@@ -289,9 +287,10 @@ def process_directory(source_dir, output_dir):
                 if not TESTING_MODE:
 
                     # Automatically rename and copy .vhdr, .vmrk, .eeg files
-                    copyfile_brainvision(file_path_vhdr, dest_file_path, verbose=True)
+                    copyfile_brainvision(file_path_vhdr, bids_eeg_fpath, verbose=True)
 
                     # --- 6. Generate _eeg.json Sidecar ---
+                    bids_json_fpath = dest_dir / (bids_basename + "_eeg.json")
                     eeg_json = {
                         "TaskName": task_name,
                         "AcqName": raw_acq,
@@ -304,13 +303,14 @@ def process_directory(source_dir, output_dir):
                         "Manufacturer": "BrainProducts"  # Assumed based on file type
                     }
 
-                    with open(dest_dir / (bids_basename + "_eeg.json"), 'w') as f:
+                    with open(bids_json_fpath, 'w') as f:
                         json.dump(eeg_json, f, indent=4)
 
                     # --- 7. Generate _channels.tsv ---
                     # Only write if it doesn't exist (shared by runs of same task usually, but here specific)
                     # Actually, BIDS allows per-run channels.tsv
-                    with open(dest_dir / (bids_basename + "_channels.tsv"), 'w', newline='') as f:
+                    bids_ch_fpath = dest_dir / (bids_basename + "_channels.tsv")
+                    with open(bids_ch_fpath, 'w', newline='') as f:
                         writer = csv.writer(f, delimiter='\t')
                         writer.writerow(["name", "type", "units"])
                         for ch in channels:
@@ -319,8 +319,8 @@ def process_directory(source_dir, output_dir):
                     # --- 8. Generate _events.tsv ---
                     original_vmrk = file_path_vhdr.with_suffix(".vmrk")
                     events = parse_vmrk(original_vmrk, sfreq)
-                    events_tsv = dest_dir / (bids_basename + "_events.tsv")
-                    with open(events_tsv, 'w', newline='') as f:
+                    bids_events_fpath = dest_dir / (bids_basename + "_events.tsv")
+                    with open(bids_events_fpath, 'w', newline='') as f:
                         writer = csv.writer(f, delimiter='\t')
                         writer.writerow(["onset", "duration", "trial_type"])
                         if events:
