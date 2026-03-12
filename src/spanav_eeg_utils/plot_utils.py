@@ -12,7 +12,7 @@
 import matplotlib.pyplot as plt
 import os
 import numpy as np
-import src.spanav_eeg_utils.io_utils as io
+import spanav_eeg_utils.io_utils as io
 
 from contextlib import contextmanager
 from matplotlib.figure import Figure

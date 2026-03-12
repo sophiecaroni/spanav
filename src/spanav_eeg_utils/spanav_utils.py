@@ -10,8 +10,8 @@
 ********************************************************************************
 """
 import mne
-import src.spanav_eeg_utils.parsing_utils as prs
-import src.spanav_eeg_utils.io_utils as io
+import spanav_eeg_utils.parsing_utils as prs
+import spanav_eeg_utils.io_utils as io
 
 
 def get_trigger_str(

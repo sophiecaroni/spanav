@@ -11,8 +11,8 @@
 """
 import os
 import pandas as pd
-import src.spanav_eeg_utils.config_utils as cfg
-import src.spanav_eeg_utils.parsing_utils as prs
+import spanav_eeg_utils.config_utils as cfg
+import spanav_eeg_utils.parsing_utils as prs
 
 from pathlib import Path
 
