@@ -47,7 +47,7 @@ def get_task_epo_types(
         'MovOn',
         'ContMov',
         'Stasis',
-    ] if not test else ['ContMov']
+    ] if not test else ['MovOn', 'Stasis']
 
 
 def get_epo_types(
@@ -92,9 +92,10 @@ def map_epo_type_labels(
 ) -> dict:
     return {
         'ObjPres': 'Object Presentation',
-        'MovOn': 'Movement onset',
-        'ContMov': 'Continuous movement',
+        'MovOn': 'Movement Onset',
+        'ContMov': 'Continuous Movement',
         'Stasis': 'Stasis',
+        'blMovOn': 'Movement Onset - Stasis',
     }
 
 
