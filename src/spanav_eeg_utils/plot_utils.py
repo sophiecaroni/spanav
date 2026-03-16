@@ -134,3 +134,35 @@ def get_cond_palette(
             # 'iTBS':  '#5ad676',  # green
             'iTBS': '#edcd58',
         }
+
+
+def add_higher_title_text(
+        fig,
+        axes,
+        title,
+) -> None:
+
+    # Get bounding box spanning the axes (in figure coordinates)
+    left = min(ax.get_position().x0 for ax in axes)
+    right = max(ax.get_position().x1 for ax in axes)
+    top = max(ax.get_position().y1 for ax in axes)
+
+    # Define title position
+    x = (left + right) / 2  # center
+    fig_height = fig.get_size_inches()[1]
+    offset = 0.2 / fig_height  # 0.2 inches above the top of the axes
+    y = top + offset  # a bit higher than the axis titles
+
+    # Get title fontsize
+    title_fontsize = axes[0].title.get_fontsize()
+
+    # Add title
+    fig.text(
+        x,
+        y,
+        title,
+        ha="center",
+        va="center",
+        fontsize=title_fontsize,
+        fontweight="bold"
+    )
