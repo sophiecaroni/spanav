@@ -13,10 +13,9 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import spanav_eeg_utils.io_utils as io
-
+from importlib.resources import files
 from contextlib import contextmanager
 from matplotlib.figure import Figure
-from pathlib import Path
 from spanav_eeg_utils import config_utils as cfg
 
 
@@ -47,7 +46,7 @@ def plot_context(
     }
 
     # Other specific customizations are stored in the despine.mplstyle file
-    style_path = (Path(__file__).resolve().parent / ".." / "viz" / "despine.mplstyle").resolve()
+    style_path = files("spanav_tbi") / "mplstyles" / "despine.mplstyle"
 
     # Create figure applying the custom context
     with plt.rc_context(rc=params), plt.style.context(str(style_path)):
