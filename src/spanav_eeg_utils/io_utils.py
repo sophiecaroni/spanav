@@ -13,7 +13,7 @@ import os
 import pandas as pd
 import spanav_eeg_utils.config_utils as cfg
 import spanav_eeg_utils.parsing_utils as prs
-
+import warnings
 from pathlib import Path
 
 
@@ -282,6 +282,8 @@ def get_sid_blocks(
             cids.append(block)
             if test:  # stop after finding first cid when in testing mode
                 break
+    if not cids:
+        warnings.warn(f'No cids found for {sid = } ! Returning cids = []', UserWarning)
     return cids
 
 

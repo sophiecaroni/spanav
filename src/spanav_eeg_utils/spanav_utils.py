@@ -9,6 +9,7 @@
     This script contains helper functions specific to the SpaNav study.
 ********************************************************************************
 """
+import warnings
 import mne
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.io_utils as io
@@ -156,9 +157,12 @@ def group_cids_by_cond(
     if cids is None:
         cids = io.get_sid_blocks(sid, test)
     cids_by_cond = {}
-    for cid in cids:
-        cond = prs.get_stim(sid, cid)
-        cids_by_cond.setdefault(cond, []).append(cid)
+    if not cids:
+        warnings.warn(f'No cids to iterate on for {sid = } ! Returning {cids_by_cond = }', UserWarning)
+    else:
+        for cid in cids:
+            cond = prs.get_stim(sid, cid)
+            cids_by_cond.setdefault(cond, []).append(cid)
     return cids_by_cond
 
 
