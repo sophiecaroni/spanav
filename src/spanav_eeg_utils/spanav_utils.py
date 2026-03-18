@@ -93,9 +93,11 @@ def map_epo_type_labels(
     return {
         'ObjPres': 'Object Presentation',
         'MovOn': 'Movement Onset',
-        'ContMov': 'Continuous Movement',
+        'ContMov': 'Moving',
         'Stasis': 'Stasis',
-        'blMovOn': 'Movement Onset - Stasis',
+        'blMovOn': 'Movement Onset (-bl)',
+        'blContMov': 'Moving (-bl)',
+        'blObjPres': 'Object Presentation (-bl)',
     }
 
 

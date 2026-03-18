@@ -162,7 +162,7 @@ def get_sid_level_tfr_df(
     )
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
-    sid_level_df = _bl_corr_movon_from_df(sid_level_df)
+    sid_level_df = _stasis_bl_corr_from_df(sid_level_df)
 
     if save:
         # Export each subject-level TFR object
@@ -204,29 +204,32 @@ def get_group_level_tfr_df(
     return group_level_df
 
 
-def _bl_corr_movon_from_df(input_df: pd.DataFrame):
+def _stasis_bl_corr_from_df(input_df: pd.DataFrame):
     group_cols = ['sid', 'group', 'cond']
     grouped_df = input_df.groupby(group_cols, as_index=False)
     new_rows = []
     for (sid, group, cond), subdf in grouped_df:
 
-        # Extract TFR objects: MovOn to correct, Stasis to use as baseline
-        movon_tfr = subdf[subdf['epo_type'] == 'MovOn']['tfr'].iloc[0]
+        # Extract TFR object of stasis to use as baseline
         stasis_tfr = subdf[subdf['epo_type'] == 'Stasis']['tfr'].iloc[0]
-
-        # Baseline correct from movement-onset TFR
         stasis_avg = stasis_tfr.data.mean(axis=-1, keepdims=True)  # average stasis across times
-        tfr_movon_bl = movon_tfr.copy()
-        tfr_movon_bl.data = movon_tfr.data - stasis_avg
 
-        # Construct a one-line df for the new baseline-corrected TFR, by treating it as a new epoch-type "blMovOn"
-        new_rows.append(pd.DataFrame(dict(
-            sid=[sid],
-            group=[group],
-            cond=[cond],
-            epo_type=['blMovOn'],
-            tfr=[tfr_movon_bl]
-        )))
+        # Baseline correct all epoch-types using Stasis
+        for _, row in subdf[subdf['epo_type'] != 'Stasis'].iterrows():
+            epo_type = row['epo_type']
+            tfr = row['tfr']
+
+            tfr_bl = tfr.copy()
+            tfr_bl.data = tfr.data - stasis_avg
+
+            # Append a one-line df for the new baseline-corrected TFR, by treating the BL-corrected as new epoch-types named with suffix "bl"
+            new_rows.append(pd.DataFrame(dict(
+                sid=[sid],
+                group=[group],
+                cond=[cond],
+                epo_type=[f'bl{epo_type}'],
+                tfr=[tfr_bl]
+            )))
 
     # Add new rows relative to baseline-corrected TFR (of the new 'blMovOn' epoch_type) into output df
     output_df = pd.concat([input_df] + new_rows, ignore_index=True)
