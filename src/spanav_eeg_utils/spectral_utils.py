@@ -140,4 +140,16 @@ def model_psd(
     return fm
 
 
+def get_psd_kwargs(sfreq: float = 250) -> dict:
+    return dict(
+        fmin=1,
+        fmax=45,
+        method="welch",
+        n_fft=sfreq,
+        n_per_seg=sfreq,
+        # windows_length will be n_per_seg / sfreq, so setting n_per_seg=sfreq will make windows_length 1s
+        n_overlap=int(sfreq / 2),  # 50% overlap
+        window="hamming"  # common
+    )
+
 

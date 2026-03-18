@@ -14,7 +14,6 @@ import spanav_eeg_utils.spectral_utils as spct
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.comp_utils as cmp
-
 from spanav_eeg_utils.spanav_utils import get_epo_types
 from mne.epochs import BaseEpochs, EpochsArray, Epochs
 
@@ -68,18 +67,7 @@ def get_epo_level_psd_df(
         file_path = io.get_tables_path() / fname
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    sfreq = 250
-    psd_kwargs = dict(
-        fmin=1,
-        fmax=45,
-        method="welch",
-        n_fft=sfreq,
-        n_per_seg=sfreq,
-        # windows_length will be n_per_seg / sfreq, so setting n_per_seg=sfreq will make windows_length 1s
-        n_overlap=int(sfreq / 2),  # 50% overlap, common
-        window="hamming"  # common
-    )
-
+    psd_kwargs = spct.get_psd_kwargs()
     sids = io.get_sids(test=test)
     epo_types = get_epo_types()
     all_epo_entries = []
@@ -97,7 +85,6 @@ def get_epo_level_psd_df(
                 rec.load_data()
 
                 # Compute PSD in each recording (first within and epoch and channel, then average across them to get a PSD for the entire recording)
-                # psd_kwargs = {} if file.endswith('-epo.fif') else {'n_fft': 250}
                 psd = spct.compute_psd(rec, verbose=False, **psd_kwargs)
                 full_psd, freqs = psd.get_data(return_freqs=True)
                 if log:
