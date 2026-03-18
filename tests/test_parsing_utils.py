@@ -1,5 +1,6 @@
 import pytest
 import spanav_eeg_utils.parsing_utils as prs
+import spanav_eeg_utils.config_utils as cfg
 from pathlib import Path
 from contextlib import nullcontext
 
@@ -72,4 +73,38 @@ def test_get_rec_block_dir_cases(inp, expected):
 def test_get_group_letter_cases(inp, expected, context):
     with context:
         result = prs.get_group_letter(inp)
+        assert result == expected
+
+
+@pytest.mark.parametrize(
+    "sid, group, blinding_cfg, expected, context",
+    [
+        ('sub-73T01', None, True, ['A', 'B'], nullcontext()),
+        ('sub-73A01', None, True, ['A', 'B', 'C'], nullcontext()),
+        ('sub-73T01', None, False, ['iTBS', 'HF'], nullcontext()),
+        ('sub-73A01', None, False, ['iTBS', 'HF', 'cTBS'], nullcontext()),
+        (None, 'T', True, ['A', 'B'], nullcontext()),
+        (None, 'A', True, ['A', 'B', 'C'], nullcontext()),
+        (None, 'T', False, ['iTBS', 'HF'], nullcontext()),
+        (None, 'A', False, ['iTBS', 'HF', 'cTBS'], nullcontext()),
+        (
+                None,  # no sid
+                'B',   # invalid group
+                None,  # blinding - whatever
+                None,  # no output
+                pytest.raises(ValueError)
+        ),
+        (
+                None,  # no sid
+                None,  # invalid group - at least group or sid are needed
+                None,  # blinding - whatever
+                None,  # no output
+                pytest.raises(ValueError)
+        ),
+    ],
+)
+def test_get_conds(sid, group, blinding_cfg, expected, monkeypatch, context):
+    with context:
+        monkeypatch.setattr(cfg, "get_blinding", lambda: blinding_cfg)
+        result = prs.get_conds(sid, group)
         assert result == expected

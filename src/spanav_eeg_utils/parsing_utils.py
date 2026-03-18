@@ -10,7 +10,7 @@
 ********************************************************************************
 """
 import re
-
+import spanav_eeg_utils.config_utils as cfg
 from pathlib import Path
 
 
@@ -127,3 +127,18 @@ def get_rec_acq_dir(acq, task) -> str:
             return f'block{acq}'
         else:
             return acq
+
+
+def get_conds(sid: str | None = None, group: str | None = None) -> list[str]:
+    if sid is None and group is None:
+        raise ValueError("Either sid or group must be provided")
+    if group:
+        if group not in ['A', 'T']:
+            raise ValueError(f"Invalid group argument {group = }")
+    group = group or get_group_letter(sid)
+    blinding = cfg.get_blinding()
+    if blinding:
+        return ['A', 'B'] if group == 'T' else ['A', 'B', 'C']
+    else:
+        return ['iTBS', 'HF'] if group == 'T' else ['iTBS', 'HF', 'cTBS']
+
