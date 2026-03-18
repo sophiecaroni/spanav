@@ -15,28 +15,24 @@ from spanav_tbi.visualization.tfr_plots import iter_plot_sid_tfr, iter_plot_grou
 
 def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
     # Load df storing TFR at subject level
-    sid_level_df = get_sid_level_tfr_df(test=test, save=False)
+    sid_level_df = get_sid_level_tfr_df(test=test, load=True, save=False)
 
-    # Plot blMovOn epochs in a single figure
-    sid_level_df_bl = sid_level_df[sid_level_df['epo_type'] == 'blMovOn']
-    iter_plot_sid_tfr(sid_level_df_bl, show, save)
-
-    # Plot all the other epoch-types
-    sid_level_df_nobl = sid_level_df[sid_level_df['epo_type'] != 'blMovOn']
-    iter_plot_sid_tfr(sid_level_df_nobl, show, save)
+    # Only plot stasis-bl corrected epoch-types
+    bl_mask = sid_level_df['epo_type'].str.startswith('bl')
+    sid_level_df_bl = sid_level_df[bl_mask]
+    iter_plot_sid_tfr(sid_level_df_bl, 'tfr', show, save)
+    iter_plot_sid_tfr(sid_level_df_bl, 'topomap', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
     # Load df storing TFR at group level
-    group_level_df = get_group_level_tfr_df(test=test, save=False)
+    group_level_df = get_group_level_tfr_df(load=True, test=test, save=False)
 
-    # Plot blMovOn epochs in a single figure
-    group_level_df_bl = group_level_df[group_level_df['epo_type'] == 'blMovOn']
-    iter_plot_group_tfr(group_level_df_bl, show, save)
-
-    # Plot all the other epoch-types
-    group_level_df_nobl = group_level_df[group_level_df['epo_type'] != 'blMovOn']
-    iter_plot_group_tfr(group_level_df_nobl, show, save)
+    # Only plot stasis-bl corrected epoch-types
+    bl_mask = group_level_df['epo_type'].str.startswith('bl')
+    group_level_df_bl = group_level_df[bl_mask]
+    iter_plot_group_tfr(group_level_df_bl, 'tfr', show, save)
+    iter_plot_group_tfr(group_level_df_bl, 'topomap', show, save)
 
 
 def run_tfr_plots(**kwargs):
