@@ -117,7 +117,7 @@ def get_epo_level_tfr_df(
                     if load:
                         # Read exported files
                         fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
-                        fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / sid) / fname
+                        fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
 
                     else:
@@ -149,8 +149,42 @@ def get_epo_level_tfr_df(
 
 def get_sid_level_tfr_df(
         test: bool = False,
+        load: bool = True,
         save: bool = False,
 ) -> pd.DataFrame:
+    if load:
+        sids = io.get_sids(test=test)
+        epo_types = sn.get_task_epo_types(test=test)
+
+        # Additionally try to load bl-corrected version of epoch-types
+        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+
+        tfr_records = []
+        for sid in sids:
+            conds = prs.get_conds(sid=sid)
+            for cond in conds:
+                for epo_type in epo_types:
+                    try:
+                        # Read exported files
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
+                        fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
+                        cond_epo_tfr = read_tfrs(fpath, verbose=False)
+
+                        # Store as df entry(s)
+                        tfr_entry = dict(
+                            sid=sid,
+                            group=prs.get_group_letter(sid),
+                            cond=cond,
+                            epo_type=epo_type,
+                            tfr=cond_epo_tfr,
+                        )
+                        tfr_records.append(tfr_entry)
+
+                    except (FileNotFoundError, OSError):
+                        print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
+
+        return pd.DataFrame.from_records(tfr_records)
+
     # Load epoch-level TFR dataframe
     epo_level_df = get_epo_level_tfr_df(test, load=True, save=False)
 
@@ -158,7 +192,7 @@ def get_sid_level_tfr_df(
     # average across epochs of the concatenated TFR object to get one TFR for subject, condition and epoch-type
     sid_level_df = epo_level_df.copy()
     sid_level_df['tfr'] = epo_level_df['tfr'].apply(
-            lambda tfr: tfr.average(method='mean', dim='epochs')
+            lambda row_tfr: row_tfr.average(method='mean', dim='epochs')
     )
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
@@ -167,23 +201,53 @@ def get_sid_level_tfr_df(
     if save:
         # Export each subject-level TFR object
         for i, row in sid_level_df.iterrows():
-            sid = row['sid']
-            cond = row['cond']
-            epo_type = row['epo_type']
-            sid_tfr = row['tfr']
+            sid, cond, epo_type, tfr = row['sid'], row['cond'], row['epo_type'], row['tfr']
             fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / sid) / fname
-            sid_tfr.save(fpath, overwrite=True)
+            tfr.save(fpath, overwrite=True)
 
     return sid_level_df
 
 
 def get_group_level_tfr_df(
         test: bool = False,
+        load: bool = True,
         save: bool = False,
 ) -> pd.DataFrame:
+    if load:
+        groups = io.get_groups_letters()
+        epo_types = sn.get_task_epo_types(test=test)
+
+        # Additionally try to load bl-corrected version of epoch-types
+        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+
+        tfr_records = []
+        for group in groups:
+            conds = prs.get_conds(group=group)
+            for cond in conds:
+                for epo_type in epo_types:
+                    try:
+                        # Read exported files
+                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_tfr.h5'
+                        fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
+                        cond_epo_tfr = read_tfrs(fpath, verbose=False)
+
+                        # Store as df entry(s)
+                        tfr_entry = dict(
+                            group=group,
+                            cond=cond,
+                            epo_type=epo_type,
+                            tfr=cond_epo_tfr,
+                        )
+                        tfr_records.append(tfr_entry)
+
+                    except (FileNotFoundError, OSError):
+                        print(f"\nFile not found for {group, cond, epo_type = }. Continuing...")
+
+        return pd.DataFrame.from_records(tfr_records)
+
     # Load subject-level TFR dataframe
-    sid_level_df = get_sid_level_tfr_df(test, save=False)
+    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False)
 
     # For each group, average TFR of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']

@@ -90,7 +90,7 @@ def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
         f"\n\t\t#### 1) Get epoch-level TFR table ####"
     )
 
-    epo_level_tfr_df = get_epo_level_tfr_df(load=load, test=test, save=save)
+    epo_level_tfr_df = get_epo_level_tfr_df(test=test, load=load, save=save)
     if verbose:
         print(f"{epo_level_tfr_df = }")
 
@@ -98,14 +98,14 @@ def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
         f"\n\t\t#### 2) Get subject-level TFR table ####"
     )
 
-    sid_level_tfr_df = get_sid_level_tfr_df(test=test, save=save)
+    sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save)
     if verbose:
         print(f"\t\t{sid_level_tfr_df = }")
 
     print(
         f"\n\t\t#### 3) Get group-level TFR table"
     )
-    group_level_tfr_df = get_group_level_tfr_df(test=test, save=save)
+    group_level_tfr_df = get_group_level_tfr_df(test=test, load=load, save=save)
     if verbose:
         print(f"\t\t{group_level_tfr_df = }")
 
@@ -120,8 +120,8 @@ def run_spectral_processing(**kwargs) -> None:
 if __name__ == '__main__':
     run_spectral_processing(
         test=False,
-        load=False,
+        load=True,
         verbose=True,
-        save=True,
+        save=False,
     )
 
