@@ -11,9 +11,11 @@
 """
 import mne
 import numpy as np
-
+from mne.time_frequency import EpochsSpectrum, Spectrum
 from fooof import FOOOF
 from yasa import bandpower_from_psd
+
+PSD = EpochsSpectrum | Spectrum
 
 
 def get_band_freqs(
@@ -42,7 +44,7 @@ def compute_psd(
         fmax: float = np.inf,
         test: bool = False,
         **kwargs: any,
-) -> mne.time_frequency.Spectrum | tuple[np.ndarray, np.ndarray]:
+) -> PSD:
     """
 
     :param rec:
@@ -66,11 +68,9 @@ def compute_psd(
 
     psd_obj = rec.compute_psd(**kwargs)
     if log_space:
-        psd_data, freqs = psd_obj.get_data(return_freqs=True)
-        psd_log = np.log10(psd_data)
-        return psd_log, freqs
-    else:
-        return psd_obj
+        psd_obj = psd_obj.copy()
+        psd_obj._data = np.log10(psd_obj.get_data())
+    return psd_obj
 
 
 def get_band_power(

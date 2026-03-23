@@ -32,7 +32,8 @@ def compute_avg_epo_psd(
     :param fmax: default takes all frequencies (up to Nyquist frequency)
     :return: PSD
     """
-    ch_psd, freqs = spct.compute_psd(rec, log_space=True, fmin=fmin, fmax=fmax, test=test)
+    ch_psd = spct.compute_psd(rec, log_space=True, fmin=fmin, fmax=fmax, test=test)
+    freqs = ch_psd.freqs
     rec_psd_avg = np.mean(np.mean(ch_psd, axis=1), axis=0)
     rec_psd_std = np.mean(np.std(ch_psd, axis=1) / np.sqrt(ch_psd.shape[1]), axis=0)
     return rec_psd_avg, rec_psd_std, freqs
