@@ -7,7 +7,7 @@ def test_compute_cond_tfr_dimensions(monkeypatch):
     epo = Mock()
     mock_get_concat = Mock(return_value=epo)
     monkeypatch.setattr(
-        tfr_mod.compu,
+        tfr_mod.cmp,
         "get_concat_epo_recs",
         mock_get_concat,
     )

@@ -10,7 +10,7 @@
 import numpy as np
 import pandas as pd
 
-import spanav_eeg_utils.comp_utils as compu
+import spanav_eeg_utils.comp_utils as cmp
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.spanav_utils as sn
@@ -87,7 +87,7 @@ def custom_tfr_norm(tfr_in: TFR) -> TFR:
 
 def compute_cond_tfr(sid, cids: list[str], epo_type) -> EpochsTFR:
     # Concatenate epoched recordings across block of the same condition (and subject)
-    epo_rec_full = compu.get_concat_epo_recs(sid, cids, epo_type)
+    epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
 
     # Compute TFR on all epochs and channels and return
     return compute_tfr(epo_rec_full, log=True, norm=True)  # log-transform and normalize
