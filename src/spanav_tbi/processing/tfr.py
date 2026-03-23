@@ -14,7 +14,7 @@ import spanav_eeg_utils.comp_utils as cmp
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.spanav_utils as sn
-
+import spanav_eeg_utils.spectral_utils as spct
 from mne.time_frequency import EpochsTFR, AverageTFR, read_tfrs, combine_tfr
 from mne.epochs import BaseEpochs
 
@@ -196,7 +196,7 @@ def get_sid_level_tfr_df(
     )
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
-    sid_level_df = _stasis_bl_corr_from_df(sid_level_df)
+    sid_level_df = _stasis_bl_corr(sid_level_df)
 
     if save:
         # Export each subject-level TFR object
@@ -268,32 +268,24 @@ def get_group_level_tfr_df(
     return group_level_df
 
 
-def _stasis_bl_corr_from_df(input_df: pd.DataFrame):
+def _stasis_bl_corr(input_df: pd.DataFrame):
     group_cols = ['sid', 'group', 'cond']
     grouped_df = input_df.groupby(group_cols, as_index=False)
     new_rows = []
     for (sid, group, cond), subdf in grouped_df:
 
-        # Extract TFR object of stasis to use as baseline
-        stasis_tfr = subdf[subdf['epo_type'] == 'Stasis']['tfr'].iloc[0]
-        stasis_avg = stasis_tfr.data.mean(axis=-1, keepdims=True)  # average stasis across times
+        # Apply baseline correction using Stasis TFR on TFR of all other epoch types
+        bl_corr_records = spct.spectral_bl_corr_from_df(subdf, 'epo_type', 'tfr', 'Stasis')
 
-        # Baseline correct all epoch-types using Stasis
-        for _, row in subdf[subdf['epo_type'] != 'Stasis'].iterrows():
-            epo_type = row['epo_type']
-            tfr = row['tfr']
+        # Add grouping columns information to bl_corr_records (which will be broadcasted to match len in bl_corr_records)
+        bl_corr_records.update(dict(
+            sid=sid,
+            group=group,
+            cond=cond,
+        ))
 
-            tfr_bl = tfr.copy()
-            tfr_bl.data = tfr.data - stasis_avg
-
-            # Append a one-line df for the new baseline-corrected TFR, by treating the BL-corrected as new epoch-types named with suffix "bl"
-            new_rows.append(pd.DataFrame(dict(
-                sid=[sid],
-                group=[group],
-                cond=[cond],
-                epo_type=[f'bl{epo_type}'],
-                tfr=[tfr_bl]
-            )))
+        # Turn into a one-line df for the new baseline-corrected TFR and append, by treating the BL-corrected as new epoch-types named with suffix "bl"
+        new_rows.append(pd.DataFrame(bl_corr_records))
 
     # Add new rows relative to baseline-corrected TFR (of the new 'blMovOn' epoch_type) into output df
     output_df = pd.concat([input_df] + new_rows, ignore_index=True)

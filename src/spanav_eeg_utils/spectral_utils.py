@@ -11,7 +11,8 @@
 """
 import mne
 import numpy as np
-from mne.time_frequency import EpochsSpectrum, Spectrum
+import pandas as pd
+from mne.time_frequency import EpochsSpectrum, Spectrum, BaseTFR
 from fooof import FOOOF
 from yasa import bandpower_from_psd
 
@@ -153,3 +154,60 @@ def get_psd_kwargs(sfreq: float = 250) -> dict:
     )
 
 
+def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: str, bl_name: str) -> dict:
+    """
+    Use one MNE's spectral object to baseline-correct all other spectral objects in a dataframe.
+    :param input_df: input dataframe
+    :param objs_name: column name defining the different types of spectral objects
+    :param objs_col: column name containing the spectral objects (TFR or Spectrum)
+    :param bl_name: type of the object to use as baseline (value in col_name)
+    :return: output dictionary of records containing baseline-corrected objects along with their new name (bl + old object name)
+    """
+    # Assert needed columns are present in input_df
+    needed_cols = [objs_name, objs_col]
+    missing = [col for col in needed_cols if col not in input_df.columns]
+    if missing:
+        raise ValueError(
+            f"Expected both {objs_name} and {objs_col} to be columns of input_df, "
+            f"missing {missing}"
+        )
+
+    # Assert type spectral objects in objs_col are all of the same type of either BaseTFR or Spectrum
+    valid_types = (BaseTFR, Spectrum)
+    present = set(type(x) for x in input_df[objs_col])
+    invalid = [x for x in input_df[objs_col] if not isinstance(x, valid_types)]
+    if invalid or len(present) > 1:
+        raise TypeError(
+            f"Expected all objects in '{objs_col}' to be instances of either {valid_types}, "
+            f"got {present} present types"
+        )
+
+    # Assert one and only one object to use as baseline is present
+    bl_obj_rows = input_df[input_df[objs_name] == bl_name][objs_col]
+    if len(bl_obj_rows) != 1:
+        raise ValueError(
+            f"Expected one object to use as baseline, got '{len(bl_obj_rows)}'"
+            f"\n\t -> {bl_obj_rows = }"
+        )
+
+    # Extract object to use as baseline
+    bl_obj = bl_obj_rows.iloc[0]
+
+    # Compute baseline (average across time-dimension)
+    bl = bl_obj.get_data().mean(axis=-1, keepdims=True)  # across times is last dimension in MNE's spectral objects
+
+    # Baseline correct all other objects using bl_obj
+    bl_corr_records = {objs_name: [], objs_col: []}
+    for _, row in input_df[input_df[objs_name] != bl_name].iterrows():
+        obj_name = row[objs_name]
+        obj = row[objs_col]
+
+        # Baseline-correct (substraction of bl)
+        obj_bl = obj.copy()
+        obj_bl._data = obj.get_data() - bl
+
+        # Append new object and its name to dict
+        bl_corr_records[objs_name].append(f'bl{obj_name}')
+        bl_corr_records[objs_col].append(obj_bl)
+
+    return bl_corr_records
