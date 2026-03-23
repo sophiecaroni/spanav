@@ -14,8 +14,16 @@ import spanav_eeg_utils.spectral_utils as spct
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.comp_utils as cmp
-from spanav_eeg_utils.spanav_utils import get_epo_types
-from mne.epochs import BaseEpochs, EpochsArray, Epochs
+import spanav_eeg_utils.spanav_utils as sn
+from mne.epochs import Epochs
+from mne.time_frequency import read_spectrum, EpochsSpectrum, combine_spectrum, Spectrum
+
+
+def average_psd_series(psd_series) -> Spectrum:
+    """
+    Combine a pandas Series of MNE Spectrum objects by weigthed average.
+    """
+    return combine_spectrum(list(psd_series))
 
 
 def compute_avg_epo_psd(
@@ -57,82 +65,67 @@ def compute_psd_by_key(
     return psds
 
 
+def compute_cond_psd(sid, cids: list[str], epo_type: str, log: bool) -> EpochsSpectrum:
+    # Get default parameters for of PSD computation
+    psd_kwargs = spct.get_psd_kwargs()
+
+    # Concatenate epoched recordings across block of the same condition (and subject)
+    epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
+
+    # Compute PSD on all epochs and channels and return
+    return spct.compute_psd(epo_rec_full, log_space=log, **psd_kwargs)
+
+
 def get_epo_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
         log: bool = False,
 ) -> pd.DataFrame:
-    if load:
-        fname = 'psd_df_epo_level_log.csv' if log else 'psd_df_epo_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
-
-    psd_kwargs = spct.get_psd_kwargs()
+    # Get PSD within each epoch
     sids = io.get_sids(test=test)
-    epo_types = get_epo_types()
-    all_epo_entries = []
+    epo_types = sn.get_task_epo_types(test=test)
+    psd_records = []
     for sid in sids:
         for epo_type in epo_types:
-            blocks = io.get_sid_blocks(sid, test=test)
-            for block in blocks:
+            sid_cids = io.get_sid_blocks(sid, test=test)
+            cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
 
-                epo_fpath = io.get_epo_data_path(epo_type=epo_type, sid=sid, acq=block)
-                rec = mne.read_epochs(epo_fpath, preload=False, verbose=False, proj=False)
+            # Get one concatenated recording of epochs of the same condition
+            for cond, cids in cids_by_cond.items():
+                try:
+                    if load:
+                        # Read exported files
+                        scale = 'log' if log else 'lin'
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_scale-{scale}_psd.h5'
+                        fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
+                        psd = read_spectrum(fpath)
 
-                if rec is None or len(rec) == 0:
+                    else:
+                        # Compute PSD of the recording
+                        psd = compute_cond_psd(sid, cids, epo_type, log=log)  # get a PSD in each channel and epoch
+                        if save:
+                            # Export PSD object
+                            scale = 'log' if log else 'lin'
+                            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_scale-{scale}_psd.h5'
+                            fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
+                            psd.save(fpath, overwrite=True)
+
+                except (FileNotFoundError, OSError):
+                    print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
                     continue
 
-                rec.load_data()
-
-                # Compute PSD in each recording (first within and epoch and channel, then average across them to get a PSD for the entire recording)
-                psd = spct.compute_psd(rec, verbose=False, **psd_kwargs)
-                full_psd, freqs = psd.get_data(return_freqs=True)
-                if log:
-                    full_psd = np.log10(full_psd)
-
-                # Prepare columns with base information to include to each df/row
-                cond = prs.get_stim(sid, block)
-                base_cols = dict(
+                # Store as df entry
+                psd_entry = dict(
                     sid=sid,
                     group=prs.get_group_letter(sid),
                     cond=cond,
-                    block=block[-1],
-                    epo_type=epo_type
+                    epo_type=epo_type,
+                    psd=psd,
                 )
+                psd_records.append(psd_entry)
 
-                # 1) compute average of full_psd (n_epochs, n_channels, n_freqs) across channels
-                psd_ch_mean = full_psd.mean(axis=1)  # (n_epochs, n_freqs)
-
-                # 2) compute std of full_psd (n_epochs, n_channels, n_freqs) across channels
-                psd_ch_std = full_psd.std(axis=1)  # (n_epochs, n_freqs)
-
-                # Define sub_df for this rec (one row for each eppch and frequency-point of the PSD)
-                n_epochs = psd_ch_mean.shape[0]
-                base_cols['n_epo'] = np.repeat(np.arange(1, n_epochs + 1),
-                                               len(freqs))  # repeats n_epochs range (from 0 to tot nr of epochs) for all epochs
-                file_freqs = np.tile(freqs, n_epochs)  # repeats freqs range for all epochs
-                file_pws = psd_ch_mean.reshape(-1)  # flatten, so that all epochs follow in the col
-                file_stds = psd_ch_std.reshape(-1)  # flatten, so that all epochs follow in the col
-
-                # Define sub_df for this rec (one row for each frequency-point of the PSD)
-                all_epo_entries.append(pd.DataFrame({
-                    **base_cols,
-                    'freq': file_freqs,
-                    'pw_avg': file_pws,
-                    'pw_std': file_stds,
-                }))
-
-    epo_level_psd_df = pd.concat(all_epo_entries, ignore_index=True)
-
-    assert (epo_level_psd_df['freq'].unique() == list(range(psd_kwargs['fmin'], psd_kwargs['fmax']+1))).all()
-
-    if save:
-        fname = 'psd_df_epo_level_log.csv' if log else 'psd_df_epo_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        epo_level_psd_df.to_csv(file_path)
-
-    return epo_level_psd_df
+    return pd.DataFrame.from_records(psd_records)
 
 
 def get_sid_level_psd_df(
@@ -142,31 +135,60 @@ def get_sid_level_psd_df(
         log: bool = False,
 ) -> pd.DataFrame:
     if load:
-        fname = 'psd_df_sid_level_log.csv' if log else 'psd_df_sid_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        sids = io.get_sids(test=test)
+        epo_types = sn.get_task_epo_types(test=test)
+
+        # Additionally try to load bl-corrected version of epoch-types
+        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+
+        psd_records = []
+        for sid in sids:
+            conds = prs.get_conds(sid=sid)
+            for cond in conds:
+                for epo_type in epo_types:
+                    try:
+                        # Read exported files (always in linear scale)
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_scale-lin_psd.h5'
+                        fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
+                        psd = read_spectrum(fpath)
+
+                        # Store as df entry(s)
+                        psd_entry = dict(
+                            sid=sid,
+                            group=prs.get_group_letter(sid),
+                            cond=cond,
+                            epo_type=epo_type,
+                            psd=psd,
+                        )
+                        psd_records.append(psd_entry)
+
+                    except (FileNotFoundError, OSError):
+                        print(f"\nFile not found for {sid, cond, epo_type = } (scale-lin). Continuing...")
+
+        return pd.DataFrame.from_records(psd_records)
 
     # Load epoch-level PSD dataframe
-    epo_level_df = get_epo_level_psd_df(load=True, log=False, test=test, save=False)  # always start by linear df (to apply log afterwards)
+    epo_level_df = get_epo_level_psd_df(test=test, load=True, save=False)
 
-    # For each subject, average PSD of the same condition and epoch-type across different blocks
-    group_cols = ['sid', 'group', 'cond', 'epo_type', 'freq']
-    grouped_df = epo_level_df.groupby(group_cols, as_index=False)
-    sid_level_df = grouped_df.agg(
-        pw_avg=('pw_avg', 'mean'),
-        pw_std=('pw_avg', 'std'),
-        n_epochs=('sid', 'size'),
+    # For each subject, PSD of the same condition and epoch-type were concatenated across different blocks; so simply
+    # average across epochs of the concatenated PSD object to get one PSD for subject, condition and epoch-type
+    sid_level_df = epo_level_df.copy()
+    sid_level_df['psd'] = epo_level_df['psd'].apply(
+            lambda row_psd: row_psd.average(method='mean')  # averages across epochs by implementation
     )
-    cmp.fix_std_singleton(sid_level_df, ["pw_std"], n_col="n_epochs")  # replace with zeros the NaNs appearing as std (if there was only one row to average across)
 
-    if log:
-        # Convert in log space
-        sid_level_df['pw_avg'] = np.log10(sid_level_df['pw_avg'])
+    # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
+    sid_level_df = _stasis_bl_corr(sid_level_df)
 
     if save:
-        fname = 'psd_df_sid_level_log.csv' if log else 'psd_df_sid_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        sid_level_df.to_csv(file_path)
+        # Export each subject-level PSD object
+        for i, row in sid_level_df.iterrows():
+            sid, cond, epo_type, psd = row['sid'], row['cond'], row['epo_type'], row['psd']
+            scale = 'log' if log else 'lin'
+            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_scale-{scale}_psd.h5'
+            psd._inst_type = mne.Evoked  # use this (with any non-Epochs class) to prevent bug with read_spectrum
+            fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / sid) / fname
+            psd.save(fpath, overwrite=True)
 
     return sid_level_df
 
@@ -178,48 +200,77 @@ def get_group_level_psd_df(
         log: bool = False,
 ) -> pd.DataFrame:
     if load:
-        fname = 'psd_df_group_level_log.csv' if log else 'psd_df_group_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
+        groups = io.get_groups_letters()
+        epo_types = sn.get_task_epo_types(test=test)
 
-    # Load subject-level PSD dataframe
-    sid_level_df = get_sid_level_psd_df(load=True, log=False, test=test, save=False)  # always start by linear df (to apply log afterwards)
+        # Additionally try to load bl-corrected version of epoch-types
+        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
 
-    # Fors each group, average PSD across different subjects
-    group_cols = ['group', 'cond', 'epo_type', 'freq']
+        psd_records = []
+        for group in groups:
+            conds = prs.get_conds(group=group)
+            for cond in conds:
+                for epo_type in epo_types:
+                    try:
+                        # Read exported files
+                        scale = 'log' if log else 'lin'
+                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_scale-{scale}_psd.h5'
+                        fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
+                        cond_psd = read_spectrum(fpath)
+
+                        # Store as df entry(s)
+                        psd_entry = dict(
+                            group=group,
+                            cond=cond,
+                            epo_type=epo_type,
+                            psd=cond_psd,
+                        )
+                        psd_records.append(psd_entry)
+
+                    except (FileNotFoundError, OSError):
+                        print(f"\nFile not found for {group, cond, epo_type = }. Continuing...")
+
+        return pd.DataFrame.from_records(psd_records)
+
+    # Load subject-level PSD
+    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False)
+
+    # For each group, average PSD of the same condition and epoch-type across different subjects
+    group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
-    group_level_df = grouped_df.agg(
-        pw_avg=('pw_avg', 'mean'),
-        pw_std=('pw_avg', 'std'),
-        n_sids=('group', 'size'),
-    )
-    cmp.fix_std_singleton(sid_level_df, ["pw_std"], n_col="n_sids")  # replace with zeros the NaNs appearing as std (if there was only one row to average across)
-
-    if log:
-        # Convert in log space
-        group_level_df['pw_avg'] = np.log10(group_level_df['pw_avg'])
+    group_level_df = grouped_df['psd'].apply(average_psd_series).reset_index(drop=True)
 
     if save:
-        fname = 'psd_df_group_level_log.csv' if log else 'psd_df_group_level_lin.csv'
-        file_path = io.get_tables_path() / fname
-        group_level_df.to_csv(file_path)
+        # Export each group-level PSD object
+        for i, row in group_level_df.iterrows():
+            group, cond, epo_type, psd = row['group'], row['cond'], row['epo_type'], row['psd']
+            scale = 'log' if log else 'lin'
+            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_scale-{scale}_psd.h5'
+            fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'PSD') / fname
+            psd.save(fpath, overwrite=True)
 
     return group_level_df
 
 
-def average_channels_across_epochs(epo_in: BaseEpochs) -> EpochsArray:
-    info = mne.create_info(
-        ch_names=["avg_channels"],
-        sfreq=epo_in.info["sfreq"],
-        ch_types="eeg"
-    )
-    data = epo_in.get_data()
-    ch_avg = np.average(data, axis=1)
+def _stasis_bl_corr(input_df: pd.DataFrame):
+    group_cols = ['sid', 'group', 'cond']
+    grouped_df = input_df.groupby(group_cols, as_index=False)
+    new_rows = []
+    for (sid, group, cond), subdf in grouped_df:
 
-    epo_out = mne.EpochsArray(
-        ch_avg[:, np.newaxis, :],  # keep 3D
-        info=info,
-        events=epo_in.events,
-        event_id=epo_in.event_id
-    )
-    return epo_out
+        # Apply baseline correction using Stasis PSD on PSD of all other epoch types
+        bl_corr_records = spct.spectral_bl_corr_from_df(subdf, 'epo_type', 'psd', 'Stasis')
+
+        # Add grouping columns information to bl_corr_records (which will be broadcasted to match len in bl_corr_records)
+        bl_corr_records.update(dict(
+            sid=sid,
+            group=group,
+            cond=cond,
+        ))
+
+        # Turn into a one-line df for the new baseline-corrected PSD and append, by treating the BL-corrected as new epoch-types named with suffix "bl"
+        new_rows.append(pd.DataFrame(bl_corr_records))
+
+    # Add new rows relative to baseline-corrected PSD (of the new 'blMovOn' epoch_type) into output df
+    output_df = pd.concat([input_df] + new_rows, ignore_index=True)
+    return output_df
