@@ -21,9 +21,9 @@ from mne.epochs import BaseEpochs
 TFR = EpochsTFR | AverageTFR
 
 
-def combine_tfr_series(tfr_series):
+def average_tfr_series(tfr_series) -> AverageTFR:
     """
-    Combine a pandas Series of MNE TFR objects.
+    Combine a pandas Series of MNE TFR objects by weigthed average.
     """
     return combine_tfr(list(tfr_series))
 
@@ -99,12 +99,10 @@ def get_epo_level_tfr_df(
         save: bool = False,
 ) -> pd.DataFrame:
 
-    # Compute TFRs for each epoch type
+    # Get TFRs within each epoch
     epo_types = sn.get_task_epo_types(test)
-
-    tfr_records = []
-    epo_types = sn.get_task_epo_types(test) if epo_types is None else epo_types
     sids = io.get_sids(test=test)
+    tfr_entries = []
     for epo_type in epo_types:
         for sid in sids:
             sid_cids = io.get_sid_blocks(sid, test=test)
@@ -142,9 +140,9 @@ def get_epo_level_tfr_df(
                     tfr=cond_epo_tfr,
                 )
 
-                tfr_records.append(tfr_entry)
+                tfr_entries.append(tfr_entry)
 
-    return pd.DataFrame.from_records(tfr_records)
+    return pd.DataFrame.from_records(tfr_entries)
 
 
 def get_sid_level_tfr_df(
@@ -252,15 +250,12 @@ def get_group_level_tfr_df(
     # For each group, average TFR of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
-    group_level_df = grouped_df['tfr'].apply(combine_tfr_series).reset_index(drop=True)
+    group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
 
     if save:
         # Export each group-level TFR object
         for i, row in group_level_df.iterrows():
-            group = row['group']
-            cond = row['cond']
-            epo_type = row['epo_type']
-            group_tfr = row['tfr']
+            group, cond, epo_type, group_tfr = row['group'], row['cond'], row['epo_type'], row['tfr']
             fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'TFR') / fname
             group_tfr.save(fpath, overwrite=True)

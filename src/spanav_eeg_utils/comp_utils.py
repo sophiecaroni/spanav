@@ -9,7 +9,6 @@
 """
 import mne
 import pandas as pd
-
 from mne import EpochsArray
 from spanav_eeg_utils.io_utils import get_epo_data_path
 
