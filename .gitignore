@@ -10,3 +10,4 @@ config.ini
 *.egg-info/
 dist/
 tutorials/
+local/

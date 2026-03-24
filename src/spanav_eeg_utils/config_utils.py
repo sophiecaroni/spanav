@@ -60,5 +60,5 @@ def get_server_root(config_path: str | None = None) -> Path:
 
 def get_local_root(config_path: str | None = None) -> Path:
     cfg = load_config(config_path)
-    root = cfg.get("Paths", "local_root", fallback=str(Path.home() / "data"))
+    root = cfg.get("Paths", "local_root", fallback=str(Path.home() / "local"))
     return Path(root)
