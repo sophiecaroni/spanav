@@ -37,13 +37,19 @@ def get_rs_file_suff(
 def get_impedances_file_suff(
         fname_parts: list,
 ) -> str:
-    assert len(fname_parts) == 1 or len(
-        fname_parts) == 2, f'Unknown format of impedances file name. Need 1 or 2 elements, got {len(fname_parts)}: {fname_parts}'
-    if len(fname_parts) == 2:
-        return '_'.join(fname_parts).replace('task',
-                                             '')  # join the two words with _ ; remove 'task' where it was added (e.g. posttask)
+    assert 0 < len(fname_parts) < 4, f'Unknown format of impedances file name. Need between 1 and 3 elements, got {len(fname_parts)}: {fname_parts}'
+
+    # Conform to decided format: impedances_pre, impedances_mid1/2, impedances_post1/2
+    if 'check' in fname_parts:  # special case 'SpaNav_check_imp1'
+        nr = fname_parts[-1][-1]
+        return f"impedances_mid{nr}"
+    elif len(fname_parts) == 3:  # e.g. impedances_post_1
+        nr = fname_parts[-1]
+        return f"impedances_{fname_parts[1]}{nr}"
+    elif len(fname_parts) == 2:  # e.g. impedances_posttask
+        return '_'.join(fname_parts).replace('task', '')  # join the two words with _ ; remove 'task' if present
     else:  # it means fname_parts is just one word (the impedances file name)
-        return f"{fname_parts[0]}_pre"  # join all words with - and append 'pre'
+        return f"{fname_parts[0]}_pre"
 
 
 def get_block_file_suff(
