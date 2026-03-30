@@ -66,7 +66,7 @@ def auto_rename(
     if file_name.lower().startswith('rs'):  # resting state
         new_file_name = f'{sid}_{ses}_{get_rs_file_suff(name_parts)}'
 
-    elif file_name.lower().startswith('imp'):  # impedances
+    elif 'im' in file_name.lower():  # for impedances; only use "im" because of existing files "imoedences" with typo
         new_file_name = f'{sid}_{ses}_{get_impedances_file_suff(name_parts)}'
 
     elif file_name.lower().startswith('block'):  # spanav task
