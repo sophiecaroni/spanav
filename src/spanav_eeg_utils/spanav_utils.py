@@ -113,7 +113,7 @@ def map_metric_labels(
 def map_metric_label(
         metric_str: str,
 ) -> str:
-    return map_metric_labels()[metric_str]
+    return map_metric_labels().get(metric_str, metric_str)
 
 
 def map_band_labels(
@@ -128,7 +128,7 @@ def map_band_labels(
 def get_band_label(
         band_str: str,
 ) -> str:
-    return map_band_labels()[band_str]
+    return map_band_labels().get(band_str, band_str)
 
 
 def get_full_sid(
