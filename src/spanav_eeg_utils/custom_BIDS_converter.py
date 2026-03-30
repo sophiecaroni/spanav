@@ -6,7 +6,7 @@
 
     Original author: Andràs Puszta
     Refactored by: Sophie Caroni
-    Last modified: 10.02.2026
+    Last modified: 30.03.2025
 
     Description:
     This script allows to convert EEG files and organize them into a BIDS-
@@ -274,6 +274,7 @@ def process_directory(source_dir, output_dir):
                 # --- 2. Create Destination Directory ---
                 # Structure: BIDS_EEG/sub-{id}/ses-{id}/eeg/
                 dest_dir = output_path / f"sub-{sid}" / f"ses-{ses_id}" / "eeg"
+                os.makedirs(dest_dir, exist_ok=True)
 
                 # --- 3. Define base BIDS Filename ---
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
@@ -347,7 +348,7 @@ def process_directory(source_dir, output_dir):
                                 writer.writerow(["0.0", "0.0", "start_placeholder"])
 
     # --- 9. Final Root Files ---
-    if not TESTING_MODE:
+    if not TESTING_MODE and participants_set:
         create_bids_root_files(output_path, participants_set)
         print("\nconversion Complete!")
         print(f"Data stored in: {output_path.absolute()}")
