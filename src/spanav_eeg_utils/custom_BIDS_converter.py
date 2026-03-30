@@ -255,7 +255,7 @@ def process_directory(source_dir, output_dir):
                 raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
 
                 if SUBJECTS and sid not in SUBJECTS:
-                    print(f'\nSkipping {file = } ({sid = })\n')
+                    print(f'\nSkipping {file = } because of subject not in subjects to process ({sid = })')
                     continue
 
                 # Clean up Session ID: Extract digits strictly
@@ -279,7 +279,7 @@ def process_directory(source_dir, output_dir):
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sid}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
 
-                print(f"\nProcessing {file = } \n\t ==> would generate files in format: {bids_basename}")
+                print(f"\nProcessing {file = } \n\t ==> will generate files in format: {bids_basename}")
 
                 # --- 4. Parse Metadata needed for next files---
                 file_path_vhdr = Path(root) / file
