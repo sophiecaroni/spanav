@@ -65,7 +65,7 @@ def compute_psd_by_key(
     return psds
 
 
-def compute_cond_psd(sid, cids: list[str], epo_type: str, log: bool) -> EpochsSpectrum:
+def compute_cond_psd(sid, cids: list[str], epo_type: str) -> EpochsSpectrum:
     # Get default parameters for of PSD computation
     psd_kwargs = spct.get_psd_kwargs()
 
@@ -73,14 +73,13 @@ def compute_cond_psd(sid, cids: list[str], epo_type: str, log: bool) -> EpochsSp
     epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
 
     # Compute PSD on all epochs and channels and return
-    return spct.compute_psd(epo_rec_full, log_space=log, **psd_kwargs)
+    return spct.compute_psd(epo_rec_full, log_space=True, **psd_kwargs)  # log as in Convertino et al., 2023
 
 
 def get_epo_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
-        log: bool = False,
 ) -> pd.DataFrame:
     # Get PSD within each epoch
     sids = io.get_sids(test=test)
@@ -96,18 +95,16 @@ def get_epo_level_psd_df(
                 try:
                     if load:
                         # Read exported files
-                        scale = 'log' if log else 'lin'
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_scale-{scale}_psd.h5'
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
                         fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
                         psd = read_spectrum(fpath)
 
                     else:
                         # Compute PSD of the recording
-                        psd = compute_cond_psd(sid, cids, epo_type, log=log)  # get a PSD in each channel and epoch
+                        psd = compute_cond_psd(sid, cids, epo_type)
                         if save:
                             # Export PSD object
-                            scale = 'log' if log else 'lin'
-                            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_scale-{scale}_psd.h5'
+                            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
                             fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
                             psd.save(fpath, overwrite=True)
 
@@ -132,7 +129,6 @@ def get_sid_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
-        log: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -148,7 +144,7 @@ def get_sid_level_psd_df(
                 for epo_type in epo_types:
                     try:
                         # Read exported files (always in linear scale)
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_scale-lin_psd.h5'
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
                         fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
                         psd = read_spectrum(fpath)
 
@@ -163,7 +159,7 @@ def get_sid_level_psd_df(
                         psd_records.append(psd_entry)
 
                     except (FileNotFoundError, OSError):
-                        print(f"\nFile not found for {sid, cond, epo_type = } (scale-lin). Continuing...")
+                        print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
 
         return pd.DataFrame.from_records(psd_records)
 
@@ -184,8 +180,7 @@ def get_sid_level_psd_df(
         # Export each subject-level PSD object
         for i, row in sid_level_df.iterrows():
             sid, cond, epo_type, psd = row['sid'], row['cond'], row['epo_type'], row['psd']
-            scale = 'log' if log else 'lin'
-            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_scale-{scale}_psd.h5'
+            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
             psd._inst_type = mne.Evoked  # use this (with any non-Epochs class) to prevent bug with read_spectrum
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / sid) / fname
             psd.save(fpath, overwrite=True)
@@ -197,7 +192,6 @@ def get_group_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
-        log: bool = False,
 ) -> pd.DataFrame:
     if load:
         groups = io.get_groups_letters()
@@ -213,8 +207,7 @@ def get_group_level_psd_df(
                 for epo_type in epo_types:
                     try:
                         # Read exported files
-                        scale = 'log' if log else 'lin'
-                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_scale-{scale}_psd.h5'
+                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
                         fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
                         cond_psd = read_spectrum(fpath)
 
@@ -244,8 +237,7 @@ def get_group_level_psd_df(
         # Export each group-level PSD object
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, psd = row['group'], row['cond'], row['epo_type'], row['psd']
-            scale = 'log' if log else 'lin'
-            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_scale-{scale}_psd.h5'
+            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'PSD') / fname
             psd.save(fpath, overwrite=True)
 
