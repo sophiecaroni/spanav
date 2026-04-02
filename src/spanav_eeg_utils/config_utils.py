@@ -19,8 +19,16 @@ def load_config(
 ) -> configparser.ConfigParser:
     cfg = configparser.ConfigParser()
 
+    # Gets the config.ini existing in the closest directory to the calling script
     if config_path is None:
-        config_path = Path(__file__).resolve().parents[2] / "config.ini"
+        search_roots = [Path.cwd(), *Path.cwd().parents, *Path(__file__).resolve().parents]
+        for parent in search_roots:
+            candidate = parent / "config.ini"
+            if candidate.exists():
+                config_path = candidate
+                break
+        else:
+            raise FileNotFoundError("config.ini not found in any parent directory")
     else:
         config_path = Path(config_path)
 
