@@ -19,6 +19,7 @@ import os
 import json
 import csv
 import re
+import platform
 from pathlib import Path
 from datetime import datetime
 from mne_bids.copyfiles import copyfile_brainvision
@@ -62,11 +63,10 @@ def get_block_file_suff(
 
 def auto_rename(
         file_name: str,
-        file_path: str | Path,
+        file_path: Path,
 ) -> str:
     ses = 1  # in our experiment we only have one experimental session
-    path_parts = file_path.split('/')
-    sid = path_parts[-1]
+    sid = file_path.stem
     name_parts = file_name.replace('.vhdr', '').split('_')
 
     if file_name.lower().startswith('rs'):  # resting state
@@ -84,7 +84,7 @@ def auto_rename(
     return new_file_name
 
 
-def parse_vhdr(file_path):
+def parse_vhdr(file_path: Path):
     """
     Parses a BrainVision .vhdr file to extract sampling rate and channel names.
     """
@@ -120,7 +120,7 @@ def parse_vhdr(file_path):
     return sampling_frequency, channel_names
 
 
-def parse_vmrk(file_path, sampling_freq):
+def parse_vmrk(file_path: Path, sampling_freq: int | float):
     """
     Parses a BrainVision .vmrk file to extract events.
     """
@@ -165,7 +165,7 @@ def parse_vmrk(file_path, sampling_freq):
     return events
 
 
-def create_bids_root_files(bids_root, subjects):
+def create_bids_root_files(bids_root: Path, subjects: set[str]):
     """
     Creates the required top-level BIDS files.
     """
@@ -207,13 +207,10 @@ def create_bids_root_files(bids_root, subjects):
         json.dump(part_json, f, indent=4)
 
 
-def process_directory(source_dir, output_dir):
+def process_directory(source_path: Path, output_path: Path):
     """
     Main processing loop.
     """
-    source_path = Path(source_dir)
-    output_path = Path(output_dir)
-    
     if not source_path.exists():
         print(f"Error: Source directory '{source_path}' does not exist.")
         return
@@ -241,6 +238,7 @@ def process_directory(source_dir, output_dir):
 
                 if len(parts) < 4:
                     if AUTO_RENAME:
+                        root = Path(root)
                         new_fname = auto_rename(file, root)
                         # print(f"{file = }\n{new_fname = }")
                         parts = new_fname.split('_')
@@ -354,35 +352,24 @@ def process_directory(source_dir, output_dir):
         print(f"Data stored in: {output_path.absolute()}")
 
 
+def _get_spanav_folders(subject_group: str) -> tuple[Path, Path]:
+    system = platform.system()
+    group_dir = 'TBI' if subject_group == 'T' else 'Healthy_Agematched'
+
+    if system == "Darwin":
+        return Path(f"/Volumes/PlasMA_WP73/Raw/{group_dir}/TI_and_EEG/Raw"), Path(f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{subject_group}")
+    else:  # system == "Windows":
+        return Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Arch\TI\PlasMA_WP73\Raw\{group_dir}\TI_and_EEG\Raw"), Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Data\TI\SpatialNavigation\WP7.3_EEG\raw\BIDS_Data_WP73{subject_group}")
+
+
 if __name__ == "__main__":
 
     # Configuration
     groups = ["T", "A"]
     for group in groups:
-        src_dir_name = 'TBI' if group == 'T' else 'Healthy_Agematched'
-        SOURCE_FOLDER = f"/Volumes/PlasMA_WP73/Raw/{src_dir_name}/TI_and_EEG/Raw"  # <--- EDIT THIS PATH if running directly
-        OUTPUT_FOLDER = f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{group}"  # <--- EDIT THIS PATH if running directly
+        SOURCE_FOLDER, OUTPUT_FOLDER = _get_spanav_folders(group)
         AUTO_RENAME = True
         TESTING_MODE = False
-        SUBJECTS = ['73A01', '73T01',  '73T02',  '73T03',  '73T04',  '73T05']  # set to None or empty to process all subjects possible
+        SUBJECTS = ['73A01', '73A02', '73T06']  # set to None or empty to process all missing subjects
 
-        # If you want to use command line arguments:
-        import argparse
-
-        parser = argparse.ArgumentParser(description="Automated BIDS Converter")
-        parser.add_argument("--source", type=str, help="Path to source EEG directory")
-        parser.add_argument("--output", type=str, default="BIDS_EEG", help="Output BIDS directory")
-
-        args = parser.parse_args()
-
-        if args.source:
-            process_directory(args.source, args.output)
-        else:
-            # Use the hardcoded path from the top of the file
-            print("No command line arguments provided. Using default configuration.")
-            # Ask for input if default is placeholder
-            if "Path\\To" in SOURCE_FOLDER:
-                folder = input("Please enter the full path to your raw EEG folder: ").strip().replace('"', '')
-                process_directory(folder, OUTPUT_FOLDER)
-            else:
-                process_directory(SOURCE_FOLDER, OUTPUT_FOLDER)
+        process_directory(SOURCE_FOLDER, OUTPUT_FOLDER)
