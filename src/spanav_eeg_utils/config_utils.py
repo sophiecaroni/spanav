@@ -10,7 +10,6 @@
 ********************************************************************************
 """
 import configparser
-import platform
 from pathlib import Path
 
 
@@ -53,17 +52,7 @@ def get_seed(config_path: str | None = None) -> int:
 
 def get_server_root(config_path: str | None = None) -> Path:
     cfg = load_config(config_path)
-    system = platform.system()
-
-    if system == "Windows":
-        root = cfg.get("Paths", "server_root_windows", fallback=r"\\sv-nas1.rcp.epfl.ch\Hummel-Data")
-    elif system == "Darwin":
-        root = cfg.get("Paths", "server_root_mac", fallback="/Volumes/Hummel-Data")
-    else:
-        # Linux/HPC: either set in config.ini or reuse windows UNC if mounted via smb
-        root = cfg.get("Paths", "server_root_linux", fallback=r"\\sv-nas1.rcp.epfl.ch\Hummel-Data")
-
-    return Path(root)
+    return Path(cfg.get("Paths", "server_root"))
 
 
 def get_local_root(config_path: str | None = None) -> Path:
