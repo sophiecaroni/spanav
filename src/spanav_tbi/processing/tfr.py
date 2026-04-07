@@ -224,7 +224,7 @@ def get_group_level_tfr_df(
                 for epo_type in epo_types:
                     try:
                         # Read exported files
-                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_tfr.h5'
+                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
                         fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
 
