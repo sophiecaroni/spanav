@@ -122,6 +122,8 @@ def get_epo_level_psd_df(
     for sid in sids:
         for epo_type in epo_types:
             sid_cids = io.get_sid_blocks(sid, test=test)
+            if not sid_cids:
+                continue
             cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
 
             # Get one concatenated recording of epochs of the same condition
