@@ -45,9 +45,10 @@ def plot_tfr_by_epo(
             epo_type_df.reset_index(inplace=True)
             tfr_plot = epo_type_df.loc[0, 'tfr']
 
+            colorbar = int(i) + 1 == len(epo_axes)
+
             if pkind == 'tfr':
-                # Only add colorbar to outer-most subplots
-                colorbar = int(i) + 1 == len(epo_axes)
+                # Only add colorbar to right-most subplots
                 tfr_plot.plot(
                     combine='mean',  # averages across channels in case there are multiples
                     axes=ax,

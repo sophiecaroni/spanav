@@ -1,12 +1,12 @@
 """
 ********************************************************************************
-    Title: Time-frequency Representation (TFR) plots
+    Title: Spectrogram plots of Time-frequency Representations (TFR)
 
     Author: Sophie Caroni
     Date of creation: 16.03.2026
 
     Description:
-    This script generate figures for different aggregation levels of TFR objects.
+    This script generate spectrograms for different aggregation levels of TFR objects.
 ********************************************************************************
 """
 from spanav_tbi.processing.tfr import get_sid_level_tfr_df, get_group_level_tfr_df
