@@ -2,11 +2,10 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
-import configparser
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.spanav_utils as sn
 import spanav_eeg_utils.io_utils as io
-
+import spanav_eeg_utils.config_utils as config
 from mne import Epochs
 from mne.epochs import EpochsFIF
 from mne.baseline import rescale
@@ -15,10 +14,7 @@ from autoreject import AutoReject
 EPO_TYPES = set(sn.get_epo_types())
 EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
 
-config = configparser.ConfigParser()
-config.read('../config.ini')
-
-SEED = config.getint('General', 'seed')
+SEED = config.get_seed()
 
 
 def get_all_epo_objects(

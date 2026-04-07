@@ -16,7 +16,7 @@ import mne
 import pandas as pd
 import seaborn as sns
 import os
-import configparser
+import spanav_eeg_utils.config_utils as config
 from spanav_eeg_utils.plot_utils import plot_context, save_figure, layout_subplots_grid, get_nrows_ncols, \
     get_epo_palette, get_cond_palette
 from spanav_eeg_utils.io_utils import get_ti_positions
@@ -26,11 +26,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
 
-config = configparser.ConfigParser()
-config.read('../config.ini')
-
-SEED = config.getint('General', 'seed')
-
+SEED = config.get_seed()
 
 cm = 1/2.54
 
