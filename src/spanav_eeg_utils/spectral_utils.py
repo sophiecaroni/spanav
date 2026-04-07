@@ -193,8 +193,8 @@ def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: s
     # Extract object to use as baseline
     bl_obj = bl_obj_rows.iloc[0]
 
-    # Compute baseline (average across time-dimension)
-    bl = bl_obj.get_data().mean(axis=-1, keepdims=True)  # across times is last dimension in MNE's spectral objects
+    # Compute baseline
+    bl = bl_obj.get_data().mean(axis=-1, keepdims=True)  # last dimension is time in TFR and frequencies in Spectrum objects
 
     # Baseline correct all other objects using bl_obj
     bl_corr_records = {objs_name: [], objs_col: []}
@@ -202,9 +202,9 @@ def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: s
         obj_name = row[objs_name]
         obj = row[objs_col]
 
-        # Baseline-correct (substraction of bl)
+        # Baseline-correct (similar to mode='percent' of mne.baseline.rescale https://mne.tools/stable/generated/mne.baseline.rescale.html)
         obj_bl = obj.copy()
-        obj_bl._data = obj.get_data() - bl
+        obj_bl._data = (obj.get_data() - bl) / bl * 100
 
         # Append new object and its name to dict
         bl_corr_records[objs_name].append(f'bl{obj_name}')
