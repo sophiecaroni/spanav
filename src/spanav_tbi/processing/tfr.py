@@ -55,16 +55,14 @@ def compute_tfr(
         return_itc=False,
     )
 
+    if norm:
+        tfr = custom_tfr_norm(tfr)
+
     if log:
-        # Ensure strictly positive before log
         data = tfr.data
-        # eps = np.finfo(data.dtype).tiny if np.issubdtype(data.dtype, np.floating) else 1e-20
-        # data = np.maximum(data, eps)
         log_data = np.log(data)
         tfr.data = log_data
 
-    if norm:
-        tfr = custom_tfr_norm(tfr)
     return tfr
 
 
