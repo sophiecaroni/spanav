@@ -22,10 +22,11 @@ TFR = EpochsTFR | AverageTFR
 
 def _compute_tfr_vlim(tfr_array: Iterable[TFR], pkind: str) -> tuple[float, float]:
     if pkind not in ['tfr', 'topomap']:
-        raise(ValueError, f'Accepted plot kinds are "tfr"and "topomap"; got {pkind = }')
-    axis = 0 if pkind == 'tfr' else (1, 2)  # avergae across channels (if there are mutliple) in TFR heatmap plots; across frequency and timepoints (if there are mutliple) in topomapmap plots
-    vmin = min(t.data.mean(axis=axis).min() for t in tfr_array)
+        raise (ValueError, f'Accepted plot kinds are "tfr" and "topomap"; got {pkind = }')
+    axis = 0 if pkind == 'tfr' else (1, 2)  # average across channels (if there are mutliple) in TFR heatmap plots; across frequency and timepoints (if there are mutliple) in topomapmap plots
+    # vmin = min(t.data.mean(axis=axis).min() for t in tfr_array)
     vmax = max(t.data.mean(axis=axis).max() for t in tfr_array)
+    vmin = -vmax
     return vmin, vmax
 
 
