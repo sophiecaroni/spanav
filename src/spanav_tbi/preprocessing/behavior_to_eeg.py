@@ -1,13 +1,7 @@
 import warnings
 import pandas as pd
 import numpy as np
-import configparser
 import spanav_eeg_utils.io_utils as io
-
-config = configparser.ConfigParser()
-config.read('../config.ini')
-
-SEGMENT_EPOCHS = config.getboolean('Processing', 'segment_epochs')
 
 
 def get_times_retrieval_phases(
@@ -349,7 +343,6 @@ def define_eeg_epochs(
         sid: str,
         save: bool = False,
         verbose: bool = False,
-        segment_epochs: bool = SEGMENT_EPOCHS,
 ) -> pd.DataFrame:
     # Epoch parameters
     movonset_epo_window = (-0.5, 0.5)
@@ -400,25 +393,13 @@ def define_eeg_epochs(
 
                 # 1. Stasis epochs
                 if row['State'] == 'Stasis' and duration >= static_min_s:
-                    if segment_epochs:
-                        segment_epoch(
-                            events_list=events,
-                            epoch_info=base_event_info,
-                            epoch_type='Stasis',
-                            epoch_start=state_start,
-                            epoch_end=state_start + duration,
-                        )
-
-                    else:
-                        stat_epoch_start = state_start + static_epo_window[0]
-                        stat_epoch_end = state_start + static_epo_window[1]
-                        events.append({
-                            **base_event_info,
-                            'EpochType': 'Stasis',
-                            'EpochStart': stat_epoch_start,
-                            'EpochEnd': stat_epoch_end,
-                            'EpochDuration': stat_epoch_end - stat_epoch_start,
-                        })
+                    segment_epoch(
+                        events_list=events,
+                        epoch_info=base_event_info,
+                        epoch_type='Stasis',
+                        epoch_start=state_start,
+                        epoch_end=state_start + duration,
+                    )
 
                 # 2. Movement onset epochs
                 if row['State'] == 'MovOn':
@@ -441,22 +422,13 @@ def define_eeg_epochs(
                             # Define MovOn epoch
                             movon_epoch_start = movon_start + movonset_epo_window[0]
                             movon_epoch_end = movon_start + movonset_epo_window[1]
-                            if segment_epochs:
-                                segment_epoch(
-                                    events_list=events,
-                                    epoch_info=base_event_info,
-                                    epoch_type='MovOn',
-                                    epoch_start=movon_epoch_start,
-                                    epoch_end=movon_epoch_end,
-                                )
-                            else:
-                                events.append({
-                                    **base_event_info,
-                                    'EpochType': 'MovOn',
-                                    'EpochStart': movon_epoch_start,
-                                    'EpochEnd': movon_epoch_end,
-                                    'EpochDuration': movon_epoch_end - movon_epoch_start,
-                                })
+                            segment_epoch(
+                                events_list=events,
+                                epoch_info=base_event_info,
+                                epoch_type='MovOn',
+                                epoch_start=movon_epoch_start,
+                                epoch_end=movon_epoch_end,
+                            )
 
                             # 3. Continuous movement epochs - only exist after MovOn epochs
                             # Define epoch start - right after MovOn window to avoid overlapping portions
@@ -469,23 +441,14 @@ def define_eeg_epochs(
                                                 'StateEnd'] - retrieval_start  # as done above with abs_start (but here we are in following state so need this again)
                             contmov_epoch_end = min(mov_state_end, max_end)
 
-                            # Append to events
-                            if segment_epochs:
-                                segment_epoch(
-                                    events_list=events,
-                                    epoch_info=base_event_info,
-                                    epoch_type='ContMov',
-                                    epoch_start=contmov_epoch_start,
-                                    epoch_end=contmov_epoch_end,
-                                )
-                            else:
-                                events.append({
-                                    **base_event_info,
-                                    'EpochType': 'ContMov',
-                                    'EpochStart': contmov_epoch_start,
-                                    'EpochEnd': contmov_epoch_end,
-                                    'EpochDuration': contmov_epoch_end - contmov_epoch_start,
-                                })
+                            # Segment and append to events
+                            segment_epoch(
+                                events_list=events,
+                                epoch_info=base_event_info,
+                                epoch_type='ContMov',
+                                epoch_start=contmov_epoch_start,
+                                epoch_end=contmov_epoch_end,
+                            )
 
     events_df = pd.DataFrame(events)
 

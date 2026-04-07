@@ -15,7 +15,6 @@ warnings.filterwarnings('ignore')  # Suppress all warnings
 
 def gen_epo_tables(
         sids: list,
-        segment_epoch_options: list,
         save: bool = False
 ) -> None:
     for sid in sids:
@@ -24,13 +23,11 @@ def gen_epo_tables(
         retrieval_df = get_retrieval_df(sid)
         beh_events_df = extract_beh_events(sid, block_times, retrieval_df, df_trace)
 
-        for segment_opt in segment_epoch_options:
-            _ = define_eeg_epochs(beh_events_df, sid, segment_epochs=segment_opt, save=save)
+        define_eeg_epochs(beh_events_df, sid, save=save)
 
 
 def gen_contmov_epos(
         sids: list,
-        segment_epoch_options: list[bool],
         test: bool = False,
 ) -> dict:
     epos_dict = {}
@@ -42,21 +39,19 @@ def gen_contmov_epos(
             epos_dict[sid][block] = {}
             raw_rec = get_raw_to_epoch(sid, block)
 
-            for segment_bool in segment_epoch_options:
-                epo_def_df = get_epo_def(sid, block)
-                epochs = get_epo_rec(
-                    'ContMov',
-                    sid,
-                    block,
-                    raw_rec,
-                    load=False,
-                    epo_def_df=epo_def_df,
-                    verbose=False
-                )
-                if epochs is not None:
-                    if len(epochs) > 0:
-                        key = 'ContMov_seg' if segment_bool else 'ContMov'
-                        epos_dict[sid][block][key] = epochs
+            epo_def_df = get_epo_def(sid, block)
+            epochs = get_epo_rec(
+                'ContMov',
+                sid,
+                block,
+                raw_rec,
+                load=False,
+                epo_def_df=epo_def_df,
+                verbose=False
+            )
+            if epochs is not None:
+                if len(epochs) > 0:
+                    epos_dict[sid][block]['ContMov'] = epochs
 
     return epos_dict
 
