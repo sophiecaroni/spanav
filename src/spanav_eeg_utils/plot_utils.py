@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import spanav_eeg_utils.io_utils as io
+from pathlib import Path
 from importlib.resources import files
 from contextlib import contextmanager
 from matplotlib.figure import Figure
@@ -70,7 +71,7 @@ def layout_subplots_grid(
 
 
 def save_figure(
-        save_dir: str | None,
+        save_dir: Path | str | None ,
         fname: str,
         fig: Figure | None = None,
         sid: str | None = None,
