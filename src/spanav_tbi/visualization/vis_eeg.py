@@ -125,7 +125,8 @@ def ch_psd_subplots(
                 real_cid = get_stim(sid, acq=cid)
                 fname = f'{fname_pref}_psd_subplots' if fname_pref is not None else 'psd_subplots'
                 fname += f"_{brain_region}"
-                save_figure(f'PSD/{sid}/{real_cid}', fname, fig=fig, sid=sid, dpi=1200)
+                save_figure(save_dir=f'{sid}/{real_cid}', group_parent_dir='plots/PSD', fname=fname, fig=fig, sid=sid,
+                            dpi=1200)
 
             if show:
                 fig.show()
@@ -150,7 +151,7 @@ def ch_psd_overlap(
             assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
             real_cid = get_stim(sid, acq=cid)
             fname = f'{fname_pref}_psd_overlap' if fname_pref is not None else 'psd_overlap'
-            save_figure(f'PSD/{sid}/{real_cid}', fname, fig=fig, sid=sid)
+            save_figure(save_dir=f'{sid}/{real_cid}', group_parent_dir='plots/PSD', fname=fname, fig=fig, sid=sid)
 
         if show:
             fig.show()
@@ -190,7 +191,8 @@ def ics_psd_subplots(
                 fname = 'subplots'
                 fname += f"_{fname_suff}" if fname_suff is not None else ''
                 fname += f"_{group}" if len(grouped_ics.keys()) > 1 else ''
-                save_figure(f'PSD/{sid}/{real_cid}/ICs/{n_components}_com', fname, fig, sid=sid)
+                save_figure(save_dir=f'{sid}/{real_cid}/ICs/{n_components}_com', group_parent_dir='ICA',
+                            fname=fname, fig=fig, sid=sid)
 
             if show:
                 fig.show()
@@ -272,7 +274,8 @@ def plot_evk_from_df(
         fig.suptitle(real_cid)
 
         if save:
-            save_figure(f'Evoked/{sid}', 'evk_traces.png', fig, sid=sid, dpi=900, bbox_inches='tight')
+            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname='evk_traces.png', fig=fig,
+                        sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
     return axes
@@ -331,7 +334,8 @@ def plot_evk_by_grp(
         fig.tight_layout()
 
         if save:
-            save_figure(f'Evoked/{sid}', f'{real_cid}_evk_traces.png', fig, sid=sid, dpi=900, bbox_inches='tight')
+            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname=f'{real_cid}_evk_traces.png', fig=fig,
+                        sid=sid, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
         else:
@@ -420,8 +424,8 @@ def plot_psd_avg_by_grp(
                 continue
 
         if save:
-            save_figure(f'PSD/{sid}', f'{real_cid}_psds_by_epo_type.png', fig, sid=sid,
-                        dpi=900, bbox_inches='tight')
+            save_figure(save_dir=sid, group_parent_dir='plots/PSD', fname=f'{real_cid}_psds_by_epo_type.png', fig=fig,
+                        sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -507,7 +511,8 @@ def compare_epo_psd(
         if save:
             sid = None if plot_subj.startswith('average') else plot_subj
             save_dir = 'PSD' if not sid else f'PSD/{sid}'
-            save_figure(save_dir, f'psd_{super_col}.png', fig=fig, sid=sid, dpi=900, bbox_inches='tight')
+            save_figure(save_dir=save_dir, group_parent_dir='plots', fname=f'psd_{super_col}.png', fig=fig,
+                        sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
@@ -560,8 +565,8 @@ def compare_band_metric(
             if save:
                 single_sid = None if len(sids) > 1 else sids[0]
                 save_dir = 'PSD' if not single_sid else f'PSD/{single_sid}'
-                save_figure(save_dir, f'{metric_name}-{color_by}_hue.png', fig=fig, sid=single_sid,
-                            dpi=900, bbox_inches='tight')
+                save_figure(save_dir=save_dir, group_parent_dir='plots', fname=f'{metric_name}-{color_by}_hue.png',
+                            fig=fig, sid=single_sid, dpi=900, bbox_inches='tight')
 
             if show:
                 plt.show()
@@ -754,7 +759,8 @@ def plot_preprocessing_result(
 
         if save:
             real_cid = get_stim(sid, acq=cid)
-            save_figure(f'PSD/{sid}/{real_cid}', 'prepro_result.png', fig, sid=sid, dpi=900, bbox_inches='tight')
+            save_figure(group_parent_dir=f'PSD/{sid}/{real_cid}', fname='prepro_result.png', fig=fig,
+                        sid=sid, dpi=900, bbox_inches='tight', save_dir=None)
         if show:
             plt.show()
         else:
@@ -816,9 +822,8 @@ def plot_schematic_epo_def(
             fig.tight_layout()
 
             if save:
-                real_cid = get_stim(sid, acq=f'block{block_n}')
-                save_figure(f'Epo/{sid}/{real_cid}', f'block{block_n}_trials_epoching.png', fig,
-                            sid=sid, dpi=900, bbox_inches='tight')
+                save_figure(save_dir=sid, group_parent_dir='plots/Epo', fname=f'block{block_n}_trials_epoching.png',
+                            fig=fig, sid=sid, dpi=900, bbox_inches='tight')
             if show:
                 plt.show()
             else:
@@ -958,8 +963,9 @@ def compare_found_peaks(
         if save:
             sids = df['sid'].unique()
             single_sid = None if len(sids) > 1 else sids[0]
-            save_path = 'PSD' if not single_sid else f'PSD/{single_sid}'
-            save_figure(save_path, 'found_peaks.png', fig, sid=single_sid, dpi=900, bbox_inches='tight')
+            save_dir = 'PSD' if not single_sid else f'PSD/{single_sid}'
+            save_figure(save_dir=save_dir, group_parent_dir='plots', fname='found_peaks.png', fig=fig,
+                        sid=single_sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
         else:
