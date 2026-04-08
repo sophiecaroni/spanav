@@ -230,7 +230,7 @@ def extract_beh_events(
 
     if save:
         fname = 'beh_events.csv'
-        file_path = io.get_outputs_path(sid) / 'Epo' / sid / fname
+        file_path = io.set_for_save(io.get_outputs_path(sid) / 'Epo' / sid) / fname
         events_df.to_csv(file_path, index=False)
 
     return events_df
@@ -454,7 +454,7 @@ def define_eeg_epochs(
 
     if save:
         fname = 'eeg_epochs.csv'
-        file_path = io.get_outputs_path(sid) / 'Epo' / sid / fname
+        file_path = io.set_for_save(io.get_outputs_path(sid) / 'Epo' / sid) / fname
         events_df.to_csv(file_path, index=False)
 
     return events_df
