@@ -6,7 +6,7 @@ import spanav_eeg_utils.io_utils as io
 
 def get_times_retrieval_phases(
         sid: str,
-) -> dict[int, tuple[float, float]] | dict:
+) -> dict[int, tuple[float, float]]:
     """
     Retrieve start and end times of each retrieval phase, based on TaskLog.txt
     :param sid: subject ID
@@ -51,7 +51,7 @@ def get_trace_df(
 
             parts = line.split(',')  # list of the parts of the line
             if len(parts) == 1:  # lines "Number ----------------------"
-                time = parts
+                time = parts[0]
                 x = y = None
             elif len(parts) == 2:
                 time, angle = parts
@@ -71,13 +71,13 @@ def get_trace_df(
     df = pd.DataFrame(tracelog)
 
     # As "The row is recorded every 100 ms if there's any navigation (translation or rotation). And, if there's no
-    # recording, it means that s/he was stationary during the period." (June), insert syntehtic rows when needed
+    # recording, it means that s/he was stationary during the period." (June), insert synthetic rows when needed
     t = df['time'].to_numpy()
     reset = np.r_[False, np.diff(t) < 0]          # True where time decreases
     df["segment_id"] = np.cumsum(reset)           # 0,1,2,... in file order
     tolerance = 1e-6  # tolerance
     sample_s = 0.1  # 100 ms, to treat two times as equal if they differ by less than one microsecond
-    synthethic_rows = []
+    processed_segments = []
 
     for seg_id, seg in df.groupby("segment_id", sort=False):
         seg = seg.copy()
@@ -100,9 +100,9 @@ def get_trace_df(
             seg.sort_values("time", inplace=True, kind="mergesort")
             seg.reset_index(drop=True, inplace=True)
 
-        synthethic_rows.append(seg)
+        processed_segments.append(seg)
 
-    df = pd.concat(synthethic_rows, ignore_index=True)
+    df = pd.concat(processed_segments, ignore_index=True)
 
     # Final check
     if df['time'].tolist() != sorted(df['time']):
@@ -167,7 +167,7 @@ def extract_beh_events(
         condition = block_n  #get_block_stim(sid, block_n)
 
         # Iterate over trials (rows) of the block
-        for row_idx, trial_row in block_trials.iterrows():
+        for _, trial_row in block_trials.iterrows():
             start, end = trial_row['starttime'], trial_row['endtime']
             trial_n = trial_row['Trial']
 
@@ -226,7 +226,7 @@ def extract_beh_events(
     events_df = pd.DataFrame(events)
 
     # Check events durations
-    assert all(events_df['Duration']) >= 0, (f'Something is wrong, some events have negative duration')
+    assert (events_df['Duration'] >= 0).all(), f'Something is wrong, some events have negative duration'
 
     if save:
         file_path = io.get_epo_beh_tables_path(sid, 'beh_events.csv')
@@ -286,55 +286,54 @@ def select_trial_df(
     return trial_df
 
 
-def segment_epoch(
-        events_list,
-        epoch_info: dict,
+def extract_subepochs(
         epoch_type: str,
         epoch_start: float,
         epoch_end: float,
-        segment_len_s: float = 1.0,
-):
-    total_len = epoch_end - epoch_start
-    if total_len <= 0:
-        return
+        subepo_len_s: float = 1.0,
+) -> list[dict]:
+    """
+    Takes an epoch and segments it in sub-epochs of subepo_len_s seconds length.
+    :param epoch_type:
+    :param epoch_start:
+    :param epoch_end:
+    :param subepo_len_s:
+    :return:
+    """
+    # Initial check of values correctness
+    if (subepo_len_s is None) or (subepo_len_s <= 0):
+        raise ValueError('subepo_len_s must be positive')
 
-    # If segment_len_s invalid or longer than epoch, keep one epoch
-    if (segment_len_s is None) or (segment_len_s <= 0) or (segment_len_s >= total_len):
-        events_list.append({
-            **epoch_info,
+    epo_len = epoch_end - epoch_start
+    if epo_len <= 0:
+        raise ValueError(f'epo_len should be positive! Got {epo_len = }')
+
+    # Compute number of sub-epochs that the epoch can be segmented into
+    n_subepo = int(epo_len // subepo_len_s)
+
+    # If there is only one sub-epoch, return as is
+    if n_subepo == 0:
+        return [{
             'EpochType': epoch_type,
             'EpochStart': epoch_start,
             'EpochEnd': epoch_end,
-            'EpochDuration': total_len,
+            'EpochDuration': epo_len,
             'SubEpoch': 0,
-        })
-        return
+        }]
 
-    n_segments = int(total_len // segment_len_s)
-    if n_segments == 0:
-        events_list.append({
-            **epoch_info,
-            'EpochType': epoch_type,
-            'EpochStart': epoch_start,
-            'EpochEnd': epoch_end,
-            'EpochDuration': total_len,
-            'SubEpoch': 0,
-        })
-        return
-
-    for seg_idx in range(n_segments):
-        seg_start = epoch_start + seg_idx * segment_len_s
-        seg_end = seg_start + segment_len_s
-        if seg_end > epoch_end + 1e-6:
-            break
-        events_list.append({
-            **epoch_info,
+    # Iterate to extract multiple sub-epochs
+    subepos = []
+    for subepo_idx in range(n_subepo):
+        seg_start = epoch_start + subepo_idx * subepo_len_s
+        seg_end = seg_start + subepo_len_s
+        subepos.append({
             'EpochType': epoch_type,
             'EpochStart': seg_start,
             'EpochEnd': seg_end,
-            'EpochDuration': segment_len_s,
-            'SubEpoch': seg_idx,
+            'EpochDuration': subepo_len_s,
+            'SubEpoch': subepo_idx,
         })
+    return subepos
 
 
 def define_eeg_epochs(
@@ -345,13 +344,13 @@ def define_eeg_epochs(
 ) -> pd.DataFrame:
     # Epoch parameters
     movonset_epo_window = (-0.5, 0.5)
-    static_epo_window = (0, 1.0)
     mov_epo_window_start = movonset_epo_window[1]
     mov_min_s = 1.0 + mov_epo_window_start  # 1s in Convertino, but we shift to avoid overlap with movement onset epochs
     mov_max_s = 3.0 + mov_epo_window_start  # to ignore part of movements after 3s of moving # 3s in Convertino, but since we shifted also the minimum of 0.5 to avoid overlap with movement onset epochs, it would not make sense to set to 3s then only have actually 2.5 to extract in epochs of 1s
     static_min_s = 2.0
     static_min_s_before_mov = 1.0
 
+    retrieval_times = get_times_retrieval_phases(sid=sid)
     events = []
     # Iterate over blocks
     for block in events_df['RetrievalBlock'].unique():
@@ -367,9 +366,9 @@ def define_eeg_epochs(
 
                 # Reset times of the block to match its EEG recording (bc block times in events_df are continuous
                 # across blocks/stim. condition, while EEG aren't so their times always start from 0)
-                abs_start, abs_end, duration = row['StateStart'], row['StateEnd'], row['Duration']
+                abs_start, duration = row['StateStart'], row['Duration']
                 block_n = row['RetrievalBlock']
-                retrieval_start, retrieval_end = get_times_retrieval_phases(sid=sid)[block_n]
+                retrieval_start, retrieval_end = retrieval_times[block_n]
                 state_start = abs_start - retrieval_start
                 if verbose:
                     print(
@@ -380,7 +379,7 @@ def define_eeg_epochs(
                     )
 
                 # Define epochs
-                base_event_info = {
+                event_info = {
                     'RetrievalBlock': block,
                     'BlockStart': retrieval_start,
                     'BlockEnd': retrieval_end,
@@ -392,13 +391,15 @@ def define_eeg_epochs(
 
                 # 1. Stasis epochs
                 if row['State'] == 'Stasis' and duration >= static_min_s:
-                    segment_epoch(
-                        events_list=events,
-                        epoch_info=base_event_info,
+                    # Segment and add to events
+                    stasis_epochs = extract_subepochs(
                         epoch_type='Stasis',
                         epoch_start=state_start,
                         epoch_end=state_start + duration,
                     )
+                    for ev in stasis_epochs:
+                        ev.update(event_info)
+                        events.append(ev)
 
                 # 2. Movement onset epochs
                 if row['State'] == 'MovOn':
@@ -408,7 +409,7 @@ def define_eeg_epochs(
                         prev = trial_df.loc[i - 1]
                         following = trial_df.loc[i + 1]
 
-                        # Check if preceding and following states qualify
+                        # Check if preceding and following states qualify as EEG events
                         if (
                                 prev['State'] == 'Stasis' and prev['Duration'] >= static_min_s_before_mov
                         ) and (
@@ -421,18 +422,20 @@ def define_eeg_epochs(
                             # Define MovOn epoch
                             movon_epoch_start = movon_start + movonset_epo_window[0]
                             movon_epoch_end = movon_start + movonset_epo_window[1]
-                            segment_epoch(
-                                events_list=events,
-                                epoch_info=base_event_info,
+
+                            # Segment and add to events
+                            movon_epochs = extract_subepochs(
                                 epoch_type='MovOn',
                                 epoch_start=movon_epoch_start,
                                 epoch_end=movon_epoch_end,
                             )
+                            for ev in movon_epochs:
+                                ev.update(event_info)
+                                events.append(ev)
 
                             # 3. Continuous movement epochs - only exist after MovOn epochs
                             # Define epoch start - right after MovOn window to avoid overlapping portions
-                            contmov_epoch_start = movon_start + movonset_epo_window[
-                                1]  # onset of movement + end ov MovOn epoch
+                            contmov_epoch_start = movon_start + movonset_epo_window[1]  # onset of movement + end of MovOn epoch
 
                             # Define epoch end: end at earlier end between movement end and movement portions exceeding mov_max_s after onset
                             max_end = movon_start + mov_max_s
@@ -440,14 +443,15 @@ def define_eeg_epochs(
                                                 'StateEnd'] - retrieval_start  # as done above with abs_start (but here we are in following state so need this again)
                             contmov_epoch_end = min(mov_state_end, max_end)
 
-                            # Segment and append to events
-                            segment_epoch(
-                                events_list=events,
-                                epoch_info=base_event_info,
+                            # Segment and add to events
+                            contmov_epochs = extract_subepochs(
                                 epoch_type='ContMov',
                                 epoch_start=contmov_epoch_start,
                                 epoch_end=contmov_epoch_end,
                             )
+                            for ev in contmov_epochs:
+                                ev.update(event_info)
+                                events.append(ev)
 
     events_df = pd.DataFrame(events)
 
