@@ -6,7 +6,7 @@ import spanav_eeg_utils.io_utils as io
 
 def get_times_retrieval_phases(
         sid: str,
-) -> dict[int: tuple[float, float]]:
+) -> dict[int, tuple[float, float]] | dict:
     """
     Retrieve start and end times of each retrieval phase, based on TaskLog.txt
     :param sid: subject ID
@@ -14,8 +14,8 @@ def get_times_retrieval_phases(
     """
     retrieval_starts_to_check = []
     file = io.get_cont_path('beh', sid, 'TaskLog')
+    times_by_retrieval_phase = {}
     with open(file, 'r') as f:
-        times_by_retrieval_phase = {}
         block_n = 1
         for line in f:
             line = line.strip()  # remove trailing /n
@@ -146,7 +146,7 @@ def get_retrieval_df(
 
 def extract_beh_events(
         sid: str,
-        retrieval_times: dict[int: tuple[float, float]],
+        retrieval_times: dict[int, tuple[float, float]],
         retrieval_df: pd.DataFrame,
         trace_df: pd.DataFrame,
         save: bool = False,

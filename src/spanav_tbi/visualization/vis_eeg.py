@@ -364,7 +364,7 @@ def plot_psd_avg(
 
 
 def plot_psd_avg_by_grp(
-        psd_avg_dict: dict[np.ndarray, np.ndarray, np.ndarray],
+        psd_avg_dict: dict[str, tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]],
         sid: str | None = None,
         cid: str | None = None,
         show: bool = False,
