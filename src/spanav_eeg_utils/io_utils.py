@@ -59,10 +59,24 @@ def get_raw_eeg_path(
 
 def get_beh_path(
         sid: str,
+        acq: str | None = None,
+        task: str | None = 'SpaNav',
 ) -> Path:
+    # Build behavioral directory
     root = get_main_path()
     group = prs.get_group_letter(sid)
-    return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
+    beh_dir = root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
+    set_for_save(beh_dir)  # Make sure the directory exist
+
+    # Optionally include a file in the path
+    include_fname = acq is not None and task is not None  # both acq and task are needed in behavioral data filenames
+    fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
+
+    # Return paths
+    if include_fname:
+        fname += '_beh.txt'
+        return beh_dir / fname
+    return beh_dir
 
 
 def get_epo_path(
