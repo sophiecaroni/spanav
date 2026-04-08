@@ -18,6 +18,7 @@ from importlib.resources import files
 from contextlib import contextmanager
 from matplotlib.figure import Figure
 from spanav_eeg_utils import config_utils as cfg
+from mne.io import BaseRaw
 
 
 @contextmanager
@@ -52,6 +53,16 @@ def plot_context(
     # Create figure applying the custom context
     with plt.rc_context(rc=params), plt.style.context(str(style_path)):
         yield
+
+
+def get_cont_rec_plot_kwargs(raw_rec: BaseRaw) -> dict:
+    return {
+        # 'duration': 40,
+        'duration': raw_rec.times[-1] if raw_rec.times[-1] < 230 else raw_rec.times[-1] // 2,
+        'n_channels': len(raw_rec.ch_names),
+        'clipping': None,
+        'scalings': {'eeg': 10e-5},
+        }
 
 
 def layout_subplots_grid(
