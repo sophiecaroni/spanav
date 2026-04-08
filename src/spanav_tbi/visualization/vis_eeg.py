@@ -122,7 +122,7 @@ def ch_psd_subplots(
             if save:
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-                real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+                real_cid = get_stim(sid, acq=cid)
                 fname = f'{fname_pref}_psd_subplots' if fname_pref is not None else 'psd_subplots'
                 fname += f"_{brain_region}"
                 save_figure(f'PSD/{sid}/{real_cid}', fname, fig=fig, sid=sid, dpi=1200)
@@ -148,7 +148,7 @@ def ch_psd_overlap(
         if save:
             assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
             assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
-            real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+            real_cid = get_stim(sid, acq=cid)
             fname = f'{fname_pref}_psd_overlap' if fname_pref is not None else 'psd_overlap'
             save_figure(f'PSD/{sid}/{real_cid}', fname, fig=fig, sid=sid)
 
@@ -186,7 +186,7 @@ def ics_psd_subplots(
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
                 assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
                 n_components = ica_psd.info['nchan']
-                real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+                real_cid = get_stim(sid, acq=cid)
                 fname = 'subplots'
                 fname += f"_{fname_suff}" if fname_suff is not None else ''
                 fname += f"_{group}" if len(grouped_ics.keys()) > 1 else ''
@@ -268,7 +268,7 @@ def plot_evk_from_df(
                 ax.set_ylabel('')
 
         # General figure customization
-        real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+        real_cid = get_stim(sid, acq=cid)
         fig.suptitle(real_cid)
 
         if save:
@@ -304,7 +304,7 @@ def plot_evk_by_grp(
         subtitles = [k.replace(prefix, "", 1) for k in keys]
         # fig.suptitle(prefix)
 
-        real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+        real_cid = get_stim(sid, acq=cid)
         fig.suptitle(real_cid)
 
         # Plot one evoked-rec per subplot
@@ -407,7 +407,7 @@ def plot_psd_avg_by_grp(
                 ax.set_xlabel('Frequency [Hz]')
             if col == 0:
                 ax.set_ylabel(r'log(Power [$\mu$V])')
-            real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+            real_cid = get_stim(sid, acq=cid)
             fig.suptitle(real_cid)
 
             # Plot
@@ -753,7 +753,7 @@ def plot_preprocessing_result(
         axs[1, 1].set_title('Preprocessed data - Single chs')
 
         if save:
-            real_cid = get_stim(sid, block_n=cid[-1]) if cid.startswith('block') else get_stim(sid, cid=cid)
+            real_cid = get_stim(sid, acq=cid)
             save_figure(f'PSD/{sid}/{real_cid}', 'prepro_result.png', fig, sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
@@ -816,7 +816,7 @@ def plot_schematic_epo_def(
             fig.tight_layout()
 
             if save:
-                real_cid = get_stim(sid, cid=int(block_n))
+                real_cid = get_stim(sid, acq=f'block{block_n}')
                 save_figure(f'Epo/{sid}/{real_cid}', f'block{block_n}_trials_epoching.png', fig,
                             sid=sid, dpi=900, bbox_inches='tight')
             if show:
