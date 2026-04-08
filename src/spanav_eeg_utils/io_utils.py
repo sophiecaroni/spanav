@@ -57,7 +57,7 @@ def get_raw_eeg_path(
     return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
 
 
-def get_beh_path(
+def get_raw_beh_path(
         sid: str,
         acq: str | None = None,
         task: str | None = 'SpaNav',
@@ -171,7 +171,7 @@ def get_beh_data_path(
     include_fname = acq is not None and task is not None  # both acq and task are needed in behavioral data filenames
     fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
     fname += '_beh.txt'
-    fpath = get_beh_path(sid)
+    fpath = get_raw_beh_path(sid)
     set_for_save(fpath)
 
     if include_fname:

@@ -13,7 +13,7 @@ def get_times_retrieval_phases(
     :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
     """
     retrieval_starts_to_check = []
-    file = io.get_beh_path(sid, acq='TaskLog')
+    file = io.get_raw_beh_path(sid, acq='TaskLog')
     times_by_retrieval_phase = {}
     with open(file, 'r') as f:
         block_n = 1
@@ -40,7 +40,7 @@ def get_trace_df(
 ) -> pd.DataFrame:
     tracelog = []
 
-    file = io.get_beh_path(sid, acq='TraceLog')
+    file = io.get_raw_beh_path(sid, acq='TraceLog')
     with open(file, 'r') as f:
         for raw in f:
             line = raw.strip()
@@ -116,7 +116,7 @@ def get_retrieval_df(
         sid: str,
 ) -> pd.DataFrame:
 
-    file = io.get_beh_path(sid, acq='RetrievalLog')
+    file = io.get_raw_beh_path(sid, acq='RetrievalLog')
     df = pd.read_csv(
         file,
         sep=',',
