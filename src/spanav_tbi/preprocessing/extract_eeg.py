@@ -166,8 +166,7 @@ def get_epo_def(
         sid: str,
         block: str | int,
 ) -> pd.DataFrame:
-    fname = 'eeg_epochs.csv'
-    file_path = io.get_epo_path(sid) / fname
+    file_path = io.get_epo_beh_tables_path(sid, 'eeg_epochs.csv')
     epo_table = pd.read_csv(file_path)
 
     # Select rows selative to the retrieval block od the condition ID

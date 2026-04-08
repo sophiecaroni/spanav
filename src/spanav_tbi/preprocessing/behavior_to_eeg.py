@@ -229,8 +229,7 @@ def extract_beh_events(
     assert all(events_df['Duration']) >= 0, (f'Something is wrong, some events have negative duration')
 
     if save:
-        fname = 'beh_events.csv'
-        file_path = io.set_for_save(io.get_outputs_path(sid) / 'Epo' / sid) / fname
+        file_path = io.get_epo_beh_tables_path(sid, 'beh_events.csv')
         events_df.to_csv(file_path, index=False)
 
     return events_df
@@ -453,8 +452,7 @@ def define_eeg_epochs(
     events_df = pd.DataFrame(events)
 
     if save:
-        fname = 'eeg_epochs.csv'
-        file_path = io.set_for_save(io.get_outputs_path(sid) / 'Epo' / sid) / fname
+        file_path = io.get_epo_beh_tables_path(sid, 'eeg_epochs.csv')
         events_df.to_csv(file_path, index=False)
 
     return events_df

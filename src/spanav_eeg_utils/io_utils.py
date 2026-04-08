@@ -79,6 +79,17 @@ def get_raw_beh_path(
     return beh_dir
 
 
+def get_epo_beh_tables_path(
+        sid: str,
+        fname: str | None = None,
+) -> Path:
+    outputs_path = get_outputs_path(sid=sid)
+    epo_beh_tables_path = set_for_save(outputs_path / 'Epo' / sid)
+    if fname:
+        return epo_beh_tables_path / fname
+    return epo_beh_tables_path
+
+
 def get_epo_path(
         sid: str,
 ) -> Path:
