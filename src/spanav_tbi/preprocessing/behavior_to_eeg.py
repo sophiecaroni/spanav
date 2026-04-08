@@ -286,6 +286,11 @@ def select_trial_df(
     return trial_df
 
 
+def compute_wide_window(epoch_start: float, epoch_end: float, wide_s: float = 6.0) -> tuple[float, float]:
+    center = (epoch_start + epoch_end) / 2
+    return center - wide_s / 2, center + wide_s / 2
+
+
 def extract_subepochs(
         epoch_type: str,
         epoch_start: float,
@@ -349,6 +354,7 @@ def define_eeg_epochs(
     mov_max_s = 3.0 + mov_epo_window_start  # to ignore part of movements after 3s of moving # 3s in Convertino, but since we shifted also the minimum of 0.5 to avoid overlap with movement onset epochs, it would not make sense to set to 3s then only have actually 2.5 to extract in epochs of 1s
     static_min_s = 2.0
     static_min_s_before_mov = 1.0
+    wide_s = 6.0  # duration of wide epochs, s in Convertino
 
     retrieval_times = get_times_retrieval_phases(sid=sid)
     events = []
@@ -453,6 +459,11 @@ def define_eeg_epochs(
                                 ev.update(event_info)
                                 events.append(ev)
 
+    # Add to each event their corresponding wide epoch interval
+    for ev in events:
+        ev['WideStart'], ev['WideEnd'] = compute_wide_window(ev['EpochStart'], ev['EpochEnd'], wide_s=wide_s)
+
+    # Create events data frame
     events_df = pd.DataFrame(events)
 
     if save:
