@@ -446,6 +446,31 @@ def plot_psd_avg_by_grp(
     return axes
 
 
+def plot_epo_overview(
+        epos_dict: dict[str, BaseEpochs],
+        psd_by_rec: dict[str, tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]],
+        sid: str,
+        cid: str,
+        show: bool = False,
+        save: bool = False,
+) -> None:
+    """
+    Plot evoked response and PSD for all epoch types, separately for wide and normal epochs.
+    :param epos_dict: dict of Epochs objects by epoch-type
+    :param psd_by_rec: dict of PSD objects by epoch-type
+    :param sid: subject ID
+    :param cid: condition/block ID
+    :param show: whether to display figures
+    :param save: whether to save figures to disk
+    """
+    for wide in (True, False):
+        e_d = {k: v for k, v in epos_dict.items() if k.endswith('_wide') == wide}
+        psd_d = {k: v for k, v in psd_by_rec.items() if k.endswith('_wide') == wide}
+        fname_suff = '_wide' if wide else ''
+        plot_evk_by_grp(e_d, sid=sid, cid=cid, show=show, save=save, fname_suff=fname_suff)
+        plot_psd_avg_by_grp(psd_d, sid, cid, show=show, save=save, fname_suff=fname_suff)
+
+
 def compare_epo_psd(
         df,
         super_col: str,
