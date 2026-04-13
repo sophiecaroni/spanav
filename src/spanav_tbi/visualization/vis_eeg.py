@@ -25,6 +25,9 @@ from spanav_eeg_utils.spanav_utils import get_ch_by_region, map_metric_label, ma
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
+from mne import BaseEpochs, Evoked
+from mne.io import BaseRaw
+from mne.time_frequency import Spectrum
 
 SEED = config.get_seed()
 
@@ -72,7 +75,7 @@ def plot_ti_sensors(
 
 
 def plot_single_ch_psd(
-        ch_psd: mne.time_frequency.Spectrum | np.ndarray,
+        ch_psd: Spectrum | np.ndarray,
         title: str,
         freqs: np.ndarray | None = None,
         ax: Axes | None = None,
@@ -100,8 +103,8 @@ def plot_single_ch_psd(
 
 
 def ch_psd_subplots(
-        raw_rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
-        ch_psd: mne.time_frequency.Spectrum,
+        raw_rec: BaseRaw | mne.Epochs | Evoked,
+        ch_psd: Spectrum,
         cid: str | None = None,
         sid: str | None = None,
         test: bool = False,
@@ -135,8 +138,8 @@ def ch_psd_subplots(
 
 
 def ch_psd_overlap(
-        raw_rec: mne.io.BaseRaw | mne.Epochs | mne.Evoked,
-        ch_psd: mne.time_frequency.Spectrum,
+        raw_rec: BaseRaw | BaseEpochs | Evoked,
+        ch_psd: Spectrum,
         cid: str | None = None,
         sid: str | None = None,
         show: bool = False,
@@ -160,7 +163,7 @@ def ch_psd_overlap(
 
 
 def ics_psd_subplots(
-        ica_psd: mne.time_frequency.Spectrum,
+        ica_psd: Spectrum,
         cid: str | None = None,
         sid: str | None = None,
         test: bool = False,
@@ -201,7 +204,7 @@ def ics_psd_subplots(
 
 
 def psd_subplots(
-        psd: mne.time_frequency.Spectrum,
+        psd: Spectrum,
         psd_sources: list,
         nrows: int,
         ncols: int,
@@ -314,7 +317,7 @@ def plot_evk_by_grp(
         # Plot one evoked-rec per subplot
         for i, (ax, rec, title) in enumerate(zip(axes, recs_dict.values(), subtitles)):
             if rec is not None and len(rec) > 0:
-                if isinstance(rec, mne.Evoked):
+                if isinstance(rec, Evoked):
                     rec.plot(axes=ax, show=False, sphere=False, **kwargs)
                 elif isinstance(rec, np.ndarray):
                     rec.mean().plot(axes=ax, show=False, sphere=False, **kwargs)
@@ -348,7 +351,7 @@ def plot_evk_by_grp(
             
 
 def plot_psd_avg(
-        psd_avg: mne.time_frequency.Spectrum | np.ndarray,
+        psd_avg: Spectrum | np.ndarray,
         psd_std: np.ndarray | None = None,
         freqs: np.ndarray | None = None,
         show: bool = False,
@@ -717,7 +720,7 @@ def plot_band_metric(
 
 
 def plot_muscle_art(
-        raw_rec: mne.io.BaseRaw,
+        raw_rec: BaseRaw,
         scores_muscle: list,
         muscle_threshold: float,
         show: bool = True,
@@ -735,8 +738,8 @@ def plot_muscle_art(
 
 
 def plot_preprocessing_result(
-        raw_before: mne.io.BaseRaw,
-        raw_after: mne.io.BaseRaw,
+        raw_before: BaseRaw,
+        raw_after: BaseRaw,
         sid: str | None = None,
         cid: str | None = None,
         show: bool = False,
