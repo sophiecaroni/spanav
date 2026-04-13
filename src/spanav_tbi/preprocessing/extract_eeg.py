@@ -217,35 +217,43 @@ def get_epo_from_intervals(
         df_epo_intervals: pd.DataFrame,
         epo_type: str,
         raw_rec: mne.io.BaseRaw,
-        epo_len: float = 1.0,
+        wide: bool = False,
 ) -> mne.Epochs | None:
     check_alignment(raw_rec, df_epo_intervals)
 
     # Subset the df to rows relative to epochs of argument epo_type
     epoch_type_df = df_epo_intervals[df_epo_intervals['EpochType'] == epo_type].copy()
 
-    # Get start of each epoch (in samples)
+    # Get start/end of each epoch (in s) frm df and convert to samples
     sfreq = raw_rec.info['sfreq']
-    epo_start_samples = (epoch_type_df['EpochStart'] * sfreq).to_numpy(int)
+    start_col = 'WideStart' if wide else 'EpochStart'
+    end_col = 'WideEnd' if wide else 'EpochEnd'
+    epo_start_samples = (epoch_type_df[start_col] * sfreq).to_numpy(int)
 
-    # As raw_rec was probably previously cropped (e.g. encoding-task cropped out), align epoch-timings from df to cropped raw
+    # In case raw_rec was previously cropped (e.g. encoding-task cropped out), align epoch-timings from df to cropped raw
     first = raw_rec.first_samp
-    starts = epo_start_samples + first
+    event_starts = epo_start_samples + first
 
     # Define events in mne format: [start tp, 0, epo_id]
     epo_id = get_epo_type_id(epo_type)
     events = np.column_stack([
-        starts,
-        np.zeros(len(starts), int),
-        np.full(len(starts), epo_id, int)
+        event_starts,
+        np.zeros(len(event_starts), int),
+        np.full(len(event_starts), epo_id, int)
     ])
 
     if events.size > 0:
-        # Create Epochs object
-        tmax = epo_len - epo_len / sfreq
+        # Based on the definition of event_starts, event markers are already correctly placed at EpochStart/WideStart samples
+        tmin = 0
+
+        # tmax determines the duration for all epochs, and can be defined from the first row (since all epochs are of the same duration)
+        first_row = epoch_type_df.reset_index().iloc[0]
+        tmax = (first_row[end_col] - first_row[start_col]) - 1 / sfreq  # MNE Epochs includes both tmin and tmax samples (closed interval), so a [0, 1s] window gives 513 samples at 512 Hz; subtract one sample period to get the intended n_samples = duration * sfreq
+
+        # Define Epochs object
         epochs = mne.Epochs(
             raw_rec, events, event_id={epo_type: epo_id},
-            tmin=0, tmax=tmax, baseline=None, preload=True,
+            tmin=tmin, tmax=tmax, baseline=None, preload=True,
             flat=None, picks=mne.pick_types(raw_rec.info, eeg=True, exclude='bads'),
             reject_by_annotation=True,  # reject segments marked as bad
             verbose=False,
@@ -262,6 +270,9 @@ def get_epo_type_id(
         'Stasis': 111,
         'MovOn': 222,
         'ContMov': 333,
+        'Stasis_wide': 444,
+        'MovOn_wide': 555,
+        'ContMov_wide': 666,
     }
     return epo_types_ids[epo_type]
 
