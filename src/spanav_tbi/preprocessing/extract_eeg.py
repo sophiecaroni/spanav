@@ -1,3 +1,4 @@
+import warnings
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
@@ -390,14 +391,33 @@ def clean_epos(
     # Re-reference to common average
     epo_rec.set_eeg_reference('average')
 
+    # For wide epochs, only use central 1s for artifact rejection
+    if epo_label.endswith('_wide'):
+
+        # Extract 1s epochs 
+        center = (epo_rec.times[0] + epo_rec.times[-1]) / 2  # extract central time of each epoch
+        central_1s = epo_rec.copy().crop(tmin=center - 0.5, tmax=center + 0.5, include_tmax=False)
+
+        # Apply cleaning
+        central_clean = clean_epos(central_1s, epo_label.replace('_wide', ''), verbose=verbose)
+        if central_clean is None or len(central_clean) == 0:
+            return None
+
+        # Select wide epochs based on the clean 1s epochs
+        good_samples = set(central_clean.events[:, 0])
+        mask = np.isin(epo_rec.events[:, 0], list(good_samples))
+        return epo_rec[mask]
+
     if len(epo_rec) > 0:
         n_epo = len(epo_rec)
         if n_epo >= 5:
             cv = 5
             ar = AutoReject(cv=cv, random_state=SEED, verbose=verbose)
             epo_rec_clean = ar.fit_transform(epo_rec)
+            return epo_rec_clean
+
         else:
-            print(f'\n\nToo few epochs (n={n_epo}) in {epo_label} to apply autoreject! Applying manual epoch-cleaning.\n\n')
+            warnings.warn(f'Too few epochs (n={n_epo}) in {epo_label} to apply autoreject! Applying manual epoch-cleaning.')
 
             # Compute PTP per channel per epoch
             data = epo_rec.get_data()  # (n_epochs, n_channels, n_times)
@@ -422,8 +442,6 @@ def clean_epos(
                 epo_rec_clean = epo_rec.copy()
                 epo_rec_clean.info['bads'] = globally_bad_ch
                 epo_rec_clean.interpolate_bads(reset_bads=True)
-            else:
-                epo_rec_clean = epo_rec.copy()
-        return epo_rec_clean
-    else:
-        return None
+                return epo_rec_clean
+            return None
+    return None
