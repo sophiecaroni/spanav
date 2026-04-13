@@ -108,6 +108,7 @@ def get_epo_rec(
 
 def get_obj_pres_epochs(
         raw_rec: mne.io.BaseRaw,
+        wide: bool = False,
 ) -> mne.Epochs:
     kwargs = {
         'verbose': True,
@@ -115,29 +116,39 @@ def get_obj_pres_epochs(
     }
     all_events, all_event_ids = mne.events_from_annotations(raw_rec, verbose=kwargs['verbose'])
     obj_pres_gone = sn.get_trigger_str('retr_obj_gone')
-    epo3 = mne.Epochs(
+
+    # When wide=True, the initial window must cover ±3s from the center of each 1s epoch:
+    # centers are at -2.5, -1.5, -0.5 → widest range needed is [-5.5, 2.5]
+    tmin_init = -5.5 if wide else -3.0
+    tmax_init = 2.5 if wide else 0.0
+
+    epo_3s = mne.Epochs(
         raw_rec,
         all_events, event_id={obj_pres_gone: all_event_ids[obj_pres_gone]},
         # use events in all_events that match event_id
-        tmin=-3.0,
-        tmax=0.0,
+        tmin=tmin_init,
+        tmax=tmax_init,
         preload=True,
         reject_by_annotation=True,  # reject segments marked as bad
         **kwargs
     )
-    epo3.plot_drop_log(show=True)
+    epo_3s.plot_drop_log(show=True)
 
-    # Reset these to prevent from keeping them in new shorter epochs then leading to warnings/errors because of different times
-    epo3.reject = None
-    epo3.reject_tmin = None
-    epo3.reject_tmax = None
-    parts = []
+    # Reset these to prevent from keeping them in new short epochs based on the copy of epo_3s to define 'e'
+    epo_3s.reject = None
+    epo_3s.reject_tmin = None
+    epo_3s.reject_tmax = None
 
-    # Loop to define 1s epochs
+    # Loop to define 1s epochs (or 6s wide epochs centered on each 1s epoch)
+    epo_1s = []
     epo_len = 1 - 1 / raw_rec.info['sfreq']
     for s in (-3.0, -2.0, -1.0):
-        e = epo3.copy().crop(tmin=s, tmax=s + epo_len)  # [-3,-2], [-2,-1], [-1,0]
-        epo1 = mne.EpochsArray(
+        if wide:
+            center = s + 0.5  # center of the 1s epoch
+            e = epo_3s.copy().crop(tmin=center - 3.0, tmax=center + 3.0)
+        else:
+            e = epo_3s.copy().crop(tmin=s, tmax=s + epo_len)  # [-3,-2], [-2,-1], [-1,0]
+        e_1s = mne.EpochsArray(
             data=e.get_data(),  # baseline already applied to data
             info=e.info.copy(),
             events=e.events.copy(),
@@ -146,9 +157,9 @@ def get_obj_pres_epochs(
             raw_sfreq=e.info["sfreq"],
             **kwargs
         )
-        parts.append(epo1)
+        epo_1s.append(e_1s)
 
-    return mne.concatenate_epochs(parts)
+    return mne.concatenate_epochs(epo_1s)
 
 
 def get_rs_epochs(
