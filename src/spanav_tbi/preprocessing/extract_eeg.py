@@ -82,8 +82,12 @@ def get_epo_rec(
             epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
-        else:  # if epo_type == 'RS':
+        elif epo_type == 'RS':
             epo_rec = get_rs_epochs(raw_rec)
+
+        else:
+            f'Unrecognized epo_type {epo_type}, returning None'
+            return None
 
         if epo_rec is not None:
             epo_rec.plot_drop_log(show=verbose)
