@@ -35,6 +35,8 @@ def get_all_epo_objects(
         epo_types = ['RS']
     else:
         epo_types = sn.get_task_epo_types(test=test) if epo_types is None else epo_types
+        epo_types += [f'{epo_type}_wide' for epo_type in epo_types]  # Define 'wide' epoch-types
+
     for epo_type in epo_types:
 
         if verbose:
@@ -59,7 +61,7 @@ def get_epo_rec(
         epo_def_df: pd.DataFrame | None = None,
 ) -> EpochsFIF | None | Epochs:
     # Check epo type validity
-    if epo_type not in EPO_TYPES:
+    if epo_type.replace('_wide', '') not in EPO_TYPES:
         raise ValueError(f"Invalid epo_type: {epo_type!r}. Expected one of {EPO_TYPES}.")
 
     if load:
@@ -78,9 +80,17 @@ def get_epo_rec(
         if epo_type == 'ObjPres':
             epo_rec = get_obj_pres_epochs(raw_rec)
 
+        elif epo_type == 'ObjPres_wide':
+            epo_rec = get_obj_pres_epochs(raw_rec, wide=True)
+
         elif epo_type in ['ContMov', 'Stasis', 'MovOn']:
             epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
+
+        elif epo_type in ['ContMov_wide', 'Stasis_wide', 'MovOn_wide']:
+            base_type = epo_type.replace('_wide', '')
+            epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
+            epo_rec = get_epo_from_intervals(epo_def, base_type, raw_rec, wide=True)
 
         elif epo_type == 'RS':
             epo_rec = get_rs_epochs(raw_rec)
