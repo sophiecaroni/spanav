@@ -288,6 +288,7 @@ def plot_evk_by_grp(
         show: bool = False,
         save: bool = False,
         axes: Axes | None = None,
+        fname_suff: str | None = None,
         **kwargs,
 ) -> Axes:
     with plot_context():
@@ -334,7 +335,10 @@ def plot_evk_by_grp(
         fig.tight_layout()
 
         if save:
-            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname=f'{real_cid}_evk_traces.png', fig=fig,
+            fname = f'{real_cid}_evk_traces'
+            if fname_suff:
+                fname += fname_suff
+            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname=f"{fname}.png", fig=fig,
                         sid=sid, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
@@ -374,6 +378,7 @@ def plot_psd_avg_by_grp(
         show: bool = False,
         save: bool = False,
         axes : Axes | None = None,
+        fname_suff: str | None = None,
         **kwargs
 ):
     """
@@ -385,6 +390,7 @@ def plot_psd_avg_by_grp(
     :param save:
     :param axes:
     :param kwargs:
+    :param fname_suff:
     :return:
     """
     created_fig = False
@@ -424,7 +430,10 @@ def plot_psd_avg_by_grp(
                 continue
 
         if save:
-            save_figure(save_dir=sid, group_parent_dir='plots/PSD', fname=f'{real_cid}_psds_by_epo_type.png', fig=fig,
+            fname = f'{real_cid}_psds_by_epo_type'
+            if fname_suff:
+                fname += fname_suff
+            save_figure(save_dir=sid, group_parent_dir='plots/PSD', fname=f"{fname}.png", fig=fig,
                         sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
