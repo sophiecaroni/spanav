@@ -30,28 +30,30 @@ def average_tfr_series(tfr_series) -> AverageTFR:
 
 def compute_tfr(
         epo_rec: BaseEpochs,
+        epo_type: str,
         log: bool = True,
         norm: bool = True,
 ) -> EpochsTFR:
     """
     Compute TFR as in Convertino et al., 2023
     :param epo_rec:
+    :param epo_type:
     :param log:
     :param norm:
     :return:
     """
 
-    freqs = np.logspace(np.log10(2), np.log10(60), 40)
+    freqs = np.logspace(np.log10(2), np.log10(70), 40)
     # freqs = np.linspace(2, 70, 40)
-    n_cycles = freqs / 2  # Convertino uses 5 but we can't because we have shorter epochs, so use a specific cycle for each freq (n_cycles_f = f/2)
-    # zero_mean = False  # don't correct morlet wavelet to be of mean zero; To have a true wavelet zero_mean should be True but here for illustration purposes it helps to spot the evoked response.
+    n_cycles = 5 if epo_type.endswith('wide') else freqs / 2  # Convertino uses 5 but in case of shorter (non-wide) epochs use a specific cycle for each frequency (half of the frequency)
+    zero_mean = True  # wether to correct morlet wavelet to be of mean zero; set to True to have a true wavelet, but False better for illustration purposes
 
     tfr = epo_rec.compute_tfr(
         "morlet",
         freqs,
         n_cycles=n_cycles,
         average=False,  # don't average across epochs at this stage
-        zero_mean=False,    # don't correct morlet wavelet to be of mean zero; To have a true wavelet zero_mean should be True but here for illustration purposes it helps to spot the evoked response.
+        zero_mean=zero_mean,
         return_itc=False,
     )
 
@@ -83,12 +85,12 @@ def custom_tfr_norm(tfr_in: TFR) -> TFR:
     return tfr_out
 
 
-def compute_cond_tfr(sid, cids: list[str], epo_type) -> EpochsTFR:
+def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR:
     # Concatenate epoched recordings across block of the same condition (and subject)
     epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
 
     # Compute TFR on all epochs and channels and return
-    return compute_tfr(epo_rec_full, log=True, norm=True)  # log-transform and normalize
+    return compute_tfr(epo_rec_full, epo_type, log=True, norm=True)  # log-transform and normalize
 
 
 def get_epo_level_tfr_df(
