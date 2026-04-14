@@ -195,6 +195,10 @@ def get_sid_level_tfr_df(
             lambda row_tfr: row_tfr.average(method='mean', dim='epochs')
     )
 
+    # Crop wide epochs to their central 1s window (as in Convertino et al., 2023)
+    is_wide = sid_level_df['epo_type'].str.endswith('_wide')
+    sid_level_df.loc[is_wide, 'tfr'] = sid_level_df.loc[is_wide, 'tfr'].apply(_crop_wide_to_central)
+
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
     sid_level_df = _stasis_bl_corr(sid_level_df)
 
@@ -266,7 +270,15 @@ def get_group_level_tfr_df(
     return group_level_df
 
 
-def _stasis_bl_corr(input_df: pd.DataFrame):
+def _crop_wide_to_central(tfr: AverageTFR, reset_times: bool = False) -> AverageTFR:
+    center = (tfr.times[0] + tfr.times[-1]) / 2
+    cropped = tfr.copy().crop(tmin=center - 0.5, tmax=center + 0.5, include_tmax=False)
+    if reset_times:
+        cropped.shift_time(0, relative=False)  # sets times to start from 0
+    return cropped
+
+
+def _stasis_bl_corr(input_df: pd.DataFrame, bl_name: str = 'Stasis'):
     group_cols = ['sid', 'group', 'cond']
     grouped_df = input_df.groupby(group_cols, as_index=False)
     new_rows = []
