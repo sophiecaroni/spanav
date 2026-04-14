@@ -143,8 +143,8 @@ def model_psd(
 
 def get_psd_kwargs(sfreq: float = 250) -> dict:
     return dict(
-        fmin=1,
-        fmax=45,
+        fmin=2,
+        fmax=70,
         method="welch",
         n_fft=sfreq,
         n_per_seg=sfreq,

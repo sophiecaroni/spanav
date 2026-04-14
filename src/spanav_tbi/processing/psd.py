@@ -114,49 +114,50 @@ def get_epo_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
+        average: bool = False,
 ) -> pd.DataFrame:
     # Get PSD within each epoch
     sids = io.get_sids(test=test)
     epo_types = sn.get_task_epo_types(test=test)
     psd_records = []
     for sid in sids:
+        group = prs.get_group_letter(sid)
+        sid_cids = io.get_sid_blocks(sid, test=test)
+        if not sid_cids:
+            continue
+        cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
         for epo_type in epo_types:
-            sid_cids = io.get_sid_blocks(sid, test=test)
-            if not sid_cids:
-                continue
-            cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
-
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
-                try:
-                    if load:
-                        # Read exported files
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
-                        fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
-                        psd = read_spectrum(fpath)
+                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
+                fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
 
-                    else:
-                        # Compute PSD of the recording
-                        psd = compute_cond_psd(sid, cids, epo_type)
-                        if save:
-                            # Export PSD object
-                            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
-                            fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
-                            psd.save(fpath, overwrite=True)
+                if load:
+                    if not fpath.exists():
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
 
-                except (FileNotFoundError, OSError):
-                    print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
-                    continue
+                    # Load spectrum from exported file
+                    psd = read_spectrum(fpath)
 
-                # Store as df entry
-                psd_entry = dict(
+                else:
+                    psd = compute_cond_psd(sid, cids, epo_type)
+                    if save:
+                        fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
+                        psd.save(fpath, overwrite=True)
+
+                if average:
+                    # Average PSD across epochs
+                    psd = psd.average(method='mean')
+
+                # Append as df entry
+                psd_records.append(dict(
                     sid=sid,
-                    group=prs.get_group_letter(sid),
+                    group=group,
                     cond=cond,
                     epo_type=epo_type,
                     psd=psd,
-                )
-                psd_records.append(psd_entry)
+                ))
 
     return pd.DataFrame.from_records(psd_records)
 
@@ -175,39 +176,32 @@ def get_sid_level_psd_df(
 
         psd_records = []
         for sid in sids:
+            group = prs.get_group_letter(sid)
             conds = prs.get_conds(sid=sid)
             for cond in conds:
                 for epo_type in epo_types:
-                    try:
-                        # Read exported files (always in linear scale)
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
-                        fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
-                        psd = read_spectrum(fpath)
+                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
+                    fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
+                    if not fpath.exists():
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
 
-                        # Store as df entry(s)
-                        psd_entry = dict(
-                            sid=sid,
-                            group=prs.get_group_letter(sid),
-                            cond=cond,
-                            epo_type=epo_type,
-                            psd=psd,
-                        )
-                        psd_records.append(psd_entry)
+                    # Load spectrum from exported file
+                    psd = read_spectrum(fpath)
 
-                    except (FileNotFoundError, OSError):
-                        print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
+                    # Append as df entry
+                    psd_records.append(dict(
+                        sid=sid,
+                        group=group,
+                        cond=cond,
+                        epo_type=epo_type,
+                        psd=psd,
+                    ))
 
         return pd.DataFrame.from_records(psd_records)
 
-    # Load epoch-level PSD dataframe
-    epo_level_df = get_epo_level_psd_df(test=test, load=True, save=False)
-
-    # For each subject, PSD of the same condition and epoch-type were concatenated across different blocks; so simply
-    # average across epochs of the concatenated PSD object to get one PSD for subject, condition and epoch-type
-    sid_level_df = epo_level_df.copy()
-    sid_level_df['psd'] = epo_level_df['psd'].apply(
-            lambda row_psd: row_psd.average(method='mean')  # averages across epochs by implementation
-    )
+    # Load epoch-level PSD dataframe with average=True to average across epochs (to avoid keeping all PSD in memory)
+    sid_level_df = get_epo_level_psd_df(test=test, load=True, save=False, average=True)
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
     sid_level_df = _stasis_bl_corr(sid_level_df)
@@ -241,23 +235,21 @@ def get_group_level_psd_df(
             conds = prs.get_conds(group=group)
             for cond in conds:
                 for epo_type in epo_types:
-                    try:
-                        # Read exported files
-                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
-                        fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
-                        cond_psd = read_spectrum(fpath)
-
-                        # Store as df entry(s)
-                        psd_entry = dict(
-                            group=group,
-                            cond=cond,
-                            epo_type=epo_type,
-                            psd=cond_psd,
-                        )
-                        psd_records.append(psd_entry)
-
-                    except (FileNotFoundError, OSError):
-                        print(f"\nFile not found for {group, cond, epo_type = }. Continuing...")
+                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
+                    fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
+                    if not fpath.exists():
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
+                    # Load spectrum from exported file
+                    cond_psd = read_spectrum(fpath)
+                    
+                    # Append as df entry
+                    psd_records.append(dict(
+                        group=group,
+                        cond=cond,
+                        epo_type=epo_type,
+                        psd=cond_psd,
+                    ))
 
         return pd.DataFrame.from_records(psd_records)
 
