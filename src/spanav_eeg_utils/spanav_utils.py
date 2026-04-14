@@ -95,9 +95,16 @@ def map_epo_type_labels(
         'MovOn': 'Movement Onset',
         'ContMov': 'Moving',
         'Stasis': 'Stasis',
-        'blMovOn': 'Movement Onset (-bl)',
-        'blContMov': 'Moving (-bl)',
-        'blObjPres': 'Object Presentation (-bl)',
+        'blMovOn': 'Movement Onset (bl)',
+        'blContMov': 'Moving (bl)',
+        'blObjPres': 'Object Presentation (bl)',
+        'ObjPres_wide': 'Object Presentation (wide)',
+        'MovOn_wide': 'Movement Onset (wide)',
+        'ContMov_wide': 'Moving (wide)',
+        'Stasis_wide': 'Stasis (wide)',
+        'blMovOn_wide': 'Movement Onset (bl, wide)',
+        'blContMov_wide': 'Moving (bl, wide)',
+        'blObjPres_wide': 'Object Presentation (bl, wide)',
     }
 
 

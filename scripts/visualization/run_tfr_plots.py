@@ -17,22 +17,22 @@ def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
     # Load df storing TFR at subject level
     sid_level_df = get_sid_level_tfr_df(test=test, load=True, save=False)
 
-    # Only plot stasis-bl corrected epoch-types
-    bl_mask = sid_level_df['epo_type'].str.startswith('bl')
-    sid_level_df_bl = sid_level_df[bl_mask]
-    iter_plot_sid_tfr(sid_level_df_bl, 'tfr', show, save)
-    iter_plot_sid_tfr(sid_level_df_bl, 'topomap', show, save)
+    # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
+    mask = (sid_level_df['epo_type'].str.endswith('wide')) & (sid_level_df['epo_type'].str.startswith('bl'))
+    plot_df = sid_level_df[mask]
+    iter_plot_sid_tfr(plot_df, 'tfr', show, save)
+    iter_plot_sid_tfr(plot_df, 'topomap', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
     # Load df storing TFR at group level
     group_level_df = get_group_level_tfr_df(load=True, test=test, save=False)
 
-    # Only plot stasis-bl corrected epoch-types
-    bl_mask = group_level_df['epo_type'].str.startswith('bl')
-    group_level_df_bl = group_level_df[bl_mask]
-    iter_plot_group_tfr(group_level_df_bl, 'tfr', show, save)
-    iter_plot_group_tfr(group_level_df_bl, 'topomap', show, save)
+    # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
+    mask = (group_level_df['epo_type'].str.endswith('wide')) & (group_level_df['epo_type'].str.startswith('bl'))
+    plot_df = group_level_df[mask]
+    iter_plot_group_tfr(plot_df, 'tfr', show, save)
+    iter_plot_group_tfr(plot_df, 'topomap', show, save)
 
 
 def run_tfr_plots(**kwargs):
