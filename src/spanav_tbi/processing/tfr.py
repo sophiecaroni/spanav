@@ -99,6 +99,7 @@ def get_epo_level_tfr_df(
 
     # Get TFRs within each epoch
     epo_types = sn.get_task_epo_types(test)
+    epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
     sids = io.get_sids(test=test)
     tfr_entries = []
     for epo_type in epo_types:
@@ -155,7 +156,8 @@ def get_sid_level_tfr_df(
         epo_types = sn.get_task_epo_types(test=test)
 
         # Additionally try to load bl-corrected version of epoch-types
-        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        epo_types += [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
 
         tfr_records = []
         for sid in sids:
@@ -189,7 +191,7 @@ def get_sid_level_tfr_df(
     # For each subject, TFR of the same condition and epoch-type were concatenated across different blocks; so simply
     # average across epochs of the concatenated TFR object to get one TFR for subject, condition and epoch-type
     sid_level_df = epo_level_df.copy()
-    sid_level_df['tfr'] = epo_level_df['tfr'].apply(
+    sid_level_df['tfr'] = sid_level_df['tfr'].apply(
             lambda row_tfr: row_tfr.average(method='mean', dim='epochs')
     )
 
@@ -217,7 +219,8 @@ def get_group_level_tfr_df(
         epo_types = sn.get_task_epo_types(test=test)
 
         # Additionally try to load bl-corrected version of epoch-types
-        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        epo_types += [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
 
         tfr_records = []
         for group in groups:
