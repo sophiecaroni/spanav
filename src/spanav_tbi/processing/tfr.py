@@ -199,8 +199,12 @@ def get_sid_level_tfr_df(
     is_wide = sid_level_df['epo_type'].str.endswith('_wide')
     sid_level_df.loc[is_wide, 'tfr'] = sid_level_df.loc[is_wide, 'tfr'].apply(_crop_wide_to_central)
 
-    # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
-    sid_level_df = _stasis_bl_corr(sid_level_df)
+    # Baseline correct movement-onset epochs with stasis epochs (as in Convertino et al., 2023) using Stasis or Stasis_wide as baseline, respectively
+    normal_df = sid_level_df[~sid_level_df['epo_type'].str.endswith('_wide')]
+    wide_df = sid_level_df[sid_level_df['epo_type'].str.endswith('_wide')]
+    normal_df = _stasis_bl_corr(normal_df, bl_name='Stasis')
+    wide_df = _stasis_bl_corr(wide_df, bl_name='Stasis_wide')
+    sid_level_df = pd.concat([normal_df, wide_df], ignore_index=True)
 
     if save:
         # Export each subject-level TFR object
@@ -285,7 +289,7 @@ def _stasis_bl_corr(input_df: pd.DataFrame, bl_name: str = 'Stasis'):
     for (sid, group, cond), subdf in grouped_df:
 
         # Apply baseline correction using Stasis TFR on TFR of all other epoch types
-        bl_corr_records = spct.spectral_bl_corr_from_df(subdf, 'epo_type', 'tfr', 'Stasis')
+        bl_corr_records = spct.spectral_bl_corr_from_df(subdf, 'epo_type', 'tfr', bl_name)
 
         # Add grouping columns information to bl_corr_records (which will be broadcasted to match len in bl_corr_records)
         bl_corr_records.update(dict(
