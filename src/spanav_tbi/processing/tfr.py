@@ -104,6 +104,7 @@ def get_epo_level_tfr_df(
     tfr_entries = []
     for epo_type in epo_types:
         for sid in sids:
+            group = prs.get_group_letter(sid)
             sid_cids = io.get_sid_blocks(sid, test=test)
             if not sid_cids:
                 continue
@@ -111,36 +112,32 @@ def get_epo_level_tfr_df(
 
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
-
-                try:
-                    if load:
+                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
+                fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
+                if load:
+                    if fpath.exists():
                         # Read exported files
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
-                        fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
-
                     else:
-                        cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
+                else:
+                    cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
 
-                        if save:
-                            # Export
-                            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
-                            fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / sid) / fname
-                            cond_epo_tfr.save(fpath, overwrite=True)
-
-                except (FileNotFoundError, OSError):
-                    print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
-                    continue
+                    if save:
+                        # Export
+                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
+                        fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
+                        cond_epo_tfr.save(fpath, overwrite=True)
 
                 # Store as df entry
                 tfr_entry = dict(
                     sid=sid,
-                    group=prs.get_group_letter(sid),
+                    group=group,
                     cond=cond,
                     epo_type=epo_type,
                     tfr=cond_epo_tfr,
                 )
-
                 tfr_entries.append(tfr_entry)
 
     return pd.DataFrame.from_records(tfr_entries)
@@ -161,27 +158,29 @@ def get_sid_level_tfr_df(
 
         tfr_records = []
         for sid in sids:
+            sid_tfr_dir = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}'
+            group = prs.get_group_letter(sid)
             conds = prs.get_conds(sid=sid)
             for cond in conds:
                 for epo_type in epo_types:
-                    try:
+                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
+                    fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
+                    if fpath.exists():
                         # Read exported files
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
-                        fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
-                        cond_epo_tfr = read_tfrs(fpath, verbose=False)
+                        cond_epo_tfr = read_tfrs(sid_tfr_dir/fname, verbose=False)
+                    else:
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
 
-                        # Store as df entry(s)
-                        tfr_entry = dict(
-                            sid=sid,
-                            group=prs.get_group_letter(sid),
-                            cond=cond,
-                            epo_type=epo_type,
-                            tfr=cond_epo_tfr,
-                        )
-                        tfr_records.append(tfr_entry)
-
-                    except (FileNotFoundError, OSError):
-                        print(f"\nFile not found for {sid, cond, epo_type = }. Continuing...")
+                    # Store as df entry
+                    tfr_entry = dict(
+                        sid=sid,
+                        group=group,
+                        cond=cond,
+                        epo_type=epo_type,
+                        tfr=cond_epo_tfr,
+                    )
+                    tfr_records.append(tfr_entry)
 
         return pd.DataFrame.from_records(tfr_records)
 
@@ -194,6 +193,7 @@ def get_sid_level_tfr_df(
     sid_level_df['tfr'] = sid_level_df['tfr'].apply(
             lambda row_tfr: row_tfr.average(method='mean', dim='epochs')
     )
+    del epo_level_df   # free memory
 
     # Crop wide epochs to their central 1s window (as in Convertino et al., 2023)
     is_wide = sid_level_df['epo_type'].str.endswith('_wide')
@@ -211,7 +211,7 @@ def get_sid_level_tfr_df(
         for i, row in sid_level_df.iterrows():
             sid, cond, epo_type, tfr = row['sid'], row['cond'], row['epo_type'], row['tfr']
             fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
-            fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / sid) / fname
+            fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
             tfr.save(fpath, overwrite=True)
 
     return sid_level_df
@@ -235,23 +235,23 @@ def get_group_level_tfr_df(
             conds = prs.get_conds(group=group)
             for cond in conds:
                 for epo_type in epo_types:
-                    try:
+                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
+                    fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
+                    if fpath.exists():
                         # Read exported files
-                        fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
-                        fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
+                    else:
+                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        continue
 
-                        # Store as df entry(s)
-                        tfr_entry = dict(
-                            group=group,
-                            cond=cond,
-                            epo_type=epo_type,
-                            tfr=cond_epo_tfr,
-                        )
-                        tfr_records.append(tfr_entry)
-
-                    except (FileNotFoundError, OSError):
-                        print(f"\nFile not found for {group, cond, epo_type = }. Continuing...")
+                    # Store as df entry(s)
+                    tfr_entry = dict(
+                        group=group,
+                        cond=cond,
+                        epo_type=epo_type,
+                        tfr=cond_epo_tfr,
+                    )
+                    tfr_records.append(tfr_entry)
 
         return pd.DataFrame.from_records(tfr_records)
 
@@ -261,6 +261,7 @@ def get_group_level_tfr_df(
     # For each group, average TFR of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
+    del sid_level_df
     group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
 
     if save:
