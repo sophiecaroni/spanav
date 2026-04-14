@@ -58,10 +58,10 @@ def get_epo_types(
     """
     return [
         # 'RS',
+        'Stasis',
         'ObjPres',
         'MovOn',
         'ContMov',
-        'Stasis',
     ]
 
 

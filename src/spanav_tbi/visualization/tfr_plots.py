@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mne.time_frequency import EpochsTFR, AverageTFR
 from spanav_eeg_utils.plot_utils import plot_context, save_figure, add_higher_title_text
-from spanav_eeg_utils.spanav_utils import map_epo_type_labels
+from spanav_eeg_utils.spanav_utils import map_epo_type_labels, get_epo_types
 from typing import Iterable
 
 TFR = EpochsTFR | AverageTFR
@@ -38,8 +38,14 @@ def plot_tfr_by_epo(
         xaxis_label: bool = True,
         **kwargs,
 ) -> None:
+    base_order = get_epo_types()
+    epo_type_order = base_order + [f'bl{e}' for e in base_order]
+    epo_type_order += [f'{e}_wide' for e in epo_type_order]
+    epo_types_sorted = sorted(tfr_df['epo_type'].unique(), key=epo_type_order.index)
+
     with plot_context():
-        for i, (epo_type, epo_type_df) in enumerate(tfr_df.groupby('epo_type')):
+        for i, epo_type in enumerate(epo_types_sorted):
+            epo_type_df = tfr_df[tfr_df['epo_type'] == epo_type]
 
             assert len(epo_type_df) == 1, f'This plot is made for one TFR per epoch-type! Here got {len(epo_type_df)} for {epo_type} type'
             ax = epo_axes[i]
