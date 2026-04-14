@@ -22,6 +22,7 @@ def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
     plot_df = sid_level_df[mask]
     iter_plot_sid_tfr(plot_df, 'tfr', show, save)
     iter_plot_sid_tfr(plot_df, 'topomap', show, save)
+    iter_plot_sid_tfr(plot_df, 'spectrum', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
@@ -33,6 +34,7 @@ def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
     plot_df = group_level_df[mask]
     iter_plot_group_tfr(plot_df, 'tfr', show, save)
     iter_plot_group_tfr(plot_df, 'topomap', show, save)
+    iter_plot_group_tfr(plot_df, 'spectrum', show, save)
 
 
 def run_tfr_plots(**kwargs):

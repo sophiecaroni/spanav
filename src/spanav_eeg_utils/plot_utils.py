@@ -134,17 +134,15 @@ def get_cond_palette(
     BLINDING = cfg.get_blinding()
     if BLINDING:
         return {
-            'A': plt.get_cmap('tab20')(18),
-            'B': plt.get_cmap('tab20')(19),
+            'A': '#0d2f8a',
+            'B': '#4293f5',
+            'C': '#b8d9ff'
         }
     else:
         return {
-            # 'HF': '#4293f5',  # blue
-            'HF': '#a558ed',
-            # 'cTBS': '#f77c99',  # pink
-            'cTBS': '#f5a6d4',
-            # 'iTBS':  '#5ad676',  # green
-            'iTBS': '#edcd58',
+            'HF': '#0d2f8a',    # dark navy blue
+            'cTBS': '#4293f5',  # medium blue
+            'iTBS': '#b8d9ff',  # light blue
         }
 
 
