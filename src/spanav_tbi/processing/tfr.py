@@ -97,6 +97,7 @@ def get_epo_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        average: bool = False,
 ) -> pd.DataFrame:
 
     # Get TFRs within each epoch
@@ -131,6 +132,9 @@ def get_epo_level_tfr_df(
                         fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
                         fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
                         cond_epo_tfr.save(fpath, overwrite=True)
+
+                if average:
+                    cond_epo_tfr = cond_epo_tfr.average(method='mean', dim='epochs')
 
                 # Store as df entry
                 tfr_entry = dict(
@@ -186,16 +190,8 @@ def get_sid_level_tfr_df(
 
         return pd.DataFrame.from_records(tfr_records)
 
-    # Load epoch-level TFR dataframe
-    epo_level_df = get_epo_level_tfr_df(test, load=True, save=False)
-
-    # For each subject, TFR of the same condition and epoch-type were concatenated across different blocks; so simply
-    # average across epochs of the concatenated TFR object to get one TFR for subject, condition and epoch-type
-    sid_level_df = epo_level_df.copy()
-    sid_level_df['tfr'] = sid_level_df['tfr'].apply(
-            lambda row_tfr: row_tfr.average(method='mean', dim='epochs')
-    )
-    del epo_level_df   # free memory
+    # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memorry)
+    sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average=True)
 
     # Crop wide epochs to their central 1s window (as in Convertino et al., 2023)
     is_wide = sid_level_df['epo_type'].str.endswith('_wide')
