@@ -9,6 +9,7 @@
 """
 import mne
 import pandas as pd
+import spanav_eeg_utils.parsing_utils as prs
 from mne import EpochsArray
 from spanav_eeg_utils.io_utils import get_epo_data_path
 
@@ -33,7 +34,9 @@ def get_concat_epo_recs(
     """
     recs_list = []
     for cid in cids_to_concat:
-        epo_path = get_epo_data_path(epo_type, sid, cid)
+        real_cid = prs.get_stim(sid, acq=cid)
+        task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
+        epo_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
         epo_rec = mne.read_epochs(epo_path, preload=False, proj=False, verbose=False)
         recs_list.append(epo_rec)
     return mne.concatenate_epochs(recs_list)
