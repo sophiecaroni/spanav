@@ -119,7 +119,7 @@ def get_epo_level_tfr_df(
                 fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                 if load:
                     if fpath.exists():
-                        # Read exported files
+                        # Read TFR from exported file
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
                     else:
                         print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
@@ -134,17 +134,17 @@ def get_epo_level_tfr_df(
                         cond_epo_tfr.save(fpath, overwrite=True)
 
                 if average:
+                    # Average TFR across epochs
                     cond_epo_tfr = cond_epo_tfr.average(method='mean', dim='epochs')
 
                 # Store as df entry
-                tfr_entry = dict(
+                tfr_entries.append(dict(
                     sid=sid,
                     group=group,
                     cond=cond,
                     epo_type=epo_type,
                     tfr=cond_epo_tfr,
-                )
-                tfr_entries.append(tfr_entry)
+                ))
 
     return pd.DataFrame.from_records(tfr_entries)
 
@@ -171,26 +171,25 @@ def get_sid_level_tfr_df(
                 for epo_type in epo_types:
                     fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
                     fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
-                    if fpath.exists():
-                        # Read exported files
-                        cond_epo_tfr = read_tfrs(sid_tfr_dir/fname, verbose=False)
-                    else:
+                    if not fpath.exists():
                         print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
-                    # Store as df entry
-                    tfr_entry = dict(
+                    # Load TFR from exported file
+                    cond_epo_tfr = read_tfrs(sid_tfr_dir / fname, verbose=False)
+
+                    # Append as df entry
+                    tfr_records.append(dict(
                         sid=sid,
                         group=group,
                         cond=cond,
                         epo_type=epo_type,
                         tfr=cond_epo_tfr,
-                    )
-                    tfr_records.append(tfr_entry)
+                    ))
 
         return pd.DataFrame.from_records(tfr_records)
 
-    # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memorry)
+    # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memory)
     sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average=True)
 
     # Crop wide epochs to their central 1s window (as in Convertino et al., 2023)
@@ -236,20 +235,19 @@ def get_group_level_tfr_df(
                     fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
                     fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
                     if fpath.exists():
-                        # Read exported files
+                        # Load TFR from exported file
                         cond_epo_tfr = read_tfrs(fpath, verbose=False)
                     else:
                         print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
-                    # Store as df entry(s)
-                    tfr_entry = dict(
+                    # Store as df entry
+                    tfr_records.append(dict(
                         group=group,
                         cond=cond,
                         epo_type=epo_type,
                         tfr=cond_epo_tfr,
-                    )
-                    tfr_records.append(tfr_entry)
+                    ))
 
         return pd.DataFrame.from_records(tfr_records)
 
@@ -259,7 +257,6 @@ def get_group_level_tfr_df(
     # For each group, average TFR of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
-    del sid_level_df
     group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
 
     if save:
