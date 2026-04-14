@@ -107,7 +107,7 @@ def get_stim(sid: str, acq: str | int) -> str:
     acq = str(acq)  # convert in case it was input the n of block_n as acq
 
     # Return unchanged if rsEEG recording (no stimulation protocol)
-    if not acq.lower().startswith('rs'):
+    if not acq.lower().startswith('block'):
         return acq
 
     # Otherwise, extract block condition from table that maps blocks to stimulation conditions
