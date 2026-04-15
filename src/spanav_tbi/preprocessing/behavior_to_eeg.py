@@ -2,35 +2,44 @@ import warnings
 import pandas as pd
 import numpy as np
 import spanav_eeg_utils.io_utils as io
+import re
 
 
 def get_times_retrieval_phases(
         sid: str,
 ) -> dict[int, tuple[float, float]]:
     """
-    Retrieve start and end times of each retrieval phase, based on TaskLog.txt
+    Retrieve start and end times of each retrieval phase, based on TaskLog.txt.
     :param sid: subject ID
-    :return: dict containing block IDs as keys, and tuples with start and end times (of block's retrieval phases) as values
+    :return: dict mapping actual block numbers -> (retrieval_start, retrieval_end)
     """
-    retrieval_starts_to_check = []
     file = io.get_raw_beh_path(sid, acq='TaskLog')
     times_by_retrieval_phase = {}
-    with open(file, 'r') as f:
-        block_n = 1
-        for line in f:
-            line = line.strip()  # remove trailing /n
-            if 'Retrieval Start' in line:
-                line_split = line.split(',')
-                retr_start = float(line_split[0])
-                next_line_split = next(f).split(',')
-                retr_end = float(next_line_split[0])
-                times_by_retrieval_phase[block_n] = (retr_start, retr_end)
-                retrieval_starts_to_check.append(retr_start)
-                block_n += 1
+    current_block_n = None
 
-    if retrieval_starts_to_check != sorted(retrieval_starts_to_check):
-        warnings.warn(
-            f'\n\n### Warning! Unusual times across blocks - possible interruption detected {sid = } ### \n\n')
+    with open(file, 'r') as f:
+        for line in f:
+            line = line.strip()
+
+            # Header line after dashes: "Block X Round Y"
+            m = re.search(r'Block:(\d+), Round:(\d+)', line, re.IGNORECASE)  # search scans the entire line
+            if m:
+                # In TaskLog, each phase is defined via a block-round couple (where blocks go up to 2 for TBI and 3 for HC, rounds up to 2, giving blocks 1–4 or 1-6).
+                task_block, task_round = int(m.group(1)), int(m.group(2))
+                current_block_n = (task_block - 1) * 2 + task_round   # the actual block number used throughout the analysis is computed as (X - 1) * 2 + Y
+                continue
+
+            if 'Retrieval Start' in line and current_block_n is not None:
+
+                # If a block was re-run after a session restart, its entry in the dict is overwritten by the re-run
+                if current_block_n in times_by_retrieval_phase:
+                    warnings.warn(
+                        f'\n\n### Warning! Block {current_block_n} appears more than once in TaskLog '
+                        f'({sid = }) — keeping the last occurrence (session restart assumed) ### \n\n')
+
+                retr_start = float(line.split(',')[0])
+                retr_end = float(next(f).split(',')[0])
+                times_by_retrieval_phase[current_block_n] = (retr_start, retr_end)
 
     return times_by_retrieval_phase
 
@@ -107,7 +116,7 @@ def get_trace_df(
     # Final check
     if df['time'].tolist() != sorted(df['time']):
         warnings.warn(
-            f'\n\n### Warning! Unusual times acorss blocks - possible interruption detected {sid = } ### \n\n')
+            f'\n\n### Warning! Unusual times across blocks - possible interruption detected {sid = } ### \n\n')
 
     return df
 
@@ -158,20 +167,21 @@ def extract_beh_events(
     for block_n, (retr_start, retr_end) in retrieval_times.items():
         if block_n > 1 and test:
             break
-        block_trials = retrieval_df.copy()[retrieval_df['Block'] == block_n]  # only consider trials in the block
-        block_trials.reset_index(drop=True, inplace=True)
-        assert ((block_trials['starttime'] >= retr_start) & (block_trials[
-                                                                 'endtime'] <= retr_end)).all(), f'Something is wrong with block times! {block_trials["starttime"]}\n{block_trials["endtime"]}'
+        block_trials = retrieval_df[
+            (retrieval_df['Block'] == block_n) &
+            (retrieval_df['starttime'] >= retr_start) &
+            (retrieval_df['endtime'] <= retr_end)
+        ].copy().reset_index(drop=True)
 
         # Extract stimulation condition of the block
-        condition = block_n  #get_block_stim(sid, block_n)
+        condition = block_n  # get_block_stim(sid, block_n)
 
         # Iterate over trials (rows) of the block
         for _, trial_row in block_trials.iterrows():
             start, end = trial_row['starttime'], trial_row['endtime']
             trial_n = trial_row['Trial']
 
-            trial_trace_df = select_trial_df(sid, block_n, trace_df, start, end)
+            trial_trace_df = select_trial_df(trace_df, start, end)
 
             # Create new column state; set to Moving when there are values in x and y, otherwise to Stasis
             trial_trace_df['state'] = trial_trace_df.apply(
@@ -236,35 +246,35 @@ def extract_beh_events(
 
 
 def select_trial_df(
-        sid: str,
-        block_n: int,
         trace_df: pd.DataFrame,
         trial_start: float,
-        trial_end: float
+        trial_end: float,
 ):
-    block_trace_df = trace_df.copy()
-
-    if sid == '05':
-        dt_full = trace_df['time'].diff()
-        reset_indices = dt_full[dt_full < 0].index
-        if len(reset_indices) > 0:
-            reset_idx = reset_indices[0]
-            if block_n in (1, 2):
-                # Before the interruption: use the first part of the TraceLog
-                block_trace_df = trace_df.iloc[:reset_idx].copy()
-            else:
-                # After the interruption: use the second part
-                block_trace_df = trace_df.iloc[reset_idx:].copy()
+    # If a session was interrupted and restarted, a different segment_id was assigned.
+    segments = trace_df['segment_id'].unique()
+    if len(segments) > 1:
+        # Pick the segment whose time fall into trial times
+        matched = [
+            seg_id for seg_id in segments
+            if trace_df.loc[trace_df['segment_id'] == seg_id, 'time'].between(
+                trial_start, trial_end
+            ).any()
+        ]
+        if len(matched) > 1:
+            raise ValueError(f'Multiple segments found for trial time {trial_start} - {trial_end}: {matched}')
+        elif len(matched) == 1:
+            block_trace_df = trace_df[trace_df['segment_id'] == matched[0]].copy()
+        else:
+            raise ValueError(f'No segment found in the trial time {trial_start} - {trial_end}')
+    else:
+        block_trace_df = trace_df.copy()
 
     # Select rows in trace_df for which the timing is within the start/end of the trial
     trial_df = block_trace_df[
         (block_trace_df['time'] >= trial_start) &
         (block_trace_df['time'] <= trial_end)
         ].copy().sort_values("time").reset_index(
-        drop=True)  # only select timing of the trial (with 50 ms of padding each side - like June did - to remove uncertain points at the trial edges)
-
-    # Add some padding (with 50 ms - like June did) to remove uncertain points at the trial edges
-    pad = 0.05
+        drop=True)
 
     # Do not trim start if the first state is static (as per June's example:
     # "People often stay stationary in the beginning of a trial,
@@ -274,7 +284,9 @@ def select_trial_df(
     # Then, we can say that this one was static during 781.307 ~ (782.660 - 50ms)."
     is_static = trial_df['x'].isna() & trial_df['y'].isna()
 
-    end_bound = trial_end - pad  # Always trim end
+    # Add some padding (with 50 ms - like June did) to the trial edges to remove uncertain points
+    pad = 0.05
+    end_bound = trial_end - pad  # trim end
 
     trial_df = trial_df[
         (trial_df["time"] <= end_bound) &
