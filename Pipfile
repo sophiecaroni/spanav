@@ -7,10 +7,18 @@ name = "pypi"
 jupyter = "*"
 ipykernel = "*"
 seaborn = "*"
-pytest = "*"
+mne = "*"
+mne-bids = "*"
+numpy = "*"
+pandas = "*"
+matplotlib = "*"
+autoreject = "*"
+fooof = "*"
+yasa = "*"
 
 [dev-packages]
+pytest = "*"
 
 [requires]
-python_version = "3.10"
-python_full_version = "3.10.6"
+python_version = "3.12"
+python_full_version = "3.12.3"
