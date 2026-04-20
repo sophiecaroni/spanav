@@ -35,49 +35,59 @@ def get_epo_level_osc_df(
         file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')  # load power spectra in linear scale
+    # Compute spectra in the linear space
+    psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')
     bands = ['theta']
     df_rows = []
 
-    # Define variables within which the PSD will be computed (for each of these there will be one)
-    group_by = ['sid', 'block', 'cond', 'epo_type', 'n_epo']
-    for (sid, block, cond, epo_type, n_epo), grouped_df in psd_df.groupby(group_by):
+    # Define grouping variables for computing the oscillatory features
+    group_by = ['sid', 'cond', 'epo_type']
+    for (sid, cond, epo_type), grouped_df in psd_df.groupby(group_by):
+        if len(grouped_df) > 1:
+            raise ValueError(
+                f'Should have one PSD per subject, condition and epoch-type, got {len(grouped_df)} for {sid = }, {cond = }, {epo_type = }'
+                f'\n\t{grouped_df = }')
 
-        # Average across blocks of the grouping_vars-combination condition (of the same epo_type, cond, and sid (and n_epo when not avg_across_epochs)
-        mean_psd_df = (
-            grouped_df
-            .groupby('freq', as_index=False)['pw_avg']
-            .mean()
-        )
+        # Select PSD of frontal channels
+        epos_psd = grouped_df.copy().reset_index().loc[0, 'psd']
+        frontal_chs = [ch for ch in epos_psd.ch_names if ch.startswith('F')]
+        frontal_psd = epos_psd.copy().pick(frontal_chs)
+        freqs = epos_psd.freqs
 
-        psd = mean_psd_df['pw_avg'].to_numpy()
-        freqs = mean_psd_df['freq'].to_numpy()
-        psd_model = spct.model_psd(psd, freqs,
-                              max_n_peaks=3)  # limit max_n_peaks bc we only care about alpha/theta (and perhaps gamma)
+        # Iterate over epochs to compute one observation of oscillatory feature each
+        for epoch_idx in range(len(frontal_psd)):
+            epo_psd = frontal_psd._data[epoch_idx].mean(axis=0)  # average across channels
 
-        for band in bands:
-            # Detect peaks
-            band_freqs = spct.get_band_freqs(band)
-            pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]
-            pk = False if np.isnan(pk_pw) else True
+            if epo_psd.shape != freqs.shape:
+                raise ValueError(
+                    f'PSD and freqs should have the same shape, got {epo_psd.sape} PSD and {freqs.shape} freqs'
+                    f'\n\t{grouped_df = }')
 
-            # Define a row of the df
-            row = dict(
-                sid=sid,
-                group=prs.get_group_letter(sid),
-                cond=cond,
-                block=block,
-                epo_type=epo_type,
-                n_epo=n_epo,
-                band=band,
-                abs_pw=spct.get_band_power(psd, freqs, band, rel=False),  # Compute abs power
-                rel_pw=spct.get_band_power(psd, freqs, band, rel=True),  # Compute rel power
-                osc_snr=spct.compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
-                pk=pk,
-                pk_pw=pk_pw,
-            )
+            # Model PSD
+            psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
 
-            df_rows.append(row)
+            for band in bands:
+                # Detect peaks
+                band_freqs = spct.get_band_freqs(band)
+                pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]  # select power of the highest peak
+                pk = False if np.isnan(pk_pw) else True
+
+                # Define a row of the df
+                row = dict(
+                    sid=sid,
+                    group=prs.get_group_letter(sid),
+                    cond=cond,
+                    epo_type=epo_type,
+                    epo_n=epoch_idx,
+                    band=band,
+                    abs_pw=spct.get_band_power(epo_psd, freqs, band, rel=False),  # Compute abs power
+                    rel_pw=spct.get_band_power(epo_psd, freqs, band, rel=True),  # Compute rel power
+                    osc_snr=spct.compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
+                    pk=pk,
+                    pk_pw=pk_pw,
+                )
+
+                df_rows.append(row)
 
     # Create df
     epo_level_df = pd.DataFrame(df_rows)
@@ -87,7 +97,7 @@ def get_epo_level_osc_df(
     if save:
         file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
         epo_level_df.to_csv(file_path)
-        
+
     return epo_level_df
 
 
@@ -103,7 +113,7 @@ def get_sid_level_osc_df(
     # Load epoch-level PSD dataframe
     epo_level_df = get_epo_level_osc_df(load=True, test=test, save=False)
 
-    # For each subject, average metrics of the same condition and epoch-type across different blocks
+    # Average across epochs of the same group_cols values
     group_cols = ['sid', 'group', 'cond', 'epo_type', 'band']
     grouped_df = epo_level_df.groupby(group_cols, as_index=False)
     sid_level_df = grouped_df.agg(
@@ -137,7 +147,7 @@ def get_group_level_osc_df(
     # Load subject-level PSD dataframe
     sid_level_df = get_sid_level_osc_df(load=True, test=test, save=False)
 
-    # For each group, average metrics of the same condition and epoch-type across different subjects
+    # Average across subject spectra of the same group_cols values
     group_cols = ['group', 'cond', 'epo_type', 'band']
     group_level_df = sid_level_df.groupby(group_cols, as_index=False).agg(
         abs_pw_avg=('abs_pw_avg', 'mean'),
