@@ -149,10 +149,20 @@ def get_epo_level_tfr_df(
     return pd.DataFrame.from_records(tfr_entries)
 
 
+def _average_tfr_channels(tfr) -> object:
+    ch_tfrs = []
+    for ch in tfr.ch_names:
+        ch_tfr = tfr.copy().pick(ch)
+        mne.rename_channels(ch_tfr.info, {ch: 'ch_mean'})
+        ch_tfrs.append(ch_tfr)
+    return combine_tfr(ch_tfrs)
+
+
 def get_sid_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        average_channels: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -177,6 +187,9 @@ def get_sid_level_tfr_df(
 
                     # Load TFR from exported file
                     cond_epo_tfr = read_tfrs(sid_tfr_dir / fname, verbose=False)
+
+                    if average_channels:
+                        cond_epo_tfr = _average_tfr_channels(cond_epo_tfr)
 
                     # Append as df entry
                     tfr_records.append(dict(
@@ -252,7 +265,7 @@ def get_group_level_tfr_df(
         return pd.DataFrame.from_records(tfr_records)
 
     # Load subject-level TFR dataframe
-    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False)
+    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False, average_channels=True)
 
     # For each group, average TFR of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
