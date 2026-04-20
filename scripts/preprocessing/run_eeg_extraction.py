@@ -7,15 +7,10 @@ from spanav_eeg_utils.io_utils import get_sids, get_sid_blocks
 def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
     sids = get_sids(test=test)
     for sid in sids:
-        print(
-            f"{sid = }"
-        )
-
         cids = get_sid_blocks(sid, test=test)
         for cid in cids:
-            print(
-                f"\t{cid = }"
-            )
+
+            print(f"\n=== {sid} | {cid} ===\n")
 
             # Extract epochs
             raw_rec = get_raw_to_epoch(sid, cid)  # load clean continuous (raw) data

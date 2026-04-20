@@ -25,7 +25,6 @@ def get_all_epo_objects(
         save: bool = False,
         verbose: bool = True,
         test: bool = False,
-        epo_types: list | None = None,
 ) -> dict:
     if save or load:
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
@@ -34,7 +33,7 @@ def get_all_epo_objects(
     if cid.startswith('RS'):
         epo_types = ['RS']
     else:
-        epo_types = sn.get_task_epo_types(test=test) if epo_types is None else epo_types
+        epo_types = sn.get_task_epo_types(test=test)
         epo_types += [f'{epo_type}_wide' for epo_type in epo_types]  # Define 'wide' epoch-types
 
     for epo_type in epo_types:
@@ -58,7 +57,6 @@ def get_epo_rec(
         load: bool = True,
         save: bool = False,
         verbose: bool = False,
-        epo_def_df: pd.DataFrame | None = None,
 ) -> EpochsFIF | None | Epochs:
     # Check epo type validity
     if epo_type.replace('_wide', '') not in EPO_TYPES:
@@ -72,7 +70,7 @@ def get_epo_rec(
             epo_rec_clean = mne.read_epochs(files_path, preload=True, verbose=False, proj=False)
             return epo_rec_clean
         except FileNotFoundError:
-            print(f'\nFile not found for subject {sid} - potentially not existing \n\t--> returning None')
+            warnings.warn(f'\nFile not found for {sid = }, {block = }, {epo_type} \n\t--> returning None')
             return None
     else:
         assert raw_rec is not None, "Raw recording (raw_rec_start can't be None with the current save/load parameters."
@@ -84,12 +82,12 @@ def get_epo_rec(
             epo_rec = get_obj_pres_epochs(raw_rec, wide=True)
 
         elif epo_type in ['ContMov', 'Stasis', 'MovOn']:
-            epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
+            epo_def = get_epo_def(sid, block)
             epo_rec = get_epo_from_intervals(epo_def, epo_type, raw_rec)
 
         elif epo_type in ['ContMov_wide', 'Stasis_wide', 'MovOn_wide']:
             base_type = epo_type.replace('_wide', '')
-            epo_def = get_epo_def(sid, block) if epo_def_df is None else epo_def_df
+            epo_def = get_epo_def(sid, block)
             epo_rec = get_epo_from_intervals(epo_def, base_type, raw_rec, wide=True)
 
         elif epo_type == 'RS':
@@ -102,14 +100,11 @@ def get_epo_rec(
         if epo_rec is not None:
             # Clean epochs
             epo_rec_clean = clean_epos(epo_rec, epo_type, verbose=verbose)
-            if len(epo_rec) == 0:
-                epo_rec_clean = None
-            else:
-                if save:
-                    real_cid = prs.get_stim(sid, acq=block)
-                    task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
-                    files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
-                    epo_rec_clean.save(files_path, overwrite=True)
+            if save and epo_rec_clean is not None:
+                real_cid = prs.get_stim(sid, acq=block)
+                task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
+                files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
+                epo_rec_clean.save(files_path, overwrite=True)
             return epo_rec_clean
 
         else:
