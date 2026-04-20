@@ -15,6 +15,7 @@ import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.comp_utils as cmp
 import spanav_eeg_utils.spanav_utils as sn
+import warnings
 from mne.epochs import Epochs
 from mne.time_frequency import read_spectrum, EpochsSpectrum, combine_spectrum, Spectrum
 
@@ -116,7 +117,7 @@ def get_epo_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
-        average: bool = False,
+        average_epochs: bool = False,
 ) -> pd.DataFrame:
     # Get PSD within each epoch
     sids = io.get_sids(test=test)
@@ -136,7 +137,7 @@ def get_epo_level_psd_df(
 
                 if load:
                     if not fpath.exists():
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Skipping epo-level PSD...")
                         continue
 
                     # Load spectrum from exported file
@@ -151,8 +152,7 @@ def get_epo_level_psd_df(
                         fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
                         psd.save(fpath, overwrite=True)
 
-                if average:
-                    # Average PSD across epochs
+                if average_epochs:
                     psd = psd.average(method='mean')
 
                 # Append as df entry
@@ -188,7 +188,7 @@ def get_sid_level_psd_df(
                     fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
                     fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
                     if not fpath.exists():
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
                     # Load spectrum from exported file
@@ -205,8 +205,8 @@ def get_sid_level_psd_df(
 
         return pd.DataFrame.from_records(psd_records)
 
-    # Load epoch-level PSD dataframe with average=True to average across epochs (to avoid keeping all PSD in memory)
-    sid_level_df = get_epo_level_psd_df(test=test, load=True, save=False, average=True)
+    # Load epoch-level PSD dataframe with average_epochs=True - average at the moment of loading is more efficient
+    sid_level_df = get_epo_level_psd_df(test=test, load=True, save=False, average_epochs=True)
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
     sid_level_df = _stasis_bl_corr(sid_level_df)
