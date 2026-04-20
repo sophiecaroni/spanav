@@ -70,7 +70,7 @@ def compute_psd(
     psd_obj = rec.compute_psd(**kwargs)
     if log_space:
         psd_obj = psd_obj.copy()
-        psd_obj._data = np.log10(psd_obj.get_data())
+        psd_obj._data = np.log10(psd_obj._data)
     return psd_obj
 
 
@@ -194,7 +194,7 @@ def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: s
     bl_obj = bl_obj_rows.iloc[0]
 
     # Compute baseline
-    bl = bl_obj.get_data().mean(axis=-1, keepdims=True)  # last dimension is time in TFR and frequencies in Spectrum objects
+    bl = bl_obj._data.mean(axis=-1, keepdims=True)  # last dimension is time in TFR and frequencies in Spectrum objects
 
     # Baseline correct all other objects using bl_obj
     bl_corr_records = {objs_name: [], objs_col: []}
@@ -204,7 +204,7 @@ def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: s
 
         # Baseline-correct (similar to mode='percent' of mne.baseline.rescale https://mne.tools/stable/generated/mne.baseline.rescale.html)
         obj_bl = obj.copy()
-        obj_bl._data = (obj.get_data() - bl) / bl * 100
+        obj_bl._data = (obj._data - bl) / bl * 100
 
         # Append new object and its name to dict
         bl_corr_records[objs_name].append(f'bl{obj_name}')

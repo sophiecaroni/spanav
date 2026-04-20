@@ -75,12 +75,12 @@ def normalize_psd(psd_in: EpochsSpectrum) -> EpochsSpectrum:
     :return:
     """
     psd_out = psd_in.copy()
-    data_in = psd_in.get_data()
+    data_in = psd_in._data
 
     # Normalize by sum across frequencies (per epoch and channel)
     denom = data_in.sum(axis=-1, keepdims=True)  # axis=-1 because (epochs, ch, freq)
-    data = data_in / denom
-    psd_out._data = data
+    data_norm = data_in / denom
+    psd_out._data = data_norm
     return psd_out
 
 
@@ -104,13 +104,12 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum
         # Compute PSD on all epochs and channels
         psd = spct.compute_psd(epo_rec_full, log_space=False, **psd_kwargs)  # don't log yet
 
-    # Normalize PSD
-    norm_psd = normalize_psd(psd)
+        # Normalize PSD
+        norm_psd = normalize_psd(psd)
 
-    # Log-trasform and return
-    psd_out = norm_psd.copy()
-    psd_out._data = np.log10(norm_psd.get_data())
-
+        # Log-transform and return
+        psd_out = norm_psd.copy()
+        psd_out._data = np.log10(psd_out._data)
         return psd_out
     return None
 
