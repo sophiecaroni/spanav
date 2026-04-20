@@ -20,11 +20,13 @@ from mne.epochs import Epochs
 from mne.time_frequency import read_spectrum, EpochsSpectrum, combine_spectrum, Spectrum
 
 
-def average_psd_series(psd_series) -> Spectrum:
+def compute_group_psd(psd_series: pd.Series) -> Spectrum:
     """
-    Combine a pandas Series of MNE Spectrum objects by weigthed average.
+    Combine a pandas Series of MNE Spectrum objects.
+    Every Spectrum weights 1 on the average - this is suited for example when averaging across subjects of the same group
+    (where every subject should weight the same).
     """
-    return combine_spectrum(list(psd_series))
+    return combine_spectrum(list(psd_series), weights='equal')
 
 
 def compute_avg_epo_psd(
@@ -264,7 +266,7 @@ def get_group_level_psd_df(
     # For each group, average PSD of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
-    group_level_df = grouped_df['psd'].apply(average_psd_series).reset_index(drop=True)
+    group_level_df = grouped_df['psd'].apply(compute_group_psd).reset_index(drop=True)
 
     if save:
         # Export each group-level PSD object
