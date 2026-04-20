@@ -168,10 +168,20 @@ def get_epo_level_psd_df(
     return pd.DataFrame.from_records(psd_records)
 
 
+def _average_psd_channels(psd) -> object:
+    ch_psds = []
+    for ch in psd.ch_names:
+        ch_psd = psd.copy().pick(ch)
+        mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
+        ch_psds.append(ch_psd)
+    return combine_spectrum(ch_psds)
+
+
 def get_sid_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
+        average_channels: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -194,6 +204,9 @@ def get_sid_level_psd_df(
 
                     # Load spectrum from exported file
                     psd = read_spectrum(fpath)
+
+                    if average_channels:
+                        psd = _average_psd_channels(psd)
 
                     # Append as df entry
                     psd_records.append(dict(
@@ -259,8 +272,8 @@ def get_group_level_psd_df(
 
         return pd.DataFrame.from_records(psd_records)
 
-    # Load subject-level PSD
-    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False)
+    # Load subject-level PSD, with average_channels=True - we need one channel per sid to compute group spectra (since every sid has a different montage)
+    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, average_channels=True)
 
     # For each group, average PSD of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
