@@ -35,8 +35,8 @@ def get_epo_level_osc_df(
         file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    bands = ['theta', 'alpha', '38-42']
     psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')  # load power spectra in linear scale
+    bands = ['theta']
     df_rows = []
 
     # Define variables within which the PSD will be computed (for each of these there will be one)

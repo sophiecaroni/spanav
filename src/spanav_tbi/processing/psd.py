@@ -19,6 +19,13 @@ import warnings
 from mne.epochs import Epochs
 from mne.time_frequency import read_spectrum, EpochsSpectrum, combine_spectrum, Spectrum
 
+# Suppress MNE filename convention warning
+warnings.filterwarnings(
+    "ignore",
+    message=r".*does not conform to MNE naming conventions.*",
+    category=RuntimeWarning,
+)
+
 
 def compute_group_psd(psd_series: pd.Series) -> Spectrum:
     """
