@@ -84,7 +84,7 @@ def normalize_psd(psd_in: EpochsSpectrum) -> EpochsSpectrum:
     return psd_out
 
 
-def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum | None:
+def compute_cond_psd(sid: str, cids: list[str], epo_type: str, space: str = 'log') -> EpochsSpectrum | None:
     """
     Compute PSD of data recorded in one stimulation condition.
     Concatenates epoch-objects from different blocks of the same stimulation condition. Then follows a procedure
@@ -92,6 +92,8 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum
     :param sid:
     :param cids:
     :param epo_type:
+    :param space: str, defaults to 'log' to log-transform the spectrum (as in the reference paper) - but this function
+                  is also used in the oscillatory features pipeline where the spectrum needs to be modeled in linear space.
     :return:
     """
     # Get default parameters for of PSD computation
@@ -107,10 +109,10 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum
         # Normalize PSD
         norm_psd = normalize_psd(psd)
 
-        # Log-transform and return
-        psd_out = norm_psd.copy()
-        psd_out._data = np.log10(psd_out._data)
-        return psd_out
+        if space == 'log':
+            norm_psd._data = np.log10(norm_psd._data)
+
+        return norm_psd
     return None
 
 
@@ -119,7 +121,9 @@ def get_epo_level_psd_df(
         test: bool = False,
         save: bool = False,
         average_epochs: bool = False,
+        space: str = 'log',
 ) -> pd.DataFrame:
+    assert space in ['lin', 'log'], f'Please pass a valid space, accepted are "lin" and "log" (got {space})'
     # Get PSD within each epoch
     sids = io.get_sids(test=test)
     epo_types = sn.get_task_epo_types(test=test)
@@ -133,7 +137,7 @@ def get_epo_level_psd_df(
         for epo_type in epo_types:
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
-                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd.h5'
+                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd_{space}.h5'
                 fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
 
                 if load:
@@ -145,7 +149,7 @@ def get_epo_level_psd_df(
                     psd = read_spectrum(fpath)
 
                 else:
-                    psd = compute_cond_psd(sid, cids, epo_type)
+                    psd = compute_cond_psd(sid, cids, epo_type, space=space)
                     if psd is None:
                         warnings.warn(f"\nPSD is None for {fname} (epo rec file likely not found). Skipping epo-level PSD...")
                         continue
