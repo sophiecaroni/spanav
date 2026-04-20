@@ -446,6 +446,17 @@ def plot_psd_avg_by_grp(
     return axes
 
 
+def plot_epo_cleaning_summary(sid: str, cid: str, epos_dict: dict, show: bool = False, save: bool = False) -> None:
+    for epo_type, epo_rec in epos_dict.items():
+        if epo_rec is not None:
+            fig = epo_rec.plot_drop_log(show=show)
+            if save:
+                save_figure(save_dir=sid, group_parent_dir='plots/Epo', fname=f"{cid}_{epo_type}_cleaning_summary.png", fig=fig,
+                            sid=sid, dpi=900, bbox_inches='tight')
+            if not show:
+                plt.close()
+
+
 def plot_epo_overview(
         epos_dict: dict[str, BaseEpochs],
         psd_by_rec: dict[str, tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]],

@@ -1,5 +1,4 @@
 import warnings
-import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
@@ -101,10 +100,6 @@ def get_epo_rec(
             return None
 
         if epo_rec is not None:
-            epo_rec.plot_drop_log(show=verbose)
-            if not verbose:
-                plt.close()
-
             # Clean epochs
             epo_rec_clean = clean_epos(epo_rec, epo_type, verbose=verbose)
             if len(epo_rec) == 0:
