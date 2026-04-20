@@ -9,7 +9,8 @@
 """
 import numpy as np
 import pandas as pd
-
+import warnings
+import mne
 import spanav_eeg_utils.comp_utils as cmp
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
@@ -85,12 +86,14 @@ def custom_tfr_norm(tfr_in: TFR) -> TFR:
     return tfr_out
 
 
-def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR:
+def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR | None:
     # Concatenate epoched recordings across block of the same condition (and subject)
     epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
 
     # Compute TFR on all epochs and channels and return
-    return compute_tfr(epo_rec_full, epo_type, log=True, norm=True)  # log-transform and normalize
+    if epo_rec_full is not None:
+        return compute_tfr(epo_rec_full, epo_type, log=True, norm=True)  # log-transform and normalize
+    return None
 
 
 def get_epo_level_tfr_df(
@@ -105,28 +108,28 @@ def get_epo_level_tfr_df(
     epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
     sids = io.get_sids(test=test)
     tfr_entries = []
-    for epo_type in epo_types:
-        for sid in sids:
-            group = prs.get_group_letter(sid)
-            sid_cids = io.get_sid_blocks(sid, test=test)
-            if not sid_cids:
-                continue
-            cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
-
+    for sid in sids:
+        group = prs.get_group_letter(sid)
+        sid_cids = io.get_sid_blocks(sid, test=test)
+        if not sid_cids:
+            continue
+        cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
+        for epo_type in epo_types:
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
                 fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
                 fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                 if load:
-                    if fpath.exists():
-                        # Read TFR from exported file
-                        cond_epo_tfr = read_tfrs(fpath, verbose=False)
-                    else:
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                    if not fpath.exists():
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
+                    # Read TFR from exported file
+                    cond_epo_tfr = read_tfrs(fpath, verbose=False)
                 else:
                     cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
-
+                    if cond_epo_tfr is None:
+                        warnings.warn(f"\nTFR is None for {fname} (epo rec file likely not found). Skipping epo-level TFR...")
+                        continue
                     if save:
                         # Export
                         fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
@@ -182,7 +185,7 @@ def get_sid_level_tfr_df(
                     fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
                     fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                     if not fpath.exists():
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
                     # Load TFR from exported file
@@ -204,6 +207,8 @@ def get_sid_level_tfr_df(
 
     # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memory)
     sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average=True)
+    if sid_level_df.empty:
+        raise ValueError(f"Sid-level TFR dataframe is empty: \n\t{sid_level_df}")
 
     # Crop wide epochs to their central 1s window (as in Convertino et al., 2023)
     is_wide = sid_level_df['epo_type'].str.endswith('_wide')
@@ -211,9 +216,11 @@ def get_sid_level_tfr_df(
 
     # Baseline correct movement-onset epochs with stasis epochs (as in Convertino et al., 2023) using Stasis or Stasis_wide as baseline, respectively
     normal_df = sid_level_df[~sid_level_df['epo_type'].str.endswith('_wide')]
+    if not normal_df.empty:
+        normal_df = _stasis_bl_corr(normal_df, bl_name='Stasis')
     wide_df = sid_level_df[sid_level_df['epo_type'].str.endswith('_wide')]
-    normal_df = _stasis_bl_corr(normal_df, bl_name='Stasis')
-    wide_df = _stasis_bl_corr(wide_df, bl_name='Stasis_wide')
+    if not wide_df.empty:
+        wide_df = _stasis_bl_corr(wide_df, bl_name='Stasis_wide')
     sid_level_df = pd.concat([normal_df, wide_df], ignore_index=True)
 
     if save:
@@ -247,12 +254,12 @@ def get_group_level_tfr_df(
                 for epo_type in epo_types:
                     fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
                     fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
-                    if fpath.exists():
-                        # Load TFR from exported file
-                        cond_epo_tfr = read_tfrs(fpath, verbose=False)
-                    else:
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                    if not fpath.exists():
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
+
+                    # Load TFR from exported file
+                    cond_epo_tfr = read_tfrs(fpath, verbose=False)
 
                     # Store as df entry
                     tfr_records.append(dict(
@@ -298,6 +305,9 @@ def _stasis_bl_corr(input_df: pd.DataFrame, bl_name: str = 'Stasis'):
     for (sid, group, cond), subdf in grouped_df:
 
         # Apply baseline correction using Stasis TFR on TFR of all other epoch types
+        if bl_name not in subdf['epo_type'].values:
+            warnings.warn(f"Baseline '{bl_name}' not found for {sid=}, {cond=}. Skipping baseline correction.")
+            continue
         bl_corr_records = spct.spectral_bl_corr_from_df(subdf, 'epo_type', 'tfr', bl_name)
 
         # Add grouping columns information to bl_corr_records (which will be broadcasted to match len in bl_corr_records)
