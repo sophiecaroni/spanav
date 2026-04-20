@@ -24,7 +24,7 @@ def get_concat_epo_recs(
         cids_to_concat: list[str],
         epo_type: str,
         # epo_recs: list[EpochsFIF],
-) -> EpochsArray:
+) -> EpochsArray | None:
     """
     Load epoched recordings and concatenate them.
     :param sid:
@@ -37,6 +37,9 @@ def get_concat_epo_recs(
         real_cid = prs.get_stim(sid, acq=cid)
         task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
         epo_path = get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
-        epo_rec = mne.read_epochs(epo_path, preload=False, proj=False, verbose=False)
-        recs_list.append(epo_rec)
-    return mne.concatenate_epochs(recs_list)
+        if epo_path.exists():
+            epo_rec = mne.read_epochs(epo_path, preload=False, proj=False, verbose=False)
+            recs_list.append(epo_rec)
+    if recs_list:
+        return mne.concatenate_epochs(recs_list)
+    return None

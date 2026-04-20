@@ -81,7 +81,7 @@ def normalize_psd(psd_in: EpochsSpectrum) -> EpochsSpectrum:
     return psd_out
 
 
-def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum:
+def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum | None:
     """
     Compute PSD of data recorded in one stimulation condition.
     Concatenates epoch-objects from different blocks of the same stimulation condition. Then follows a procedure
@@ -97,8 +97,9 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum
     # Concatenate epoched recordings across block of the same condition (and subject)
     epo_rec_full = cmp.get_concat_epo_recs(sid, cids, epo_type)
 
-    # Compute PSD on all epochs and channels
-    psd = spct.compute_psd(epo_rec_full, log_space=False, **psd_kwargs)  # don't log yet
+    if epo_rec_full is not None:
+        # Compute PSD on all epochs and channels
+        psd = spct.compute_psd(epo_rec_full, log_space=False, **psd_kwargs)  # don't log yet
 
     # Normalize PSD
     norm_psd = normalize_psd(psd)
@@ -107,7 +108,8 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str) -> EpochsSpectrum
     psd_out = norm_psd.copy()
     psd_out._data = np.log10(norm_psd.get_data())
 
-    return psd_out
+        return psd_out
+    return None
 
 
 def get_epo_level_psd_df(
@@ -142,6 +144,9 @@ def get_epo_level_psd_df(
 
                 else:
                     psd = compute_cond_psd(sid, cids, epo_type)
+                    if psd is None:
+                        warnings.warn(f"\nPSD is None for {fname} (epo rec file likely not found). Skipping epo-level PSD...")
+                        continue
                     if save:
                         fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
                         psd.save(fpath, overwrite=True)
