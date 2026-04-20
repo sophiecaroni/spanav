@@ -76,10 +76,10 @@ def get_epo_rec(
         assert raw_rec is not None, "Raw recording (raw_rec_start can't be None with the current save/load parameters."
 
         if epo_type == 'ObjPres':
-            epo_rec = get_obj_pres_epochs(raw_rec)
+            epo_rec = get_obj_pres_epochs(raw_rec, verbose=verbose)
 
         elif epo_type == 'ObjPres_wide':
-            epo_rec = get_obj_pres_epochs(raw_rec, wide=True)
+            epo_rec = get_obj_pres_epochs(raw_rec, wide=True, verbose=verbose)
 
         elif epo_type in ['ContMov', 'Stasis', 'MovOn']:
             epo_def = get_epo_def(sid, block)
@@ -104,7 +104,7 @@ def get_epo_rec(
                 real_cid = prs.get_stim(sid, acq=block)
                 task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
                 files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
-                epo_rec_clean.save(files_path, overwrite=True)
+                epo_rec_clean.save(files_path, overwrite=True, verbose=verbose)
             return epo_rec_clean
 
         else:
@@ -114,9 +114,10 @@ def get_epo_rec(
 def get_obj_pres_epochs(
         raw_rec: mne.io.BaseRaw,
         wide: bool = False,
+        verbose: bool = False,
 ) -> mne.Epochs:
     kwargs = {
-        'verbose': True,
+        'verbose': verbose,
         'baseline': None,  # baseline was already applied on raw_rec
     }
     all_events, all_event_ids = mne.events_from_annotations(raw_rec, verbose=kwargs['verbose'])
@@ -379,7 +380,7 @@ def clean_epos(
         verbose: bool = False,
 ) -> mne.Epochs | None:
     # Re-reference to common average
-    epo_rec.set_eeg_reference('average')
+    epo_rec.set_eeg_reference('average', verbose=verbose)
 
     # For wide epochs, only use central 1s for artifact rejection
     if epo_label.endswith('_wide'):
@@ -431,7 +432,7 @@ def clean_epos(
                 # Interpolate bad channels
                 epo_rec_clean = epo_rec.copy()
                 epo_rec_clean.info['bads'] = globally_bad_ch
-                epo_rec_clean.interpolate_bads(reset_bads=True)
+                epo_rec_clean.interpolate_bads(reset_bads=True, verbose=verbose)
                 return epo_rec_clean
             return None
     return None
