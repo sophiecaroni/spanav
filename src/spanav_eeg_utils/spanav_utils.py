@@ -153,7 +153,7 @@ def get_full_sid(
 
     # Case 3: in_sid isn't any of the above cases -> invalid, re-ask input and recall function
     else:
-        in_sid = input(f'Given participant ID ({in_sid}) is unrecognized. Please input a valid one: ')
+        in_sid = input(f'⚠️ Invalid participant ID ({in_sid}). Please input a valid one (e.g. t01, a02): ')
         out_sid = get_full_sid(in_sid)
 
     return out_sid.upper()  # letters in participant IDs are always capitalized
