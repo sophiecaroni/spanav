@@ -1,6 +1,7 @@
 import mne
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
+import time
 from pathlib import Path
 
 
@@ -28,7 +29,21 @@ def preproc_pipeline(subject: str, block: str, task: str = 'SpaNav', fast: bool 
     else:
         raw = raw.crop(crop_start, full_duration)
 
+    # Load data and track loading time
+    t0 = time.perf_counter()
     raw.load_data()
+    load_elapsed = time.perf_counter() - t0
+
+    if fast:
+        crop_duration = raw.times[-1]
+        scale = full_duration / crop_duration
+        estimated_s = load_elapsed * scale
+        print(f"\tFull duration: {full_duration:.0f} s")
+        print(f"\tLoad crop: {crop_duration:.0f} s of data in {load_elapsed:.1f} s")
+        print(f"\tEstimated load full: ~{estimated_s / 60:.1f} min  ({estimated_s:.0f} s)")
+    else:
+        print(f"\tLoad (full) : {full_duration:.0f} s of data in {load_elapsed:.1f} s")
+
     raw.filter(l_freq=1, h_freq=60, n_jobs=-1, verbose=False)
     raw.resample(sfreq=250, verbose=False)
     raw.notch_filter(freqs=50.0, verbose=False)
