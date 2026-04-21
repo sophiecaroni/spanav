@@ -21,9 +21,12 @@ TFR = EpochsTFR | AverageTFR
 
 
 def _compute_tfr_vlim(tfr_array: Iterable[TFR], pkind: str) -> tuple[float, float]:
-    if pkind not in ['tfr', 'topomap', 'spectrum']:
-        raise (ValueError, f'Accepted plot kinds are "tfr" and "topomap"; got {pkind = }')
-    axis = (1, 2) if pkind == 'topomap' else 0  # average across frequency and timepoints in topomapmaps; across channels in spectrograms and power spectra
+    if pkind == 'topomap':
+        axis = (1, 2)  # average across frequency and timepoints
+    elif pkind in ('spectrum', 'tfr'):  # average across channels in spectrograms and power spectra
+        axis = 0
+    else:
+        raise ValueError(f'Accepted plot kinds are "tfr", "topomap" or "spectrum"; got {pkind = }')
     # vmin = min(t.data.mean(axis=axis).min() for t in tfr_array)
     vmax = max(t.data.mean(axis=axis).max() for t in tfr_array)
     vmin = -vmax
@@ -86,7 +89,7 @@ def plot_tfr_by_epo(
                     **kwargs
                 )
                 ax.set_xlabel('Frequency (Hz)')
-                ax.set_ylabel('Power')
+                ax.set_ylabel('Power (log)')
                 ax.set_ylim(vlim)
 
             # Further axis customization
@@ -133,7 +136,7 @@ def iter_plot_sid_tfr(
             )
             axes = axes.flatten()
 
-            # Define limits of powe0 commonly across conds/epoch-types, for easier comparison within the figure
+            # Define limits of power commonly across conds/epoch-types, for easier comparison within the figure
             vlim = _compute_tfr_vlim(sid_df['tfr'].values, pkind=pkind)
 
             # Each stimulating condition has a row (of subplots)
