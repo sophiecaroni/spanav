@@ -169,7 +169,7 @@ def iter_plot_sid_tfr(
 
             if save:
                 fname = f'{sid}_etypes_{pkind}.png'
-                save_figure(group_parent_dir='plots/TFR', fname=fname, fig=fig, sid=str(sid), save_dir=None)
+                save_figure(save_dir=str(sid), group_parent_dir='plots/TFR', fname=fname, fig=fig, sid=str(sid))
             if show:
                 plt.show()
             plt.close()
