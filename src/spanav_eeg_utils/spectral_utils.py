@@ -144,7 +144,7 @@ def model_psd(
 def get_psd_kwargs(sfreq: float = 250) -> dict:
     return dict(
         fmin=2,
-        fmax=70,
+        fmax=60,
         method="welch",
         n_fft=sfreq,
         n_per_seg=sfreq,

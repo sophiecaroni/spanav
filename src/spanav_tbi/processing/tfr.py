@@ -44,9 +44,9 @@ def compute_tfr(
     :return:
     """
 
-    freqs = np.logspace(np.log10(2), np.log10(70), 40)
+    freqs = np.logspace(np.log10(2), np.log10(60), 40)  # Convertino uses 70 but we can only up to 60 (bc of LPF for TI)
     # freqs = np.linspace(2, 70, 40)
-    n_cycles = 5 if epo_type.endswith('wide') else freqs / 2  # Convertino uses 5 but in case of shorter (non-wide) epochs use a specific cycle for each frequency (half of the frequency)
+    n_cycles = 5
     zero_mean = True  # wether to correct morlet wavelet to be of mean zero; set to True to have a true wavelet, but False better for illustration purposes
 
     tfr = epo_rec.compute_tfr(
