@@ -13,8 +13,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mne.time_frequency import EpochsSpectrum, Spectrum
-from spanav_eeg_utils.plot_utils import plot_context, save_figure, add_higher_title_text, get_cond_palette
+from spanav_eeg_utils.plot_utils import plot_context
 from spanav_eeg_utils.spanav_utils import map_epo_type_labels, get_epo_types
+from spanav_tbi.visualization.iter_plots import all_sid_plots, all_group_plots
 from typing import Iterable
 
 PSD = EpochsSpectrum | Spectrum
@@ -95,83 +96,19 @@ def plot_psd_by_epo(
             ax.figure.legend(by_label.values(), by_label.keys())
 
 
-def iter_plot_sid_psd(
+def all_sid_psd_plots(
         psd_df: pd.DataFrame,
         pkind: str = 'spectrum',
         show: bool = True,
         save: bool = False,
 ) -> None:
-    with plot_context():
-        sup_cond = pkind == 'spectrum'  # define whether conditions will be superimposed (for spectra) or on rows (for topomaps)
-
-        # Create one figure per subject
-        for sid, sid_df in psd_df.groupby('sid'):
-            n_conds = len(sid_df['cond'].unique())
-            n_epo_types = len(sid_df['epo_type'].unique())
-            nrows = 1 if sup_cond else n_conds
-            n_cols = n_epo_types
-            fig, axes = plt.subplots(
-                nrows, n_cols, sharey=True, sharex=True,
-                figsize=(n_epo_types * 4.0, nrows * 3.5), squeeze=False
-            )
-            axes = axes.flatten()
-
-            # Compute vlim across all subject conditions
-            vlim = _compute_psd_ylim(sid_df['psd'].values, pkind=pkind)
-
-            for i, (cond, cond_df) in enumerate(sid_df.groupby('cond')):
-                epo_axes = axes if sup_cond else axes[i*n_cols : i*n_cols+n_cols]
-
-                show_xlabel = True if sup_cond else i == n_conds - 1
-                plot_kwargs: dict = dict(epo_title=i == 0, vlim=vlim)
-                if sup_cond:
-                    plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
-
-                plot_psd_by_epo(cond_df, pkind, epo_axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
-
-                if not sup_cond and n_conds > 1:
-                    add_higher_title_text(fig, epo_axes, f"Cond {cond}")
-
-            if save:
-                fname = f'{sid}_etypes_{pkind}.png'
-                save_figure(save_dir=str(sid), group_parent_dir='plots/PSD', fname=fname, fig=fig, sid=str(sid))
-            if show:
-                plt.show()
-            plt.close()
+    all_sid_plots(psd_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
 
 
-def iter_plot_group_psd(
+def all_group_psd_plots(
         psd_df: pd.DataFrame,
+        pkind: str = 'spectrum',
         show: bool = True,
         save: bool = False,
 ) -> None:
-    with plot_context():
-
-        # Create one separate figure for each group
-        for i_g, (group, group_df) in enumerate(psd_df.groupby('group')):
-            n_epo_types = len(group_df['epo_type'].unique())
-            n_cols = n_epo_types
-            fig_width = n_cols * 4.0
-            fig, axes = plt.subplots(
-                1, n_cols, sharey=True, sharex=True, figsize=(fig_width, 3.5),
-                squeeze=False
-            )
-            axes = axes.flatten()
-            vlim = _compute_psd_ylim(group_df['psd'].values, 'spectrum')
-
-            # For each condition, plot spectrum in the same axes (epoch-type subplots) so that they overlap
-            for i_c, (cond, cond_df) in enumerate(group_df.groupby('cond')):
-                plot_kwargs: dict = dict(
-                    epo_title=i_c == 0,
-                    vlim=vlim,
-                    label=cond,
-                    color=get_cond_palette().get(cond),
-                )
-                plot_psd_by_epo(cond_df, 'spectrum', epo_axes=axes, **plot_kwargs)
-
-            if save:
-                fname = f'group{group}_etypes_spectrum.png'
-                save_figure(group_parent_dir='plots/PSD', fname=fname, fig=fig, save_dir=f'WP73{group}')
-            if show:
-                plt.show()
-            plt.close()
+    all_group_plots(psd_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
