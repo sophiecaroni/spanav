@@ -8,7 +8,7 @@
     This script generates various TFR plot types for different levels aggregation data.
 """
 from spanav_tbi.processing.tfr import get_sid_level_tfr_df, get_group_level_tfr_df
-from spanav_tbi.visualization.tfr_plots import iter_plot_sid_tfr, iter_plot_group_tfr
+from spanav_tbi.visualization.tfr_plots import all_sid_tfr_plots, all_group_tfr_plots
 
 
 def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
@@ -18,9 +18,9 @@ def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
     # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
     mask = (sid_level_df['epo_type'].str.endswith('wide')) & (sid_level_df['epo_type'].str.startswith('bl'))
     plot_df = sid_level_df[mask]
-    iter_plot_sid_tfr(plot_df, 'tfr', show, save)
-    iter_plot_sid_tfr(plot_df, 'topomap', show, save)
-    iter_plot_sid_tfr(plot_df, 'spectrum', show, save)
+    all_sid_tfr_plots(plot_df, 'heatmap', show, save)
+    all_sid_tfr_plots(plot_df, 'topomap', show, save)
+    all_sid_tfr_plots(plot_df, 'spectrum', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
@@ -30,8 +30,8 @@ def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
     # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
     mask = (group_level_df['epo_type'].str.endswith('wide')) & (group_level_df['epo_type'].str.startswith('bl'))
     plot_df = group_level_df[mask]
-    iter_plot_group_tfr(plot_df, 'tfr', show, save)
-    iter_plot_group_tfr(plot_df, 'spectrum', show, save)
+    all_group_tfr_plots(plot_df, 'heatmap', show, save)
+    all_group_tfr_plots(plot_df, 'spectrum', show, save)
 
 
 def run_tfr_plots(**kwargs):

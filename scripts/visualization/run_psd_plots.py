@@ -9,15 +9,15 @@
 """
 import warnings
 from spanav_tbi.processing.psd import get_sid_level_psd_df, get_group_level_psd_df
-from spanav_tbi.visualization.psd_plots import iter_plot_sid_psd, iter_plot_group_psd
+from spanav_tbi.visualization.psd_plots import all_sid_psd_plots, all_group_psd_plots
 
 
 def plot_each_sid_psd(test: bool, show: bool, save: bool) -> None:
     sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False)
     bl_df = sid_level_df[sid_level_df['epo_type'].str.startswith('bl')]
     if not bl_df.empty:
-        iter_plot_sid_psd(bl_df, 'spectrum', show, save)
-        iter_plot_sid_psd(bl_df, 'topomap', show, save)
+        all_sid_psd_plots(bl_df, 'spectrum', show, save)
+        all_sid_psd_plots(bl_df, 'topomap', show, save)
     else:
         warnings.warn('No bl-corrected epoch types in subject-level df!')
 
@@ -28,7 +28,7 @@ def plot_each_group_psd(test: bool, show: bool, save: bool) -> None:
     # Only plot bl-corrected
     bl_df = group_level_df[group_level_df['epo_type'].str.startswith('bl')]
     if not bl_df.empty:
-        iter_plot_group_psd(bl_df, show, save)
+        all_group_psd_plots(bl_df, 'spectrum', show, save)
     else:
         warnings.warn('No bl-corrected epoch types in group-level df!')
 
