@@ -1,13 +1,11 @@
 """
-********************************************************************************
-    Title: Spectrogram plots of Time-frequency Representations (TFR)
+    Title: Time-frequency Representations (TFR) plots
 
     Author: Sophie Caroni
     Date of creation: 16.03.2026
 
     Description:
-    This script generate spectrograms for different aggregation levels of TFR objects.
-********************************************************************************
+    This script generates various TFR plot types for different levels aggregation data.
 """
 from spanav_tbi.processing.tfr import get_sid_level_tfr_df, get_group_level_tfr_df
 from spanav_tbi.visualization.tfr_plots import iter_plot_sid_tfr, iter_plot_group_tfr
@@ -33,7 +31,6 @@ def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
     mask = (group_level_df['epo_type'].str.endswith('wide')) & (group_level_df['epo_type'].str.startswith('bl'))
     plot_df = group_level_df[mask]
     iter_plot_group_tfr(plot_df, 'tfr', show, save)
-    iter_plot_group_tfr(plot_df, 'topomap', show, save)
     iter_plot_group_tfr(plot_df, 'spectrum', show, save)
 
 
