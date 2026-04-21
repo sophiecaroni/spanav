@@ -1,6 +1,6 @@
 """
 ********************************************************************************
-    Title: Spectrogram plots of time-frequency representations (TFR)
+    Title: Time-frequency representations (TFR) plots
 
     Author: Sophie Caroni
     Date of creation: 23.02.2026
@@ -187,30 +187,28 @@ def iter_plot_group_tfr(
     with plot_context():
         sup_cond = pkind == 'spectrum'  # superimpose power spectra of different conditions, use different subplots for topomaps/TFRs
 
-        n_conds = len(tfr_df['cond'].unique())
-        n_epo_types = len(tfr_df['epo_type'].unique())
-        n_groups = len(tfr_df['group'].unique())
-
-        ncols = n_epo_types
-        nrows = n_groups if sup_cond else n_conds * n_groups
-        fig_height = nrows * 3.5
-        fig_width = n_epo_types * 4.0
-        plots_per_group = n_epo_types if sup_cond else n_conds * n_epo_types
-
-        fig, axes = plt.subplots(
-            nrows, ncols, sharey=True, sharex=True, figsize=(fig_width, fig_height),
-            squeeze=False  # does not flatten automatically if 1D
-        )
-        axes = axes.flatten()
-
         for i_g, (group, group_df) in enumerate(tfr_df.groupby('group')):
+
+            n_conds = len(group_df['cond'].unique())
+            n_epo_types = len(group_df['epo_type'].unique())
+
+            nrows = 1 if sup_cond else n_conds
+            ncols = n_epo_types
+            fig_height = nrows * 3.5
+            fig_width = ncols * 4.0
+
+            fig, axes = plt.subplots(
+                nrows, ncols, sharey=True, sharex=True, figsize=(fig_width, fig_height),
+                squeeze=False  # does not flatten automatically if 1D
+            )
+            axes = axes.flatten()
 
             # Define limits colorbar commonly across conds/epoch-types, for easier comparison within the figure
             vlim = _compute_tfr_vlim(group_df['tfr'].values, pkind)
 
             # Each stimulating condition has a row (of subplots); superimposed on the same axes for spectra
             for i_c, (cond, cond_df) in enumerate(group_df.groupby('cond')):
-                start_ax_idx = int(i_g) * plots_per_group if sup_cond else (int(i_c) * n_epo_types) + (int(i_g) * plots_per_group)
+                start_ax_idx = 0 if sup_cond else int(i_c) * n_epo_types  # conditions index within the per-group figure
                 end_ax_idx = start_ax_idx + n_epo_types
                 epo_axes = axes[start_ax_idx:end_ax_idx]
 
@@ -221,7 +219,6 @@ def iter_plot_group_tfr(
                 )
                 if sup_cond:
                     plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
-
                 plot_tfr_by_epo(cond_df, pkind, epo_axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
 
                 if not sup_cond:
