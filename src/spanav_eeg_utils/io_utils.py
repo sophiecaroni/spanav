@@ -42,7 +42,7 @@ def get_main_path(
     :param server:
     :return:
     """
-    SERVER = cfg.get_server() if server is None else server
+    SERVER = server or cfg.get_server()
     if SERVER:
         return cfg.get_server_root()
     else:
@@ -51,8 +51,9 @@ def get_main_path(
 
 def get_raw_eeg_path(
         sid: str,
+        server: bool | None = None,
 ) -> Path:
-    root = get_main_path()
+    root = get_main_path(server=server)
     group = prs.get_group_letter(sid)
     return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
 
@@ -124,6 +125,7 @@ def get_cont_path(
         sid: str,
         acq: str | None = None,
         task: str | None = 'SpaNav',
+        server: bool | None = None,
 ) -> Path:
     include_fname = acq is not None and task is not None  # both acq and task are needed in behavioral data filenames
     fname = get_base_bids_filename(sid=sid, task=task, acq=acq) if include_fname else ''  # BIDS name
@@ -132,7 +134,7 @@ def get_cont_path(
 
     if 'raw' in proc_stage:
         fext = 'vhdr'
-        fpath = get_raw_eeg_path(sid)
+        fpath = get_raw_eeg_path(sid, server)
         fname += '_eeg'
 
     else:
