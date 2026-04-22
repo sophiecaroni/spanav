@@ -31,14 +31,12 @@ def average_tfr_series(tfr_series) -> AverageTFR:
 
 def compute_tfr(
         epo_rec: BaseEpochs,
-        epo_type: str,
         log: bool = True,
         norm: bool = True,
 ) -> EpochsTFR:
     """
     Compute TFR as in Convertino et al., 2023
     :param epo_rec:
-    :param epo_type:
     :param log:
     :param norm:
     :return:
@@ -92,7 +90,7 @@ def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR | None:
 
     # Compute TFR on all epochs and channels and return
     if epo_rec_full is not None:
-        return compute_tfr(epo_rec_full, epo_type, log=True, norm=True)  # log-transform and normalize
+        return compute_tfr(epo_rec_full, log=True, norm=True)  # log-transform and normalize
     return None
 
 
