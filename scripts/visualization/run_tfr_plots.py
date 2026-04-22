@@ -12,26 +12,25 @@ from spanav_tbi.visualization.tfr_plots import all_sid_tfr_plots, all_group_tfr_
 
 
 def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
-    # Load df storing TFR at subject level
-    sid_level_df = get_sid_level_tfr_df(test=test, load=True, save=False)
+    # Load subject TFRs df with channels aggregated and plot heatmaps and spectra
+    sid_df_ch_avg = get_sid_level_tfr_df(test=test, load=True, save=False, average_channels=True)
+    all_sid_tfr_plots(sid_df_ch_avg, 'heatmap', show, save)
+    all_sid_tfr_plots(sid_df_ch_avg, 'spectrum', show, save)
 
-    # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
-    mask = (sid_level_df['epo_type'].str.endswith('wide')) & (sid_level_df['epo_type'].str.startswith('bl'))
-    plot_df = sid_level_df[mask]
-    all_sid_tfr_plots(plot_df, 'heatmap', show, save)
-    all_sid_tfr_plots(plot_df, 'topomap', show, save)
-    all_sid_tfr_plots(plot_df, 'spectrum', show, save)
+    # Load subject TFRs df with unaggregated channels and plot topomaps
+    sid_df_ch_all = get_sid_level_tfr_df(test=test, load=True, save=False, average_channels=False)
+    all_sid_tfr_plots(sid_df_ch_all, 'topomap', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
-    # Load df storing TFR at group level
-    group_level_df = get_group_level_tfr_df(load=True, test=test, save=False)
+    # Load group TFRs df with channels aggregated and plot heatmaps and spectra
+    group_df_ch_avg = get_group_level_tfr_df(load=True, test=test, save=False, average_channels=True)
+    all_group_tfr_plots(group_df_ch_avg, 'heatmap', show, save)
+    all_group_tfr_plots(group_df_ch_avg, 'spectrum', show, save)
 
-    # Only plot epoch types that were baseline-corrected (based on stasis) and extracted from wide windows
-    mask = (group_level_df['epo_type'].str.endswith('wide')) & (group_level_df['epo_type'].str.startswith('bl'))
-    plot_df = group_level_df[mask]
-    all_group_tfr_plots(plot_df, 'heatmap', show, save)
-    all_group_tfr_plots(plot_df, 'spectrum', show, save)
+    # Load group TFRs df with unaggregated channels and plot topomaps
+    group_df_ch_all = get_group_level_tfr_df(load=True, test=test, save=False, average_channels=False)
+    all_group_tfr_plots(group_df_ch_all, 'topomap', show, save)
 
 
 def run_tfr_plots(**kwargs):
@@ -42,6 +41,6 @@ def run_tfr_plots(**kwargs):
 if __name__ == '__main__':
     run_tfr_plots(
         test=False,
-        show=False,
-        save=True,
+        show=True,
+        save=False,
     )

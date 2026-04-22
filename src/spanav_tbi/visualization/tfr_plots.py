@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from mne.time_frequency import EpochsTFR, AverageTFR
+from pandas.errors import EmptyDataError
+
 from spanav_eeg_utils.plot_utils import plot_context
 from spanav_eeg_utils.spanav_utils import map_epo_type_labels, get_epo_types
 from spanav_tbi.visualization.iter_plots import all_sid_plots, all_group_plots
@@ -28,8 +30,8 @@ def _compute_tfr_vlim(tfr_array: Iterable[TFR], pkind: str) -> tuple[float, floa
         axis = 0
     else:
         raise ValueError(f'Accepted plot kinds are "heatmap", "topomap" or "spectrum"; got {pkind = }')
-    # vmin = min(t.data.mean(axis=axis).min() for t in tfr_array)
-    vmax = max(t.data.mean(axis=axis).max() for t in tfr_array)
+    # vmin = -np.nanmax([np.nanmax(np.nanmean(t.data, axis=axis)) for t in tfr_array])
+    vmax = np.nanmax([np.nanmax(np.nanmean(t.data, axis=axis)) for t in tfr_array])
     vmin = -vmax
     return vmin, vmax
 
@@ -56,6 +58,10 @@ def plot_tfr_by_epo(
             ax = epo_axes[i]
             epo_type_df.reset_index(inplace=True)
             tfr_plot = epo_type_df.loc[0, 'tfr']
+
+            # Drop nan-padded channels before plotting, otherwise MNE produces blank figures
+            valid_chs = [ch for ch, d in zip(tfr_plot.ch_names, tfr_plot.data) if not np.all(np.isnan(d))]
+            tfr_plot = tfr_plot.copy().pick(valid_chs)
 
             if pkind == 'heatmap':
                 tfr_plot.plot(
@@ -112,13 +118,22 @@ def plot_tfr_by_epo(
             ax.figure.legend(by_label.values(), by_label.keys())
 
 
+def _filter_tfr_plot_df(tfr_df: pd.DataFrame) -> pd.DataFrame:
+    """Filter TFR plots dataframe for epochs that were stasis-corrected and extracted from wide windows"""
+    plot_df = tfr_df[(tfr_df['epo_type'].str.endswith('wide')) & (tfr_df['epo_type'].str.startswith('bl'))]
+    if plot_df.empty:
+        raise EmptyDataError('No data of the needed epo-types found for this plot.')
+    return plot_df
+
+
 def all_sid_tfr_plots(
         tfr_df: pd.DataFrame,
         pkind: str = 'heatmap',
         show: bool = True,
         save: bool = False,
 ) -> None:
-    all_sid_plots(tfr_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
+    plot_df = _filter_tfr_plot_df(tfr_df)
+    all_sid_plots(plot_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
 
 
 def all_group_tfr_plots(
@@ -127,4 +142,5 @@ def all_group_tfr_plots(
         show: bool = True,
         save: bool = False,
 ) -> None:
-    all_group_plots(tfr_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
+    plot_df = _filter_tfr_plot_df(tfr_df)
+    all_group_plots(plot_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
