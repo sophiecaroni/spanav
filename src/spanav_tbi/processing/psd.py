@@ -18,6 +18,7 @@ import spanav_eeg_utils.spanav_utils as sn
 import warnings
 from mne.epochs import Epochs
 from mne.time_frequency import read_spectrum, EpochsSpectrum, combine_spectrum, Spectrum
+from spanav_tbi.processing.channel_alignment_utils import align_spectral_channels
 
 # Suppress MNE filename convention warning
 warnings.filterwarnings(
@@ -228,7 +229,9 @@ def get_sid_level_psd_df(
                         psd=psd,
                     ))
 
-        return pd.DataFrame.from_records(psd_records)
+        # Create dataframe, align channels to be the same across all subjects and return aligned dataframe
+        sid_level_df = pd.DataFrame.from_records(psd_records)
+        return align_spectral_channels(sid_level_df, 'psd')
 
     # Load epoch-level PSD dataframe with average_epochs=True - average at the moment of loading is more efficient
     sid_level_df = get_epo_level_psd_df(test=test, load=True, save=False, average_epochs=True)
@@ -245,15 +248,28 @@ def get_sid_level_psd_df(
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / sid) / fname
             psd.save(fpath, overwrite=True)
 
-    return sid_level_df
+    # Align channels to be the same across all subjects and return aligned dataframe
+    return align_spectral_channels(sid_level_df, 'psd')
 
 
 def get_group_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
+        average_channels: bool = True,
 ) -> pd.DataFrame:
-    if load:
+    """
+    Build a group-level PSD DataFrame by loading pre-saved files or computing from sid-level PSDs.
+    :param load: bool, if True and average_channels=True, loads pre-saved channel-averaged group PSD files.
+        If average_channels=False, pre-saved full-channel group files do not exist so sid-level is always used.
+    :param test: bool, if True uses test subject set.
+    :param save: bool, if True saves computed group PSDs to disk (only when average_channels=True).
+    :param average_channels: bool, if True each group PSD has one averaged channel (suitable for spectrum plots).
+        If False, all subject channels are retained in the group average, with NaN for channels not present in every
+        subject of the group (suitable for topomap plots).
+    :return: pd.DataFrame with columns group, cond, epo_type, psd.
+    """
+    if load and average_channels:  # for average_channels=False, no pre-saved group files exist
         groups = io.get_groups_letters()
         epo_types = sn.get_task_epo_types(test=test)
 
@@ -268,11 +284,11 @@ def get_group_level_psd_df(
                     fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
                     fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
                     if not fpath.exists():
-                        print(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
                     # Load spectrum from exported file
                     cond_psd = read_spectrum(fpath)
-                    
+
                     # Append as df entry
                     psd_records.append(dict(
                         group=group,
@@ -283,16 +299,16 @@ def get_group_level_psd_df(
 
         return pd.DataFrame.from_records(psd_records)
 
-    # Load subject-level PSD, with average_channels=True - we need one channel per sid to compute group spectra (since every sid has a different montage)
-    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, average_channels=True)
+    # Load subject-level PSD
+    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, average_channels=average_channels)
 
     # For each group, average PSD of the same condition and epoch-type across different subjects
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
     group_level_df = grouped_df['psd'].apply(compute_group_psd).reset_index(drop=True)
 
-    if save:
-        # Export each group-level PSD object
+    if save and average_channels:
+        # Export each group-level PSD object (only channel-averaged, no export of full-channel objects
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, psd = row['group'], row['cond'], row['epo_type'], row['psd']
             fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
