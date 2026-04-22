@@ -17,6 +17,7 @@ from spanav_eeg_utils.plot_utils import plot_context
 from spanav_eeg_utils.spanav_utils import map_epo_type_labels, get_epo_types
 from spanav_tbi.visualization.iter_plots import all_sid_plots, all_group_plots
 from typing import Iterable
+from pandas.errors import EmptyDataError
 
 PSD = EpochsSpectrum | Spectrum
 
@@ -30,7 +31,7 @@ def _compute_psd_ylim(psd_array: Iterable[PSD], pkind: str) -> tuple[float, floa
         axis = -1  # average across frequencies
     else:
         raise ValueError(f'Accepted plot kinds are "topomap" and "spectrum"; got {pkind = }')
-    vmax = max(p.data.mean(axis=axis).max() for p in psd_array)
+    vmax = np.nanmax([np.nanmax(np.nanmean(t.data, axis=axis)) for t in psd_array])
     vmin = -vmax
     return vmin, vmax
 
@@ -56,6 +57,10 @@ def plot_psd_by_epo(
             ax = epo_axes[i]
             epo_type_df.reset_index(inplace=True)
             psd_plot = epo_type_df.loc[0, 'psd']
+
+            # Drop nan-padded channels before plotting, otherwise MNE produces blank figures
+            valid_chs = [ch for ch, d in zip(psd_plot.ch_names, psd_plot._data) if not np.all(np.isnan(d))]
+            psd_plot = psd_plot.copy().pick(valid_chs)
 
             if pkind == 'topomap':
                 fmin, fmax = psd_plot.freqs.min(), psd_plot.freqs.max()
@@ -96,13 +101,22 @@ def plot_psd_by_epo(
             ax.figure.legend(by_label.values(), by_label.keys())
 
 
+def _filter_psd_plot_df(psd_df: pd.DataFrame) -> pd.DataFrame:
+    """Filter PSD plots dataframe for epochs that were stasis-corrected"""
+    plot_df = psd_df[psd_df['epo_type'].str.startswith('bl')]
+    if plot_df.empty:
+        raise EmptyDataError('No data of the needed epo-types found for this plot.')
+    return plot_df
+
+
 def all_sid_psd_plots(
         psd_df: pd.DataFrame,
         pkind: str = 'spectrum',
         show: bool = True,
         save: bool = False,
 ) -> None:
-    all_sid_plots(psd_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
+    plot_df = _filter_psd_plot_df(psd_df)
+    all_sid_plots(plot_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
 
 
 def all_group_psd_plots(
@@ -111,4 +125,5 @@ def all_group_psd_plots(
         show: bool = True,
         save: bool = False,
 ) -> None:
-    all_group_plots(psd_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
+    plot_df = _filter_psd_plot_df(psd_df)
+    all_group_plots(plot_df, 'psd', plot_psd_by_epo, _compute_psd_ylim, 'PSD', pkind, show, save)
