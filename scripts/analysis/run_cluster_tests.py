@@ -10,16 +10,18 @@
 """
 from spanav_tbi.processing.tfr import get_sid_level_tfr_df
 from spanav_tbi.processing.psd import get_sid_level_psd_df
-from spanav_tbi.analysis.cluster_tests import run_cluster_test_tfr, run_cluster_test_psd
+from spanav_tbi.analysis.cluster_tests import run_cluster_test_tfr, run_cluster_test_psd, format_cluster_test_results
 
 
 def run_cluster_tests(
     dev: bool = False,
+    verbose: bool = False,
     **kwargs,
 ) -> None:
     """
     Run spectral cluster permutation tests on channel-averaged TFR and PSD data, separately per group.
     :param dev: bool, if True loads test data and reduces n_permutations to 10.
+    :param verbose: bool, whether to print a summary of results per group.
     :param kwargs: forwarded to run_cluster_test_tfr and run_cluster_test_psd (e.g. effects).
     """
     kwargs.setdefault('n_permutations', 10 if dev else 1000)
@@ -39,7 +41,8 @@ def run_cluster_tests(
             group_df = df[df['group'] == group]
             results, included_sids = run_fn(group_df, factor_cols=FACTORS, effects=EFFECTS, **kwargs)
 
-            print(f"{results = }")
+            if verbose:
+                print(format_cluster_test_results(spct_obj, results, group, included_sids))
 
 
 if __name__ == '__main__':
@@ -50,4 +53,5 @@ if __name__ == '__main__':
 
     run_cluster_tests(
         dev=True,
+        verbose=True,
     )
