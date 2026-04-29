@@ -13,9 +13,8 @@ from spanav_tbi.processing.psd import get_sid_level_psd_df
 from spanav_tbi.analysis.cluster_tests import (
     run_cluster_test_tfr,
     run_cluster_test_psd,
-    format_cluster_test_results,
-    save_cluster_test_results,
 )
+from spanav_tbi.analysis.stats_utils import format_cluster_test_results, save_cluster_test_results
 
 
 def run_cluster_tests(
