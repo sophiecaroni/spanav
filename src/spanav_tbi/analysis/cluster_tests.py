@@ -12,9 +12,16 @@ import mne
 import numpy as np
 import pandas as pd
 from mne.stats import f_mway_rm, permutation_cluster_test
+from mne.time_frequency import Spectrum, BaseTFR
 from spanav_eeg_utils.config_utils import get_seed
+from spanav_eeg_utils.spectral_utils import get_band_freqs
+from spanav_tbi.processing.psd import get_sid_level_psd_df
+from spanav_tbi.processing.tfr import get_sid_level_tfr_df
+from spanav_tbi.analysis.stat_utils import get_tfr_epo_types, get_psd_epo_types
 
 SEED = get_seed()
+_TFR_EPO_TYPES = get_tfr_epo_types()
+_PSD_EPO_TYPES = get_psd_epo_types()
 
 
 def _pivot_to_array(
@@ -59,7 +66,10 @@ def _pivot_to_array(
                     f"Expected one observation for subject, got {len(combo_df)} rows for {sid = }, {combo = }. "
                 )
             obj = combo_df.iloc[0][data_col]
-            combo_data.append(obj._data[0])  # to extract the average data and drop the channel dimension
+
+            is_mne_obj = isinstance(obj, Spectrum) or isinstance(obj, BaseTFR)
+            obj_data = obj if not is_mne_obj else obj._data[0]  # to extract the average data and drop the channel dimension
+            combo_data.append(obj_data)
         rows.append(combo_data)
         included_sids.append(sid)  # keep track of included subjects
 
@@ -150,9 +160,10 @@ def _get_effect_label(effect: str, factor_cols: list[str]) -> str:
 
 
 def run_cluster_test_tfr(
-        tfr_df: pd.DataFrame,
+        group: str,
         factor_cols: list[str],
         effects: list[str],
+        dev: bool = False,
         **kwargs,
 ) -> tuple[dict[str, dict], list]:
     """
@@ -160,12 +171,17 @@ def run_cluster_test_tfr(
 
     Expects the 'tfr' column to contain single-channel AverageTFR objects (average_channels=True at load time).
 
-    :param tfr_df: pd.DataFrame, subject-level TFR DataFrame. 'tfr' column contains single-channel AverageTFR objects.
+    :param group:
     :param factor_cols: list[str], within-subjects factors.
     :param effects: list[str], factors statistical effects to test.
     :param kwargs: forwarded to run_cluster_test (e.g. n_permutations).
+    :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
+    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, average_channels=True)
+    tfr_df = tfr_df[tfr_df['group'] == group]
+    tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
+
     data, included_sids, factor_levels = _pivot_to_array(tfr_df, 'tfr', factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
@@ -177,9 +193,10 @@ def run_cluster_test_tfr(
 
 
 def run_cluster_test_psd(
-        psd_df: pd.DataFrame,
+        group: str,
         factor_cols: list[str],
         effects: list[str],
+        dev: bool = False,
         **kwargs,
 ) -> tuple[dict[str, dict], list]:
     """
@@ -187,12 +204,17 @@ def run_cluster_test_psd(
 
     Expects the 'psd' column to contain single-channel Spectrum objects (average_channels=True at load time).
 
-    :param psd_df: pd.DataFrame, subject-level PSD DataFrame. 'psd' column contains single-channel Spectrum objects.
+    :param group:
     :param factor_cols: list[str] or None, within-subjects factors.
     :param effects: list[str], factors statistical effects to test.
     :param kwargs: forwarded to run_cluster_test (e.g. n_permutations).
+    :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, average_channels=True)
+    psd_df = psd_df[psd_df['group'] == group]
+    psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
+
     data, included_sids, factor_levels = _pivot_to_array(psd_df, 'psd', factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
@@ -201,3 +223,39 @@ def run_cluster_test_psd(
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
     return results, included_sids
+
+
+def run_psd_ch_cluster_test(
+        group: str,
+        factor_cols: list[str],
+        effects: list[str],
+        band: str = 'theta',
+        dev: bool = False,
+        **kwargs,
+):
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, average_channels=False)
+    psd_df = psd_df[psd_df['group'] == group]
+    psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
+
+    # Select PSD in the interval of the band of interest
+    fmin, fmax = get_band_freqs(band)
+    psd_df['psd'] = psd_df['psd'].apply(lambda psd: psd.get_data(fmin=fmin, fmax=fmax))
+    return run_ch_cluster_test(psd_df, factor_cols, effects, **kwargs)
+
+
+def run_ch_cluster_test(
+        df: pd.DataFrame,
+        factor_cols: list[str],
+        effects: list[str],
+        data_col: str = 'psd',
+        **kwargs,
+):
+    data, included_sids, factor_levels = _pivot_to_array(df, data_col, factor_cols)
+    factor_levels_counts = [len(v) for v in factor_levels.values()]
+    results = {}
+    for effect in effects:
+        res = run_cluster_test(data, factor_levels=factor_levels_counts, effect=effect, **kwargs)
+        res['effect_label'] = _get_effect_label(effect, factor_cols)
+        results[effect] = res
+    return results, included_sids
+
