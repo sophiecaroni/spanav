@@ -14,9 +14,7 @@ import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
 import spanav_eeg_utils.spectral_utils as spct
 import spanav_eeg_utils.comp_utils as cmp
-
 from spanav_tbi.processing.psd import get_epo_level_psd_df
-from fooof.analysis import get_band_peak_fm
 
 # Suppress MNE filename convention warning
 warnings.filterwarnings(
@@ -73,11 +71,8 @@ def get_epo_level_osc_df(
             # Extract FOOOF oscillatory SNR
             osc_snr = spct.compute_osc_snr(psd_model, band, space=space)
 
-            # Detect whether a peak was modeled in the band and get its power (will be nan if no peak was detected)
-            band_freqs = spct.get_band_freqs(band)
-            pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]  # select power of the highest peak
-            if space == 'log':
-                pk_pw = np.log10(pk_pw)
+            # Extract power of modeled peaks in the band (if any - otherwise will be nan)
+            pk_pw = spct.get_modeled_peak_power(psd_model, band, space=space)
 
             row = dict(
                 sid=sid,

@@ -15,6 +15,7 @@ import pandas as pd
 from mne.time_frequency import EpochsSpectrum, Spectrum, BaseTFR
 from fooof import FOOOF
 from yasa import bandpower_from_psd
+from fooof.analysis import get_band_peak_fm
 
 PSD = EpochsSpectrum | Spectrum
 
@@ -140,6 +141,19 @@ def compute_osc_snr(
     if space == 'log':
         return np.log10(snr)
     return snr
+
+
+def get_modeled_peak_power(
+        psd_model: FOOOF,
+        band: str,
+        space: str = 'log',
+) -> np.float64 | None:
+    """Get power of a peak within a PSD model, if any - returns np.nan if no peak was modeled."""
+    band_freqs = get_band_freqs(band)
+    pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]  # select power of the highest peak
+    if space == 'log':
+        return np.log10(pk_pw)
+    return pk_pw
 
 
 def model_psd(
