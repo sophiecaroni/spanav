@@ -79,20 +79,51 @@ def get_band_power(
         freqs: np.ndarray,
         band: str,
         rel: bool = False,
+        space: str = 'log',
 ) -> np.float64:
+    """
+    Returns estimated power in a canonical frequency band.
+
+    psd must be in linear space (as yasa's bandpower_from_psd requires), but the returned band power is per default in
+    logarithmic space (better for visualization and comparions).
+
+    :param psd:
+    :param freqs:
+    :param band:
+    :param rel:
+    :param space:
+    :return:
+    """
     custom_bands = [
         (4, 8, "Theta"),
         (8, 12, "Alpha"),
         (38, 42, "38-42"),
     ]
     band_pws_df = bandpower_from_psd(psd, freqs, bands=custom_bands, relative=rel)
-    return band_pws_df[band.capitalize()][0]
+
+    # Extract power of band from df and return
+    band_pw = band_pws_df[band.capitalize()][0]
+    if space == 'log':
+        return np.log10(band_pw)
+    return band_pw
 
 
 def compute_osc_snr(
         model: FOOOF,
         band: str,
+        space: str = 'log',
 ) -> np.float64:
+    """
+    Returns FOOOF-based oscillatory SNR.
+
+    SNR computation is done in linear space, but the returned value is per default in logarithmic space (better for
+    visualization and comparions).
+
+    :param model:
+    :param band:
+    :param space:
+    :return:
+    """
     # Get power spectra of oscillatory and background components
     osc_psd = model.get_data(component='peak', space='linear')
     osc_psd = np.clip(osc_psd, 0, None)  # Prevent negative oscillatory power (which means "no peaks")
@@ -104,9 +135,11 @@ def compute_osc_snr(
     osc_pw = get_band_power(osc_psd, freqs, band)
     osc_bg = get_band_power(bg_psd, freqs, band)
 
-    # Compute and return SNR (in linear space)
-    snr_linear = osc_pw / osc_bg
-    return snr_linear
+    # Compute and return SNR
+    snr = osc_pw / osc_bg
+    if space == 'log':
+        return np.log10(snr)
+    return snr
 
 
 def model_psd(

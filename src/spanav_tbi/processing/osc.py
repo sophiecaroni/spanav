@@ -33,7 +33,7 @@ def get_epo_level_osc_df(
         space: str = 'log',
 ) -> pd.DataFrame:
     if load:
-        file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
+        file_path = io.get_tables_path() / f'osc_df_epo_level_{space}.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
     # Get spectra, always in linear space (needed for later computations)
@@ -62,14 +62,22 @@ def get_epo_level_osc_df(
                     f'PSD and freqs should have the same shape, got {epo_psd.sape} PSD and {freqs.shape} freqs'
                     f'\n\t{grouped_df = }')
 
+            # Extract absolute and relative band power
+            band = 'theta'
+            abs_pw = spct.get_band_power(epo_psd, freqs, band, rel=False, space=space)
+            rel_pw = spct.get_band_power(epo_psd, freqs, band, rel=True, space=space)
+
             # Model PSD
             psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
 
-            # Detect whether a peak is present
-            band = 'theta'
+            # Extract FOOOF oscillatory SNR
+            osc_snr = spct.compute_osc_snr(psd_model, band, space=space)
+
+            # Detect whether a peak was modeled in the band and get its power (will be nan if no peak was detected)
             band_freqs = spct.get_band_freqs(band)
             pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]  # select power of the highest peak
-            pk = False if np.isnan(pk_pw) else True
+            if space == 'log':
+                pk_pw = np.log10(pk_pw)
 
             row = dict(
                 sid=sid,
@@ -78,10 +86,9 @@ def get_epo_level_osc_df(
                 epo_type=epo_type,
                 epo_n=epoch_idx,
                 band=band,
-                abs_pw=spct.get_band_power(epo_psd, freqs, band, rel=False),  # Compute abs power
-                rel_pw=spct.get_band_power(epo_psd, freqs, band, rel=True),  # Compute rel power
-                osc_snr=spct.compute_osc_snr(psd_model, band),  # Compute oscillatory SNR
-                pk=pk,
+                abs_pw=abs_pw,
+                rel_pw=rel_pw,
+                osc_snr=osc_snr,
                 pk_pw=pk_pw,
             )
 
@@ -93,7 +100,7 @@ def get_epo_level_osc_df(
     epo_level_df.sort_values(by=['sid', 'cond'])  # sort conveniently
 
     if save:
-        file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
+        file_path = io.get_tables_path() / f'osc_df_epo_level_{space}.csv'
         epo_level_df.to_csv(file_path)
 
     return epo_level_df
@@ -112,9 +119,10 @@ def get_sid_level_osc_df(
     epo_level_df = get_epo_level_osc_df(load=True, test=test, save=False)
 
     # Average across epochs of the same group_cols values
-    group_cols = ['sid', 'group', 'cond', 'epo_type', 'band']
+    group_cols = ['sid', 'cond', 'epo_type', 'band']
     grouped_df = epo_level_df.groupby(group_cols, as_index=False)
     sid_level_df = grouped_df.agg(
+        group=('group', 'first'),
         abs_pw_avg=('abs_pw', 'mean'),
         abs_pw_std=('abs_pw', 'std'),
         rel_pw_avg=('rel_pw', 'mean'),
