@@ -30,12 +30,13 @@ def get_epo_level_osc_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        space: str = 'log',
 ) -> pd.DataFrame:
     if load:
         file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    # Compute spectra in the linear space
+    # Compute spectra, always in linear space
     psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')
     df_rows = []
 
