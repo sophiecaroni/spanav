@@ -75,11 +75,11 @@ def compute_psd(
 
 
 def get_band_power(
-        psd,
-        freqs,
+        psd: np.ndarray,
+        freqs: np.ndarray,
         band: str,
         rel: bool = False,
-):
+) -> np.float64:
     custom_bands = [
         (4, 8, "Theta"),
         (8, 12, "Alpha"),
@@ -92,7 +92,7 @@ def get_band_power(
 def compute_osc_snr(
         model: FOOOF,
         band: str,
-):
+) -> np.float64:
     # Get power spectra of oscillatory and background components
     osc_psd = model.get_data(component='peak', space='linear')
     osc_psd = np.clip(osc_psd, 0, None)  # Prevent negative oscillatory power (which means "no peaks")
@@ -112,27 +112,30 @@ def compute_osc_snr(
 def model_psd(
         psd_data: np.ndarray,
         psd_freqs: np.ndarray,
-        fmin_fmax: list | None = None,
-        max_n_peaks: int = 6.0
-):
+        fmin_fmax: list[float] | None = None,
+        max_n_peaks: int = 6
+) -> FOOOF:
     """
+    Models a PSD using the FOOOF algorithm.
+
+    Input PSD and frequencies need to be in linear space (as FOOOF fit() requires).
 
     :param psd_data: PSD powers in *linear* space
     :param psd_freqs: PSD frequency in *linear* space
-    :param fmin_fmax:
+    :param fmin_fmax: frequency range within which modeling the PSD
     :param max_n_peaks: maximum number of peaks to fit, default 6 because it's typical for EEG (1-40 Hz)
     :return:
     """
     # Define FOOOF object
     freq_res = psd_freqs[1] - psd_freqs[0]
     peak_width_limits = (2*freq_res, 12)
-    fm = FOOOF(  # expects PSD in linear space!
+    fm = FOOOF(
         peak_width_limits=peak_width_limits,
         max_n_peaks=max_n_peaks
     )
 
     # Fit the spectrum
-    fm.fit(
+    fm.fit(  # expects PSD in linear space!
         freqs=psd_freqs,
         power_spectrum=psd_data,
         freq_range=fmin_fmax

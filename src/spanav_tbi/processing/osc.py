@@ -36,7 +36,7 @@ def get_epo_level_osc_df(
         file_path = io.get_tables_path() / 'osc_df_epo_level.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    # Compute spectra, always in linear space
+    # Get spectra, always in linear space (needed for later computations)
     psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')
     df_rows = []
 
@@ -57,7 +57,6 @@ def get_epo_level_osc_df(
         # Iterate over epochs to compute one observation of oscillatory feature each
         for epoch_idx in range(len(frontal_psd)):
             epo_psd = frontal_psd._data[epoch_idx].mean(axis=0)  # average across channels
-
             if epo_psd.shape != freqs.shape:
                 raise ValueError(
                     f'PSD and freqs should have the same shape, got {epo_psd.sape} PSD and {freqs.shape} freqs'
@@ -72,7 +71,6 @@ def get_epo_level_osc_df(
             pk_pw = get_band_peak_fm(psd_model, band_freqs, select_highest=True)[1]  # select power of the highest peak
             pk = False if np.isnan(pk_pw) else True
 
-            # Define a row of the df
             row = dict(
                 sid=sid,
                 group=prs.get_group_letter(sid),

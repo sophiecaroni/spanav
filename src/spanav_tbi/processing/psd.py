@@ -143,6 +143,7 @@ def get_epo_level_psd_df(
             continue
         cids_by_cond = sn.group_cids_by_cond(sid, test, cids=sid_cids)
         for epo_type in epo_types:
+
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
                 fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd_{space}.h5'
