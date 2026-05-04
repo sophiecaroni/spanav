@@ -98,12 +98,11 @@ def compute_osc_snr(
     osc_psd = np.clip(osc_psd, 0, None)  # Prevent negative oscillatory power (which means "no peaks")
     bg_psd = model.get_data(component='aperiodic', space='linear')
 
-    # Estimate oscillatory-band power
+    # Estimate oscillatory-band power (absolute)
     freqs = model.freqs
-    absolute = True
 
-    osc_pw = get_band_power(osc_psd, freqs, band, rel=not absolute)
-    osc_bg = get_band_power(bg_psd, freqs, band, rel=not absolute)
+    osc_pw = get_band_power(osc_psd, freqs, band)
+    osc_bg = get_band_power(bg_psd, freqs, band)
 
     # Compute and return SNR (in linear space)
     snr_linear = osc_pw / osc_bg
