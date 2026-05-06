@@ -24,13 +24,14 @@ _TFR_EPO_TYPES = get_tfr_epo_types()
 _PSD_EPO_TYPES = get_psd_epo_types()
 
 
-def _pivot_to_array(
+def _reshape_for_cluster(
         df: pd.DataFrame,
         data_col: str,
         factor_cols: list[str],
 ) -> tuple[np.ndarray, list, dict[str, list]]:
     """
-    Pivot a subject x factors DataFrame into (n_sids, n_factor_levels_combos, *data_shape).
+    Reshape a subject x factors DataFrame into an array of shape (n_factor_levels_combos, n_sids, *spectral_dims), which
+    is required for the cluster test.
 
     Data is extracted via obj._data[0], assuming single-channel spectral objects (average_channels=True at load time).
 
@@ -38,9 +39,10 @@ def _pivot_to_array(
     :param data_col: str, column holding the spectral objects.
     :param factor_cols: list[str], columns that define the within-subjects factors, ordered fromnslowest- to
         fastest-varying (e.g. ['cond', 'epo_type']).
-    :return: tuple of (array of shape (n_sids, n_factor_levels_combos, *data_shape), included_sids list, factor_levels
+    :return: tuple of (array of shape (n_factor_levels_combos, n_sids, *spectral_dims), included_sids list, factor_levels
         dict)
     """
+    # Get all possible factor levels
     factor_levels = {col: sorted(df[col].unique()) for col in factor_cols}
 
     # Extract all factor levels combinations according f_mway_rm convention: first factor varies slowest, last factor varies fastest.
@@ -73,7 +75,9 @@ def _pivot_to_array(
         rows.append(combo_data)
         included_sids.append(sid)  # keep track of included subjects
 
-    return np.array(rows), included_sids, factor_levels
+    # Need a final swap of the first and second dimension to obtain (n_factor_levels_combos, n_sids, *spectral_dims) shape 
+    pivoted_arr = np.array(rows).swapaxes(1, 0)
+    return pivoted_arr, included_sids, factor_levels
 
 
 def run_cluster_test(
@@ -89,8 +93,7 @@ def run_cluster_test(
     Handles (n_freqs,) for PSD or (n_freqs, n_times) for TFR inputs. Adjacency is built purely over the
     spectral objects via mne.stats.combine_adjacency (chain adjacency per dimension).
 
-    :param data: np.ndarray of shape (n_sids, n_factor_levels_combos, *spectral_dims).
-        spectral_dims is (n_freqs,) for PSD or (n_freqs, n_times) for TFR.
+    :param data: np.ndarray of shape (n_factor_levels_combos, n_sids, *spectral_dims).
         n_factor_levels_combos is the product of all factor level counts.
     :param effect: str, factor statistical effect to test.
     :param factor_levels: list[int], level counts per within-subjects factor passed to f_mway_rm.
@@ -100,21 +103,13 @@ def run_cluster_test(
     :return: dict with keys F_obs (ndarray of shape spectral_dims), clusters (list), cluster_pv (ndarray),
         H0 (ndarray), significant (ndarray[bool] of shape spectral_dims — True where a significant cluster exists).
     """
-    n_sids, n_factor_levels_combos = data.shape[:2]
-
-    # Define (time-)frequency adjacency matrix
+    # Define adjacency matrix
     spectral_dims = data.shape[2:]
     adjacency = mne.stats.combine_adjacency(*spectral_dims)
 
-    # Define matrix of (n_sids, n_space) arrays, one per factor level combination
-    n_space = int(np.prod(spectral_dims))
-    data_flat = data.reshape(n_sids, n_factor_levels_combos, n_space)
-    X = [data_flat[:, i_c, :] for i_c in range(n_factor_levels_combos)]
-
-    stat_fun = make_rm_stat_fun(factor_levels, effect)
-
+    stat_fun = make_rm_stat_fun(factor_levels, effect)  # internally reshapes data into the required (n_sids, n_factor_levels_combos, *spectral_dims) shape
     F_obs, clusters, cluster_pv, H0 = permutation_cluster_test(
-        X,
+        data,
         stat_fun=stat_fun,
         adjacency=adjacency,
         n_permutations=n_permutations,
@@ -182,7 +177,7 @@ def run_cluster_test_tfr(
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
 
-    data, included_sids, factor_levels = _pivot_to_array(tfr_df, 'tfr', factor_cols)
+    data, included_sids, factor_levels = _reshape_for_cluster(tfr_df, 'tfr', factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
     for effect in effects:
@@ -215,7 +210,7 @@ def run_cluster_test_psd(
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
 
-    data, included_sids, factor_levels = _pivot_to_array(psd_df, 'psd', factor_cols)
+    data, included_sids, factor_levels = _reshape_for_cluster(psd_df, 'psd', factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
     for effect in effects:
@@ -250,7 +245,7 @@ def run_ch_cluster_test(
         data_col: str = 'psd',
         **kwargs,
 ):
-    data, included_sids, factor_levels = _pivot_to_array(df, data_col, factor_cols)
+    data, included_sids, factor_levels = _reshape_for_cluster(df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
     for effect in effects:
