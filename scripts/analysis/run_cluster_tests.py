@@ -38,7 +38,7 @@ def run_cluster_tests(
         ('ch_psd', run_psd_ch_cluster_test),
     ]
 
-    for group in get_groups_letters():
+    for group in sorted(get_groups_letters()):
         for spct_obj, run_fn in spct_objects:
             results, included_sids = run_fn(group, factor_cols=FACTORS, effects=EFFECTS, **kwargs)
 
@@ -50,7 +50,7 @@ def run_cluster_tests(
 
 
 if __name__ == '__main__':
-    EFFECTS = ['A']  # main effect of the condition
+    EFFECTS = ['A', 'B', 'A:B']  # main effect of the condition
     FACTORS = ['cond', 'epo_type']
 
     run_cluster_tests(
