@@ -255,6 +255,9 @@ def process_directory(source_path: Path, output_path: Path):
                 if SUBJECTS and sid not in SUBJECTS:
                     print(f'\nSkipping {file = } because of subject not in subjects to process ({sid = })')
                     continue
+                if raw_acq == 'block36':
+                    print(f'\nSkipping {file = } because this is a wrong recording')
+                    continue
 
                 # Clean up Session ID: Extract digits strictly
                 ses_match = re.search(r'\d+', raw_ses)
@@ -370,6 +373,6 @@ if __name__ == "__main__":
         SOURCE_FOLDER, OUTPUT_FOLDER = _get_spanav_folders(group)
         AUTO_RENAME = True
         TESTING_MODE = False
-        SUBJECTS = ['73A01', '73A02', '73T06']  # set to None or empty to process all missing subjects
+        SUBJECTS = ['73T07']  # set to None or empty to process all missing subjects
 
         process_directory(SOURCE_FOLDER, OUTPUT_FOLDER)
