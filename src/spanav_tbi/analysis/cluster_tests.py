@@ -8,11 +8,12 @@
     Functions for mass-univariate cluster-based permutation tests on EEG spectral data (TFR and PSD).
 """
 import warnings
-import mne
 import numpy as np
 import pandas as pd
-from mne.stats import f_mway_rm, permutation_cluster_test
+from mne.stats import f_mway_rm, permutation_cluster_test, combine_adjacency
 from mne.time_frequency import Spectrum, BaseTFR
+from mne.channels import find_ch_adjacency
+from mne import Info
 from spanav_eeg_utils.config_utils import get_seed
 from spanav_eeg_utils.spectral_utils import get_band_freqs, band_crop_psd
 from spanav_tbi.processing.psd import get_sid_level_psd_df
@@ -82,6 +83,7 @@ def _reshape_for_cluster(
 
 def run_cluster_test(
         data: np.ndarray,
+        info: Info,
         effect: str,
         factor_levels: list[int],
         n_permutations: int = 1000,
@@ -95,6 +97,7 @@ def run_cluster_test(
 
     :param data: np.ndarray of shape (n_factor_levels_combos, n_sids, *spectral_dims).
         n_factor_levels_combos is the product of all factor level counts.
+    :param info: Info, spectral object information.
     :param effect: str, factor statistical effect to test.
     :param factor_levels: list[int], level counts per within-subjects factor passed to f_mway_rm.
         For a cond × epo_type design pass e.g. [n_conds, n_epo_types].
@@ -104,8 +107,7 @@ def run_cluster_test(
         H0 (ndarray), significant (ndarray[bool] of shape spectral_dims — True where a significant cluster exists).
     """
     # Define adjacency matrix
-    spectral_dims = data.shape[2:]
-    adjacency = mne.stats.combine_adjacency(*spectral_dims)
+    adjacency = set_adj_mat(data, info)
 
     stat_fun = make_rm_stat_fun(factor_levels, effect)  # internally reshapes data into the required (n_sids, n_factor_levels_combos, *spectral_dims) shape
     F_obs, clusters, cluster_pv, H0 = permutation_cluster_test(
@@ -122,6 +124,7 @@ def run_cluster_test(
         if is_sig:
             sig_mask[cluster] = True
 
+    spectral_dims = data.shape[2:]
     return dict(
         F_obs=F_obs.reshape(spectral_dims),
         clusters=clusters,
@@ -146,6 +149,30 @@ def make_rm_stat_fun(factor_levels: list[int], effect: str):
             return_pvals=False,
         )[0]
     return stat_fun
+
+
+def set_adj_mat(
+        data: np.ndarray,
+        info: Info,
+) -> np.ndarray | None:
+    """Set adjacency matrix based on the type of spectral object."""
+    spectral_dims = data.shape[1:]
+    ch_avg = info['nchan'] == 1
+    if len(spectral_dims) == 1:
+        # Channel-averaged PSD: spectral_dims is (n_freqs)
+        return None  # None will be set as a lattice adjacency (freq1-freq2-...-freqn)
+
+    elif len(spectral_dims) == 2:
+        if not ch_avg:
+            # Channel-wise PSD (n_channels, n_freqs)
+            ch_adj, _ = find_ch_adjacency(info, ch_type='eeg')
+            return combine_adjacency(ch_adj, spectral_dims[1])  # see example: https://mne.tools/stable/auto_tutorials/stats-sensor-space/75_cluster_ftest_spatiotemporal.html
+
+        else:
+            # Case: Channel-averaged TFR (n_freqs, n_times)
+            return None  # None will be set as a lattice adjacency (freq1-freq2-...-freqn and time1-time2-...-time-n)
+
+    raise ValueError(f'Invalid shape of spectral data detected: accepted one (freqs) or two (fres/time, ch/freqs) dimensions, got {spectral_dims}')
 
 
 def _get_effect_label(effect: str, factor_cols: list[str]) -> str:
@@ -177,11 +204,14 @@ def run_cluster_test_tfr(
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
 
-    data, included_sids, factor_levels = _reshape_for_cluster(tfr_df, 'tfr', factor_cols)
+    data_col = 'tfr'
+
+    data, included_sids, factor_levels = _reshape_for_cluster(tfr_df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
+    info = tfr_df.copy().reset_index().loc[0, data_col].info
     results = {}
     for effect in effects:
-        res = run_cluster_test(data, factor_levels=factor_levels_counts, effect=effect, **kwargs)
+        res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
     return results, included_sids
@@ -209,12 +239,13 @@ def run_cluster_test_psd(
     psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, average_channels=True)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
-
-    data, included_sids, factor_levels = _reshape_for_cluster(psd_df, 'psd', factor_cols)
+    data_col = 'psd'
+    info = psd_df.copy().reset_index().loc[0, data_col].info
+    data, included_sids, factor_levels = _reshape_for_cluster(psd_df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
     for effect in effects:
-        res = run_cluster_test(data, factor_levels=factor_levels_counts, effect=effect, **kwargs)
+        res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
     return results, included_sids
@@ -247,9 +278,10 @@ def run_ch_cluster_test(
 ):
     data, included_sids, factor_levels = _reshape_for_cluster(df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
+    info = df.copy().reset_index().loc[0, data_col].info
     results = {}
     for effect in effects:
-        res = run_cluster_test(data, factor_levels=factor_levels_counts, effect=effect, **kwargs)
+        res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
     return results, included_sids
