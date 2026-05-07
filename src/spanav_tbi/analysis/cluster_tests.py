@@ -14,7 +14,7 @@ import pandas as pd
 from mne.stats import f_mway_rm, permutation_cluster_test
 from mne.time_frequency import Spectrum, BaseTFR
 from spanav_eeg_utils.config_utils import get_seed
-from spanav_eeg_utils.spectral_utils import get_band_freqs
+from spanav_eeg_utils.spectral_utils import get_band_freqs, band_crop_psd
 from spanav_tbi.processing.psd import get_sid_level_psd_df
 from spanav_tbi.processing.tfr import get_sid_level_tfr_df
 from spanav_tbi.analysis.stat_utils import get_tfr_epo_types, get_psd_epo_types
@@ -234,7 +234,7 @@ def run_psd_ch_cluster_test(
 
     # Select PSD in the interval of the band of interest
     fmin, fmax = get_band_freqs(band)
-    psd_df['psd'] = psd_df['psd'].apply(lambda psd: psd.get_data(fmin=fmin, fmax=fmax))
+    psd_df['psd'] = psd_df['psd'].apply(lambda psd: band_crop_psd(psd, fmin, fmax))
     return run_ch_cluster_test(psd_df, factor_cols, effects, **kwargs)
 
 

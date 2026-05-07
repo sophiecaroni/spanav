@@ -260,3 +260,13 @@ def spectral_bl_corr_from_df(input_df: pd.DataFrame, objs_name: str, objs_col: s
         bl_corr_records[objs_col].append(obj_bl)
 
     return bl_corr_records
+
+
+def band_crop_psd(psd: Spectrum, fmin: float, fmax: float) -> Spectrum:
+    """Crop a Spectrum object in a frequency band."""
+    data, freqs = psd.get_data(fmin=fmin, fmax=fmax, return_freqs=True)
+    return mne.time_frequency.SpectrumArray(
+        data,
+        info=psd.info,
+        freqs=freqs
+    )
