@@ -100,11 +100,14 @@ def get_epo_path(
 
 
 def get_derivatives_path(
-        sid: str,
+        sid: str | None = None,
 ) -> Path:
     root = get_main_path()
-    group = prs.get_group_letter(sid)
-    return root / 'intermediate' / f'WP73{group}' / f'sub-{sid}'
+    if sid is None:
+        return root / 'intermediate'
+    else:
+        group = prs.get_group_letter(sid)
+        return root / 'intermediate' / f'WP73{group}' / f'sub-{sid}'
 
 
 def get_base_bids_filename(
@@ -348,3 +351,9 @@ def get_groups_letters(
     return groups_letters
 
 
+def get_all_preproc_raw_fpaths() -> list:
+    intermediate_path = get_derivatives_path()
+    fpaths = []
+    for fpath in intermediate_path.glob('*/*/06_preproc/*.fif'):
+        fpaths.append(fpath)
+    return fpaths
