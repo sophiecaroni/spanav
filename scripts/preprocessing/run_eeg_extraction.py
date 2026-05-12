@@ -2,7 +2,7 @@ from spanav_tbi.preprocessing.extract_eeg import get_raw_to_epoch, get_all_epo_o
 from spanav_tbi.processing.psd import compute_psd_by_key
 from spanav_tbi.visualization.vis_eeg import plot_epo_overview, plot_epo_cleaning_summary
 from spanav_eeg_utils.io_utils import get_sids, get_sid_blocks
-from spanav_tbi.processing.channel_alignment_utils import extract_cohort_channels
+from spanav_tbi.preprocessing.channel_alignment_utils import extract_cohort_channels
 
 
 def extract_all_epochs(test: bool, show: bool, save: bool) -> None:

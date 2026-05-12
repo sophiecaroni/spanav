@@ -10,7 +10,7 @@ from mne import Epochs
 from mne.epochs import EpochsFIF
 from mne.baseline import rescale
 from autoreject import AutoReject
-from spanav_tbi.processing.channel_alignment_utils import reconstruct_missing_channels
+from spanav_tbi.preprocessing.channel_alignment_utils import reconstruct_missing_channels
 
 EPO_TYPES = set(sn.get_epo_types())
 EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
