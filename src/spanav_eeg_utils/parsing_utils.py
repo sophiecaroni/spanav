@@ -54,31 +54,6 @@ def parse_epo_fname(
     return cond, block_n, epo_type
 
 
-def parse_prepro_fname(
-        fname: str,
-) -> tuple[str | None, str | None, str]:
-    """
-
-    :param fname:
-    :return:
-    """
-    cid = None
-    epo_type = 'Raw'
-    block_n = None
-    if fname.startswith('RS'):
-        block_n = None
-        m = re.match(r"RS_(.+?)-raw\.fif$", fname)
-        if m:
-            (rs_cond, ) = m.groups()
-            cid = f'RS_{rs_cond}'
-    else:
-        m = re.match(r".*block(.+?)_(.+?)_raw\.fif$", fname)  # .* allows anything before
-        block_n, _ = m.groups()
-        cid = f'block{block_n}'
-
-    return cid, block_n, epo_type
-
-
 def check_path_sid(fpath: Path) -> Path:
     group_dir_re = re.compile(r"^(?:(?:BIDS_Data|Data)_)WP73[AT]$", re.IGNORECASE)
     subject_dir_re = re.compile(r"^(?:sub[- ]*)?(?:(?:WP)?73)?(?P<grp>[TA])(?P<num>0[1-9]|[1-9]\d)$", re.IGNORECASE,)
