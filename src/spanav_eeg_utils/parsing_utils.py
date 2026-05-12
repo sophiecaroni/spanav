@@ -117,3 +117,6 @@ def get_conds(sid: str | None = None, group: str | None = None) -> list[str]:
     else:
         return ['iTBS', 'HF'] if group == 'T' else ['iTBS', 'HF', 'cTBS']
 
+
+def get_sid_from_fname(fname: str) -> str:
+    return re.match(r"sub-\w{5}", fname).group(0)
