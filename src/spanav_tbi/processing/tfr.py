@@ -18,7 +18,6 @@ import spanav_eeg_utils.spanav_utils as sn
 import spanav_eeg_utils.spectral_utils as spct
 from mne.time_frequency import EpochsTFR, AverageTFR, read_tfrs, combine_tfr
 from mne.epochs import BaseEpochs
-from spanav_tbi.processing.channel_alignment_utils import align_spectral_channels
 
 TFR = EpochsTFR | AverageTFR
 
@@ -202,9 +201,8 @@ def get_sid_level_tfr_df(
                         tfr=cond_epo_tfr,
                     ))
 
-        # Create dataframe, align channels to be the same across all subjects and return aligned dataframe
-        sid_level_df = pd.DataFrame.from_records(tfr_records)
-        return align_spectral_channels(sid_level_df, 'tfr')
+        # Create and return dataframe
+        return pd.DataFrame.from_records(tfr_records)
 
     # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memory)
     sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average=True)
@@ -231,9 +229,7 @@ def get_sid_level_tfr_df(
             fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
             tfr.save(fpath, overwrite=True)
-
-    # Align channels to be the same across all subjects and return aligned dataframe
-    return align_spectral_channels(sid_level_df, 'tfr')
+    return sid_level_df
 
 
 def get_group_level_tfr_df(
@@ -248,9 +244,8 @@ def get_group_level_tfr_df(
     :param load: bool, if True and average_channels=True, loads pre-saved channel-averaged group TFR files.
         If average_channels=False, pre-saved full-channel group files do not exist so sid-level is always used.
     :param save: bool, if True saves computed group TFRs to disk (only when average_channels=True).
-    :param average_channels: bool, if True each group TFR has one averaged channel (suitable for heatmap/spectrum
-        plots). If False, all subject channels are retained in the group average, with NaN for channels not
-        present in every subject of the group (suitable for topomap plots).
+    :param average_channels: bool, if True each group TFR has one averaged channel. If False, all subject channels are
+        retained in the group average, with NaN for channels not
     :return: pd.DataFrame with columns group, cond, epo_type, tfr.
     """
     if load and average_channels:  # for average_channels=False, no pre-saved group files exist
@@ -283,6 +278,7 @@ def get_group_level_tfr_df(
                         tfr=cond_epo_tfr,
                     ))
 
+        # Create and return dataframe
         return pd.DataFrame.from_records(tfr_records)
 
     sid_level_df = get_sid_level_tfr_df(test, load=True, save=False, average_channels=average_channels)
@@ -293,13 +289,12 @@ def get_group_level_tfr_df(
     group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
 
     if save and average_channels:
-        # Export each group-level TFR object (only channel-averaged, no export of all-channel objects
+        # Export each group-level TFR object (only channel-averaged, no export of all-channel objects)
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, group_tfr = row['group'], row['cond'], row['epo_type'], row['tfr']
             fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'TFR') / fname
             group_tfr.save(fpath, overwrite=True)
-
     return group_level_df
 
 
