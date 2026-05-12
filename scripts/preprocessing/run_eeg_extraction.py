@@ -2,9 +2,10 @@ from spanav_tbi.preprocessing.extract_eeg import get_raw_to_epoch, get_all_epo_o
 from spanav_tbi.processing.psd import compute_psd_by_key
 from spanav_tbi.visualization.vis_eeg import plot_epo_overview, plot_epo_cleaning_summary
 from spanav_eeg_utils.io_utils import get_sids, get_sid_blocks
+from spanav_tbi.processing.channel_alignment_utils import extract_cohort_channels
 
 
-def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
+def extract_all_epochs(test: bool, show: bool, save: bool) -> None:
     sids = get_sids(test=test)
     for sid in sids:
         cids = get_sid_blocks(sid, test=test)
@@ -13,7 +14,7 @@ def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
             print(f"\n=== {sid} | {cid} ===\n")
 
             # Extract epochs
-            raw_rec = get_raw_to_epoch(sid, cid)  # load clean continuous (raw) data
+            raw_rec = get_raw_to_epoch(sid, cid, test)  # load clean continuous (raw) data
             epos_dict = get_all_epo_objects(raw_rec, sid=sid, cid=cid, save=save, load=False, verbose=test, test=test)  # Epoch raw data into different epoch-types
 
             # Plot summary of epochs cleaning diagnostics
@@ -22,6 +23,11 @@ def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
             # Visualize extracted epochs via PSD and evoked response
             psd_by_rec = compute_psd_by_key(epos_dict)
             plot_epo_overview(epos_dict, psd_by_rec, sid=sid, cid=cid, show=show, save=save)
+
+
+def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
+    extract_cohort_channels(test, save)
+    extract_all_epochs(test, show, save)
 
 
 if __name__ == "__main__":

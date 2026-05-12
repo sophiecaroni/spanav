@@ -10,6 +10,7 @@ from mne import Epochs
 from mne.epochs import EpochsFIF
 from mne.baseline import rescale
 from autoreject import AutoReject
+from spanav_tbi.processing.channel_alignment_utils import reconstruct_missing_channels
 
 EPO_TYPES = set(sn.get_epo_types())
 EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
@@ -30,7 +31,7 @@ def get_all_epo_objects(
         assert sid is not None, "Subject ID (sid) can't be None with the current save/load parameters."
         assert cid is not None, "Condition ID (cid) can't be None with the current save/load parameters."
     epo_by_type = {}
-    if cid.startswith('RS'):
+    if cid is not None and cid.startswith('RS'):
         epo_types = ['RS']
     else:
         epo_types = sn.get_task_epo_types(test=test)
@@ -90,25 +91,20 @@ def get_epo_rec(
             epo_def = get_epo_def(sid, block)
             epo_rec = get_epo_from_intervals(epo_def, base_type, raw_rec, wide=True)
 
-        elif epo_type == 'RS':
+        else:  # epo_type == 'RS':
             epo_rec = get_rs_epochs(raw_rec)
-
-        else:
-            f'Unrecognized epo_type {epo_type}, returning None'
-            return None
 
         if epo_rec is not None:
             # Clean epochs
-            epo_rec_clean = clean_epos(epo_rec, epo_type, verbose=verbose)
+            epo_rec_clean = clean_epo_rec(epo_rec, sid, epo_type, verbose=verbose)
+            
             if save and epo_rec_clean is not None:
                 real_cid = prs.get_stim(sid, acq=block)
                 task = 'RS' if real_cid.lower().startswith('rs') else 'SpaNav'
                 files_path = io.get_epo_data_path(epo_type, sid, acq=real_cid, task=task)
                 epo_rec_clean.save(files_path, overwrite=True, verbose=verbose)
             return epo_rec_clean
-
-        else:
-            return None
+        return None
 
 
 def get_obj_pres_epochs(
@@ -170,7 +166,7 @@ def get_obj_pres_epochs(
 
 def get_rs_epochs(
         raw_rec: mne.io.BaseRaw,
-) -> mne.Epochs:
+) -> Epochs:
     return mne.make_fixed_length_epochs(
         raw_rec, duration=1,
         verbose=False,
@@ -220,7 +216,7 @@ def get_epo_from_intervals(
         epo_type: str,
         raw_rec: mne.io.BaseRaw,
         wide: bool = False,
-) -> mne.Epochs | None:
+) -> Epochs | None:
     check_alignment(raw_rec, df_epo_intervals)
 
     # Subset the df to rows relative to epochs of argument epo_type
@@ -253,7 +249,7 @@ def get_epo_from_intervals(
         tmax = (first_row[end_col] - first_row[start_col]) - 1 / sfreq  # MNE Epochs includes both tmin and tmax samples (closed interval), so a [0, 1s] window gives 513 samples at 512 Hz; subtract one sample period to get the intended n_samples = duration * sfreq
 
         # Define Epochs object
-        epochs = mne.Epochs(
+        epochs = Epochs(
             raw_rec, events, event_id={epo_type: epo_id},
             tmin=tmin, tmax=tmax, baseline=None, preload=True,
             flat=None, picks=mne.pick_types(raw_rec.info, eeg=True, exclude='bads'),
@@ -374,51 +370,52 @@ def task_bl_corr(
     return raw_corr
 
 
-def clean_epos(
-        epo_rec: mne.Epochs,
-        epo_label: str,
-        verbose: bool = False,
-) -> mne.Epochs | None:
+def clean_epo_rec(rec: Epochs, sid: str, epo_label: str, verbose: bool = False) -> Epochs | None:
     # Re-reference to common average
-    epo_rec.set_eeg_reference('average', verbose=verbose)
+    rec.set_eeg_reference('average', verbose=verbose)
 
     # For wide epochs, only use central 1s for artifact rejection
     if epo_label.endswith('_wide'):
 
-        # Extract 1s epochs 
-        center = (epo_rec.times[0] + epo_rec.times[-1]) / 2  # extract central time of each epoch
-        central_1s = epo_rec.copy().crop(tmin=center - 0.5, tmax=center + 0.5, include_tmax=False)
-
-        # Apply cleaning
-        central_clean = clean_epos(central_1s, epo_label.replace('_wide', ''), verbose=verbose)
+        # Apply bad epoch rejection only on central 1s
+        center = (rec.times[0] + rec.times[-1]) / 2  # extract central time of each epoch
+        central_1s = rec.copy().crop(tmin=center - 0.5, tmax=center + 0.5, include_tmax=False)
+        central_clean = _reject_bad_epochs(central_1s, verbose=verbose)
         if central_clean is None or len(central_clean) == 0:
             return None
 
-        # Select wide epochs based on the clean 1s epochs
-        good_samples = set(central_clean.events[:, 0])
-        mask = np.isin(epo_rec.events[:, 0], list(good_samples))
-        return epo_rec[mask]
+        # Select epochs to maintain based on the
+        mask = np.isin(rec.events[:, 0], central_clean.events[:, 0])
+        return reconstruct_missing_channels(rec[mask], sid, epo_label)
 
-    if len(epo_rec) > 0:
-        n_epo = len(epo_rec)
+    epo = _reject_bad_epochs(rec, verbose)
+    if epo is None:
+        return None
+
+    return reconstruct_missing_channels(epo, sid, epo_label)
+
+
+def _reject_bad_epochs(rec: Epochs, verbose: bool = False) -> Epochs | None:
+    if rec is not None and len(rec) > 0:
+        n_epo = len(rec)
         if n_epo >= 5:
             cv = 5
             ar = AutoReject(cv=cv, random_state=SEED, verbose=verbose)
-            epo_rec_clean = ar.fit_transform(epo_rec)
+            epo_rec_clean = ar.fit_transform(rec)
             return epo_rec_clean
 
         else:
-            warnings.warn(f'Too few epochs (n={n_epo}) in {epo_label} to apply autoreject! Applying manual epoch-cleaning.')
+            warnings.warn(f"Too few epochs (n={n_epo}) apply autoreject => Applying manual epoch-cleaning.")
 
             # Compute PTP per channel per epoch
-            data = epo_rec.get_data()  # (n_epochs, n_channels, n_times)
+            data = rec.get_data()  # (n_epochs, n_channels, n_times)
             ptp_ch = np.ptp(data, axis=-1)  # (n_epochs, n_channels)
 
             # Drop clearly bad epochs, where there are
             th_epoch = 100e-6  # 100 µV; ev. change to 120e-6 for more clemency
             bad_epochs = (ptp_ch > th_epoch).any(axis=1)  # shape (n_epochs,)
             good_epochs = ~bad_epochs
-            epo_rec = epo_rec[good_epochs]
+            epo_rec = rec[good_epochs]
             ptp_ch = ptp_ch[good_epochs]
             n_epochs = len(epo_rec)
 
