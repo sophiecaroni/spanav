@@ -307,11 +307,12 @@ def get_retrieval_raw_rec(
 def get_raw_to_epoch(
         sid: str,
         cid: str,
+        verbose: bool = True,
 ) -> mne.io.BaseRaw:
     # if cid.startswith('RS'):
     #     return p(sid, cid, load=True, save=False, verbose=False)
     # else:
-    return get_retrieval_raw_rec(sid, cid, verbose=True)
+    return get_retrieval_raw_rec(sid, cid, verbose=verbose)
 
 
 def task_bl_corr(
