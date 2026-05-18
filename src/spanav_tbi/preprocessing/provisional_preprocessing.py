@@ -5,9 +5,8 @@ from pathlib import Path
 
 
 def get_server_raw_path(subject: str, block: str, task: str) -> Path:
-    group = prs.get_group_letter(subject)
     fname = f'sub-{subject}_ses-1_task-{task}_acq-{block}_eeg.vhdr'
-    return io.get_raw_eeg_path(subject, server=True) / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{subject}' / 'ses-1' / 'eeg' / fname
+    return io.get_raw_eeg_path(subject, server=True) / fname
 
 
 def preproc_pipeline(subject: str, block: str, task: str = 'SpaNav', fast: bool = True) -> None:
