@@ -159,7 +159,6 @@ def get_sid_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
-        average_channels: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -185,9 +184,6 @@ def get_sid_level_tfr_df(
                     # Load TFR from exported file
                     cond_epo_tfr = read_tfrs(sid_tfr_dir / fname, verbose=False)
 
-                    if average_channels:
-                        cond_epo_tfr = _average_tfr_channels(cond_epo_tfr)
-
                     # Append as df entry
                     tfr_records.append(dict(
                         sid=sid,
@@ -200,7 +196,7 @@ def get_sid_level_tfr_df(
         # Create and return dataframe
         return pd.DataFrame.from_records(tfr_records)
 
-    # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memory)
+    # Load epoch-level TFR dataframe with average_epochs=True to average across epochs at loading time (more efficient)
     sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average_epochs=True)
     if sid_level_df.empty:
         raise ValueError(f"Sid-level TFR dataframe is empty: \n\t{sid_level_df}")
@@ -232,19 +228,15 @@ def get_group_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
-        average_channels: bool = True,
 ) -> pd.DataFrame:
     """
     Build a group-level TFR DataFrame by loading pre-saved files or computing from sid-level TFRs.
     :param test: bool, if True uses test subject set.
-    :param load: bool, if True and average_channels=True, loads pre-saved channel-averaged group TFR files.
-        If average_channels=False, pre-saved full-channel group files do not exist so sid-level is always used.
-    :param save: bool, if True saves computed group TFRs to disk (only when average_channels=True).
-    :param average_channels: bool, if True each group TFR has one averaged channel. If False, all subject channels are
-        retained in the group average, with NaN for channels not
+    :param load: bool, if True loads pre-saved group TFR files.
+    :param save: bool, if True saves computed group TFRs to disk.
     :return: pd.DataFrame with columns group, cond, epo_type, tfr.
     """
-    if load and average_channels:  # for average_channels=False, no pre-saved group files exist
+    if load:
         groups = io.get_groups_letters()
         epo_types = sn.get_task_epo_types(test=test)
 
@@ -277,15 +269,13 @@ def get_group_level_tfr_df(
         # Create and return dataframe
         return pd.DataFrame.from_records(tfr_records)
 
-    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False, average_channels=average_channels)
-
     # For each group, average TFR of the same condition and epoch-type across different subjects
+    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False)
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
     group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
 
-    if save and average_channels:
-        # Export each group-level TFR object (only channel-averaged, no export of all-channel objects)
+    if save:
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, group_tfr = row['group'], row['cond'], row['epo_type'], row['tfr']
             fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
