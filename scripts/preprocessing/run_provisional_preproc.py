@@ -12,12 +12,12 @@
 from spanav_tbi.preprocessing.provisional_preprocessing import preproc_pipeline
 
 
-def run_provisional_preprocessing(sids: list[str], acqs: list[str], fast: bool = True) -> None:
+def run_provisional_preprocessing(sids: list[str], acqs: list[str], fast: bool = True, verbose: bool = False) -> None:
     for sid in sids:
         for block in acqs:
             print(f"\n=== {sid} | {block} ===")
             try:
-                preproc_pipeline(sid, block, fast=fast)
+                preproc_pipeline(sid, block, fast=fast, verbose=verbose)
                 print(f"\tDone ✅")
             except FileNotFoundError as e:
                 print(f"\t[SKIP] Raw file not found for {sid = }, {block = }")
@@ -34,5 +34,6 @@ if __name__ == '__main__':
     ]
 
     fast = False
-    run_provisional_preprocessing(subjects, blocks, fast=fast)
+    verbose = True
+    run_provisional_preprocessing(subjects, blocks, fast=fast, verbose=verbose)
 

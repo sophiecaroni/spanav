@@ -9,14 +9,14 @@ def get_server_raw_path(subject: str, block: str, task: str) -> Path:
     return io.get_raw_eeg_path(subject, server=True) / fname
 
 
-def preproc_pipeline(subject: str, block: str, task: str = 'SpaNav', fast: bool = True) -> None:
+def preproc_pipeline(subject: str, block: str, task: str = 'SpaNav', fast: bool = True, verbose: bool = False) -> None:
     """
     Load a raw BrainVision recording from the server, apply automated preprocessing,
     and save as .fif to the local preproc directory.
     """
     raw_path = get_server_raw_path(subject, block, task)
     print(f"\tLoading : {raw_path}")
-    raw = mne.io.read_raw_brainvision(raw_path, preload=False, verbose=False)
+    raw = mne.io.read_raw_brainvision(raw_path, preload=False, verbose=verbose)
     full_duration = raw.times[-1]
 
     # Crop first 145 s of recording in any case because they are encoding phase and are not needed at this stage
@@ -42,10 +42,10 @@ def preproc_pipeline(subject: str, block: str, task: str = 'SpaNav', fast: bool 
     else:
         print(f"\tLoad (full) : {full_duration:.0f} s of data in {load_elapsed:.1f} s")
 
-    raw.filter(l_freq=1, h_freq=60, n_jobs=-1, verbose=False)
-    raw.resample(sfreq=250, verbose=False)
-    raw.notch_filter(freqs=50.0, verbose=False)
-    raw.set_eeg_reference(projection=False, verbose=False)
+    raw.filter(l_freq=1, h_freq=60, n_jobs=-1, verbose=verbose)
+    raw.resample(sfreq=250, verbose=verbose)
+    raw.notch_filter(freqs=50.0, verbose=verbose)
+    raw.set_eeg_reference(projection=False, verbose=verbose)
 
     out_path = io.get_cont_path('preproc', subject, block, task)
     print(f"\tSaving : {out_path}")
