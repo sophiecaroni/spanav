@@ -129,4 +129,4 @@ def inspect_final_data(final_raw: BaseRaw) -> None:
     Plot the fully preprocessed recording for a final visual check.
     :param final_raw: BaseRaw, preprocessed EEG recording to inspect
     """
-    final_raw.plot(**get_cont_rec_plot_kwargs(final_raw))
+    final_raw.plot(block=True, **get_cont_rec_plot_kwargs(final_raw))
