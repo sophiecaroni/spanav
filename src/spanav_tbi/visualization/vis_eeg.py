@@ -312,7 +312,7 @@ def plot_evk_by_grp(
         # fig.suptitle(prefix)
 
         real_cid = get_stim(sid, acq=cid)
-        fig.suptitle(real_cid)
+        fig.suptitle(f"{cid} (cond {real_cid})")
 
         # Plot one evoked-rec per subplot
         for i, (ax, rec, title) in enumerate(zip(axes, recs_dict.values(), subtitles)):
@@ -338,7 +338,7 @@ def plot_evk_by_grp(
         fig.tight_layout()
 
         if save:
-            fname = f'{real_cid}_evk_traces'
+            fname = f'{cid}_evk_traces'
             if fname_suff:
                 fname += fname_suff
             save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname=f"{fname}.png", fig=fig,
@@ -421,7 +421,7 @@ def plot_psd_avg_by_grp(
             if col == 0:
                 ax.set_ylabel(r'log(Power [$\mu$V])')
             real_cid = get_stim(sid, acq=cid)
-            fig.suptitle(real_cid)
+            fig.suptitle(f"{cid} (cond {real_cid})")
 
             # Plot
             if psd_avg is not None:
@@ -433,7 +433,7 @@ def plot_psd_avg_by_grp(
                 continue
 
         if save:
-            fname = f'{real_cid}_psds_by_epo_type'
+            fname = f'{cid}_psds_by_epo_type'
             if fname_suff:
                 fname += fname_suff
             save_figure(save_dir=sid, group_parent_dir='plots/PSD', fname=f"{fname}.png", fig=fig,
