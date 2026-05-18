@@ -126,7 +126,9 @@ def get_sid_level_osc_df(
         osc_snr_std=('osc_snr', 'std'),
         n_epochs=('sid', 'size'),
     )
-    cmp.fix_std_singleton(sid_level_df, ["abs_pw_std", "rel_pw_std", "osc_snr_std"], n_col="n_epochs")  # replace with zeros the NaNs appearing as std (if there was only one row to average across)
+
+    # Replace with zeros the NaNs introduced as std if there was only one row to average across
+    cmp.fix_std_singleton(sid_level_df, ["abs_pw_std", "rel_pw_std", "osc_snr_std"], n_col="n_epochs")
 
     if save:
         fname = 'osc_df_sid_level.csv'

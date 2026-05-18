@@ -13,8 +13,6 @@ from autoreject import AutoReject
 from spanav_tbi.preprocessing.channel_alignment_utils import reconstruct_missing_channels
 
 EPO_TYPES = set(sn.get_epo_types())
-EPO_LEN_COMPARISON_METRICS = {'psd', 'band_pw', 'evk', 'snr', 'osc_snr'}
-
 SEED = config.get_seed()
 
 
@@ -385,7 +383,7 @@ def clean_epo_rec(rec: Epochs, sid: str, epo_label: str, verbose: bool = False) 
         if central_clean is None or len(central_clean) == 0:
             return None
 
-        # Select epochs to maintain based on the
+        # Select epochs to maintain based on the central-cleaned ones
         mask = np.isin(rec.events[:, 0], central_clean.events[:, 0])
         return reconstruct_missing_channels(rec[mask], sid, epo_label)
 

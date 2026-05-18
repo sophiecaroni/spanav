@@ -1,6 +1,5 @@
 import mne
 import spanav_eeg_utils.io_utils as io
-import spanav_eeg_utils.parsing_utils as prs
 import time
 from pathlib import Path
 

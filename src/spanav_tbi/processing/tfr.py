@@ -23,9 +23,7 @@ TFR = EpochsTFR | AverageTFR
 
 
 def average_tfr_series(tfr_series) -> AverageTFR:
-    """
-    Combine a pandas Series of MNE TFR objects by weigthed average.
-    """
+    """Combine a pandas Series of MNE TFR objects by weigthed average."""
     return combine_tfr(list(tfr_series))
 
 
@@ -35,24 +33,20 @@ def compute_tfr(
         norm: bool = True,
 ) -> EpochsTFR:
     """
-    Compute TFR as in Convertino et al., 2023
+    Compute TFR similarly to Convertino et al., 2023
     :param epo_rec:
     :param log:
     :param norm:
     :return:
     """
-
     freqs = np.logspace(np.log10(2), np.log10(60), 40)  # Convertino uses 70 but we can only up to 60 (bc of LPF for TI)
-    # freqs = np.linspace(2, 70, 40)
     n_cycles = 5
-    zero_mean = True  # wether to correct morlet wavelet to be of mean zero; set to True to have a true wavelet, but False better for illustration purposes
 
     tfr = epo_rec.compute_tfr(
         "morlet",
         freqs,
         n_cycles=n_cycles,
         average=False,  # don't average across epochs at this stage
-        zero_mean=zero_mean,
         return_itc=False,
     )
 
@@ -98,7 +92,7 @@ def get_epo_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
-        average: bool = False,
+        average_epochs: bool = False,
 ) -> pd.DataFrame:
 
     # Get TFRs within each epoch
@@ -134,7 +128,7 @@ def get_epo_level_tfr_df(
                         fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
                         cond_epo_tfr.save(fpath, overwrite=True)
 
-                if average:
+                if average_epochs:
                     # Average TFR across epochs
                     cond_epo_tfr = cond_epo_tfr.average(method='mean', dim='epochs')
 
@@ -205,7 +199,7 @@ def get_sid_level_tfr_df(
         return pd.DataFrame.from_records(tfr_records)
 
     # Load epoch-level TFR dataframe with average=True to average across epochs (to avoid keeping all TFRs in memory)
-    sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average=True)
+    sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average_epochs=True)
     if sid_level_df.empty:
         raise ValueError(f"Sid-level TFR dataframe is empty: \n\t{sid_level_df}")
 
