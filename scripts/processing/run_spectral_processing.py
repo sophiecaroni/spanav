@@ -18,21 +18,14 @@ def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
     )
 
     print(
-        f"\n\t#### 1) Get epoch-level PSD table ####"
-    )
-    epo_level_psd_df = get_epo_level_psd_df(load=load, test=test, save=save)
-    if verbose:
-        print(f"\t\t{epo_level_psd_df = }")
-
-    print(
-        f"\n\t#### 2) Get subject-level PSD table ####"
+        f"\n\t#### 1) Get subject-level PSD table ####"
     )
     sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save)
     if verbose:
         print(f"\t\t{sid_level_df = }")
 
     print(
-        f"\n\t#### 3) Get group-level PSD table"
+        f"\n\t#### 2) Get group-level PSD table"
     )
     group_level_df = get_group_level_psd_df(load=load, test=test, save=save)
     if verbose:
@@ -73,21 +66,14 @@ def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
     )
 
     print(
-        f"\n\t#### 1) Get epoch-level TFR table ####"
-    )
-    epo_level_tfr_df = get_epo_level_tfr_df(test=test, load=load, save=save)
-    if verbose:
-        print(f"\t\t{epo_level_tfr_df = }")
-
-    print(
-        f"\n\t#### 2) Get subject-level TFR table ####"
+        f"\n\t#### 1) Get subject-level TFR table ####"
     )
     sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save)
     if verbose:
         print(f"\t\t{sid_level_tfr_df = }")
 
     print(
-        f"\n\t#### 3) Get group-level TFR table"
+        f"\n\t#### 2) Get group-level TFR table"
     )
     group_level_tfr_df = get_group_level_tfr_df(test=test, load=load, save=save)
     if verbose:

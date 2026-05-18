@@ -92,8 +92,6 @@ def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR | None:
 
 def get_epo_level_tfr_df(
         test: bool = False,
-        load: bool = True,
-        save: bool = False,
         average_epochs: bool = False,
 ) -> pd.DataFrame:
 
@@ -111,24 +109,10 @@ def get_epo_level_tfr_df(
         for epo_type in epo_types:
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
-                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
-                fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
-                if load:
-                    if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
-                        continue
-                    # Read TFR from exported file
-                    cond_epo_tfr = read_tfrs(fpath, verbose=False)
-                else:
-                    cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
-                    if cond_epo_tfr is None:
-                        warnings.warn(f"\nTFR is None for {fname} (epo rec file likely not found). Skipping epo-level TFR...")
-                        continue
-                    if save:
-                        # Export
-                        fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_tfr.h5'
-                        fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
-                        cond_epo_tfr.save(fpath, overwrite=True)
+                cond_epo_tfr = compute_cond_tfr(sid, cids, epo_type)
+                if cond_epo_tfr is None:
+                    warnings.warn(f"\nTFR is None for {sid, cond, epo_type} (epo rec file likely not found). Skipping epo-level TFR...")
+                    continue
 
                 if average_epochs:
                     # Average TFR across epochs
@@ -197,7 +181,7 @@ def get_sid_level_tfr_df(
         return pd.DataFrame.from_records(tfr_records)
 
     # Load epoch-level TFR dataframe with average_epochs=True to average across epochs at loading time (more efficient)
-    sid_level_df = get_epo_level_tfr_df(test, load=True, save=False, average_epochs=True)
+    sid_level_df = get_epo_level_tfr_df(test, average_epochs=True)
     if sid_level_df.empty:
         raise ValueError(f"Sid-level TFR dataframe is empty: \n\t{sid_level_df}")
 

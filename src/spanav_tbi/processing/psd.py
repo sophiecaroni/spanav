@@ -124,9 +124,7 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str, space: str = 'log
 
 
 def get_epo_level_psd_df(
-        load: bool = True,
         test: bool = False,
-        save: bool = False,
         average_epochs: bool = False,
         space: str = 'log',
 ) -> pd.DataFrame:
@@ -145,25 +143,10 @@ def get_epo_level_psd_df(
 
             # Get one concatenated recording of epochs of the same condition
             for cond, cids in cids_by_cond.items():
-                fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-epo_psd_{space}.h5'
-                fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
-
-                if load:
-                    if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Skipping epo-level PSD...")
-                        continue
-
-                    # Load spectrum from exported file
-                    psd = read_spectrum(fpath)
-
-                else:
-                    psd = compute_cond_psd(sid, cids, epo_type, space=space)
-                    if psd is None:
-                        warnings.warn(f"\nPSD is None for {fname} (epo rec file likely not found). Skipping epo-level PSD...")
-                        continue
-                    if save:
-                        fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}') / fname
-                        psd.save(fpath, overwrite=True)
+                psd = compute_cond_psd(sid, cids, epo_type, space=space)
+                if psd is None:
+                    warnings.warn(f"\nPSD is None for {sid, cond, epo_type} (epo rec file likely not found). Skipping epo-level PSD...")
+                    continue
 
                 if average_epochs:
                     psd = psd.average(method='mean')
@@ -229,7 +212,7 @@ def get_sid_level_psd_df(
         return pd.DataFrame.from_records(psd_records)
 
     # Load epoch-level PSD dataframe with average_epochs=True - average at the moment of loading is more efficient
-    sid_level_df = get_epo_level_psd_df(test=test, load=True, save=False, average_epochs=True)
+    sid_level_df = get_epo_level_psd_df(test=test, average_epochs=True)
 
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
     sid_level_df = _stasis_bl_corr(sid_level_df)
