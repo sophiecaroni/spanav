@@ -29,18 +29,20 @@ def average_tfr_series(tfr_series) -> AverageTFR:
 
 def compute_tfr(
         epo_rec: BaseEpochs,
+        epo_type: str,
         log: bool = True,
         norm: bool = True,
 ) -> EpochsTFR:
     """
     Compute TFR similarly to Convertino et al., 2023
     :param epo_rec:
+    :param epo_type:
     :param log:
     :param norm:
     :return:
     """
     freqs = np.logspace(np.log10(2), np.log10(60), 40)  # Convertino uses 70 but we can only up to 60 (bc of LPF for TI)
-    n_cycles = 5
+    n_cycles = 5 if epo_type.endswith('wide') else freqs / 2  # Convertino uses 5 but in case of shorter (non-wide) epochs use a specific cycle for each frequency (half of the frequency)
 
     tfr = epo_rec.compute_tfr(
         "morlet",
@@ -84,7 +86,7 @@ def compute_cond_tfr(sid: str, cids: list[str], epo_type) -> EpochsTFR | None:
 
     # Compute TFR on all epochs and channels and return
     if epo_rec_full is not None:
-        return compute_tfr(epo_rec_full, log=True, norm=True)  # log-transform and normalize
+        return compute_tfr(epo_rec_full, epo_type, log=True, norm=True)  # log-transform and normalize
     return None
 
 
