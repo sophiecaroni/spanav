@@ -8,16 +8,17 @@
     Functions for mass-univariate cluster-based permutation tests on EEG spectral data (TFR and PSD).
 """
 import warnings
+import mne
 import numpy as np
 import pandas as pd
 from mne.stats import f_mway_rm, permutation_cluster_test, combine_adjacency
-from mne.time_frequency import Spectrum, BaseTFR
+from mne.time_frequency import Spectrum, BaseTFR, combine_tfr, combine_spectrum, AverageTFR
 from mne.channels import find_ch_adjacency
 from mne import Info
 from spanav_eeg_utils.config_utils import get_seed
 from spanav_eeg_utils.spectral_utils import get_band_freqs, band_crop_psd
 from spanav_tbi.processing.psd import get_sid_level_psd_df
-from spanav_tbi.processing.tfr import get_sid_level_tfr_df
+from spanav_tbi.processing.tfr import get_sid_level_tfr_df, TFR
 from spanav_tbi.analysis.stat_utils import get_tfr_epo_types, get_psd_epo_types
 
 SEED = get_seed()
@@ -200,13 +201,16 @@ def run_cluster_test_tfr(
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
-    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, average_channels=True)
+    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True)
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
-
     data_col = 'tfr'
 
+    # Average channels
+    tfr_df[data_col] = tfr_df[data_col].apply(lambda t: _average_tfr_channels(t))
+
     data, included_sids, factor_levels = _reshape_for_cluster(tfr_df, data_col, factor_cols)
+
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     info = tfr_df.copy().reset_index().loc[0, data_col].info
     results = {}
@@ -236,15 +240,19 @@ def run_cluster_test_psd(
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, average_channels=True)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
     data_col = 'psd'
-    info = psd_df.copy().reset_index().loc[0, data_col].info
+
+    # Average channels
+    psd_df[data_col] = psd_df[data_col].apply(lambda p: _average_psd_channels(p))
+
     data, included_sids, factor_levels = _reshape_for_cluster(psd_df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
     results = {}
     for effect in effects:
+        info = psd_df.copy().reset_index().loc[0, data_col].info
         res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
@@ -259,7 +267,7 @@ def run_psd_ch_cluster_test(
         dev: bool = False,
         **kwargs,
 ):
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, average_channels=False)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
 
@@ -286,3 +294,26 @@ def run_ch_cluster_test(
         results[effect] = res
     return results, included_sids
 
+
+def _average_tfr_channels(tfr: TFR, squeeze_ch_dim: bool = True) -> AverageTFR:
+    ch_tfrs = []
+    for ch in tfr.ch_names:
+        ch_tfr = tfr.copy().pick(ch)
+        mne.rename_channels(ch_tfr.info, {ch: 'ch_mean'})
+        ch_tfrs.append(ch_tfr)
+    ch_mean = combine_tfr(ch_tfrs)
+    if squeeze_ch_dim:
+        ch_mean.data = ch_mean.data.squeeze()
+    return ch_mean
+
+
+def _average_psd_channels(psd, squeeze_ch_dim: bool = True) -> Spectrum:
+    ch_psds = []
+    for ch in psd.ch_names:
+        ch_psd = psd.copy().pick(ch)
+        mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
+        ch_psds.append(ch_psd)
+    ch_mean = combine_spectrum(ch_psds)
+    if squeeze_ch_dim:
+        ch_mean._data = ch_mean._data.squeeze()
+    return ch_mean

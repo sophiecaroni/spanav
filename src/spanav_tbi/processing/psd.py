@@ -163,15 +163,6 @@ def get_epo_level_psd_df(
     return pd.DataFrame.from_records(psd_records)
 
 
-def _average_psd_channels(psd) -> object:
-    ch_psds = []
-    for ch in psd.ch_names:
-        ch_psd = psd.copy().pick(ch)
-        mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
-        ch_psds.append(ch_psd)
-    return combine_spectrum(ch_psds)
-
-
 def get_sid_level_psd_df(
         load: bool = True,
         test: bool = False,

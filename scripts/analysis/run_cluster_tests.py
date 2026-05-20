@@ -5,8 +5,7 @@
     Date of creation: 22.04.2026
 
     Description:
-    This script performs mass-univariate cluster-based permutation tests on channel-averaged TFR and PSD
-    data, separately per subjects group.
+    This script is used to run cluster-based permutation tests on TFR and PSD data, separately per TBI and HC groups.
 """
 from spanav_tbi.analysis.cluster_tests import (
     run_cluster_test_tfr,
@@ -24,7 +23,7 @@ def run_cluster_tests(
         **kwargs,
 ) -> None:
     """
-    Run spectral cluster permutation tests on channel-averaged TFR and PSD data, separately per group.
+    Run spectral cluster permutation tests on TFR and PSD data, separately per group.
     :param dev: bool, if True loads test data and reduces n_permutations to 10.
     :param verbose: bool, whether to print a summary of results per group.
     :param save: bool, whether to save results to disk.
@@ -50,7 +49,7 @@ def run_cluster_tests(
 
 
 if __name__ == '__main__':
-    EFFECTS = ['A', 'B', 'A:B']  # main effect of the condition
+    EFFECTS = ['A', 'B', 'A:B']
     FACTORS = ['cond', 'epo_type']
 
     run_cluster_tests(

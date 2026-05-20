@@ -10,7 +10,6 @@
 import numpy as np
 import pandas as pd
 import warnings
-import mne
 import spanav_eeg_utils.comp_utils as cmp
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
@@ -128,15 +127,6 @@ def get_epo_level_tfr_df(
                 ))
 
     return pd.DataFrame.from_records(tfr_entries)
-
-
-def _average_tfr_channels(tfr) -> object:
-    ch_tfrs = []
-    for ch in tfr.ch_names:
-        ch_tfr = tfr.copy().pick(ch)
-        mne.rename_channels(ch_tfr.info, {ch: 'ch_mean'})
-        ch_tfrs.append(ch_tfr)
-    return combine_tfr(ch_tfrs)
 
 
 def get_sid_level_tfr_df(
