@@ -281,27 +281,24 @@ def run_psd_ch_cluster_test(
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
 
     # Select PSD in the interval of the band of interest
-    fmin, fmax = get_band_freqs(band)
-    psd_df['psd'] = psd_df['psd'].apply(lambda psd: band_crop_psd(psd, fmin, fmax))
-    return run_ch_cluster_test(psd_df, factor_cols, effects, **kwargs)
+    psd_col = f'psd_{band}'
+    psd_df[psd_col] = _select_psd_interval(band, psd_df['psd'])
 
-
-def run_ch_cluster_test(
-        df: pd.DataFrame,
-        factor_cols: list[str],
-        effects: list[str],
-        data_col: str = 'psd',
-        **kwargs,
-):
-    data, included_sids, factor_levels = _reshape_for_cluster(df, data_col, factor_cols)
+    data, included_sids, factor_levels = _reshape_for_cluster(psd_df, psd_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
-    info = df.copy().reset_index().loc[0, data_col].info
+    info = psd_df.copy().reset_index().loc[0, psd_col].info
     results = {}
     for effect in effects:
         res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
         res['effect_label'] = _get_effect_label(effect, factor_cols)
         results[effect] = res
     return results, included_sids
+
+
+def _select_psd_interval(band: str, psd_series: pd.Series) -> pd.Series:
+    """Select PSD of a series of spectra into a frequency band interval."""
+    fmin, fmax = get_band_freqs(band)
+    return psd_series.apply(lambda psd: band_crop_psd(psd, fmin, fmax))
 
 
 def _average_tfr_channels(tfr: TFR, squeeze_ch_dim: bool = True) -> AverageTFR:
