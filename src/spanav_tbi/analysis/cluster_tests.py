@@ -30,7 +30,7 @@ def _reshape_for_cluster(
         df: pd.DataFrame,
         data_col: str,
         factor_cols: list[str],
-) -> tuple[np.ndarray, list, dict[str, list]]:
+) -> tuple[list[np.ndarray], list[str], dict[str, list]]:
     """
     Reshape a subject x factors DataFrame into an array of shape (n_factor_levels_combos, n_sids, *spectral_dims), which
     is required for the cluster test.
@@ -72,18 +72,27 @@ def _reshape_for_cluster(
             obj = combo_df.iloc[0][data_col]
 
             is_mne_obj = isinstance(obj, Spectrum) or isinstance(obj, BaseTFR)
-            obj_data = obj if not is_mne_obj else obj._data[0]  # to extract the average data and drop the channel dimension
+            obj_data = obj._data if is_mne_obj else obj
             combo_data.append(obj_data)
         rows.append(combo_data)
         included_sids.append(sid)  # keep track of included subjects
 
-    # Need a final swap of the first and second dimension to obtain (n_factor_levels_combos, n_sids, *spectral_dims) shape 
+    # Swap the first and second dimension to obtain (n_factor_levels_combos, n_sids, *spectral_dims) shape
     pivoted_arr = np.array(rows).swapaxes(1, 0)
-    return pivoted_arr, included_sids, factor_levels
+    cond_combos_dim = 0
+
+    # Create final X as a list
+    n_factor_level_combos = pivoted_arr.shape[cond_combos_dim]
+    X = [
+        np.squeeze(combo_x, cond_combos_dim)  # squeeze combos dimension which is 1 now
+        for combo_x in np.split(pivoted_arr, n_factor_level_combos, axis=cond_combos_dim)  # get each condition-combination array
+    ]
+
+    return X, included_sids, factor_levels
 
 
 def run_cluster_test(
-        data: np.ndarray,
+        X: list[np.ndarray],
         info: Info,
         effect: str,
         factor_levels: list[int],
@@ -96,7 +105,7 @@ def run_cluster_test(
     Handles (n_freqs,) for PSD or (n_freqs, n_times) for TFR inputs. Adjacency is built purely over the
     spectral objects via mne.stats.combine_adjacency (chain adjacency per dimension).
 
-    :param data: np.ndarray of shape (n_factor_levels_combos, n_sids, *spectral_dims).
+    :param X: list of length n_factor_levels_combos, where each element is an array of shape (n_sids, *spectral_dims).
         n_factor_levels_combos is the product of all factor level counts.
     :param info: Info, spectral object information.
     :param effect: str, factor statistical effect to test.
@@ -108,11 +117,11 @@ def run_cluster_test(
         H0 (ndarray), significant (ndarray[bool] of shape spectral_dims — True where a significant cluster exists).
     """
     # Define adjacency matrix
-    adjacency = set_adj_mat(data, info)
+    adjacency = set_adj_mat(X, info)
 
-    stat_fun = make_rm_stat_fun(factor_levels, effect)  # internally reshapes data into the required (n_sids, n_factor_levels_combos, *spectral_dims) shape
+    stat_fun = make_rm_stat_fun(factor_levels, effect)  # internally reshapes X into its required (n_sids, n_factor_levels_combos, *spectral_dims) shape
     F_obs, clusters, cluster_pv, H0 = permutation_cluster_test(
-        data,
+        X,
         stat_fun=stat_fun,
         adjacency=adjacency,
         n_permutations=n_permutations,
@@ -125,7 +134,7 @@ def run_cluster_test(
         if is_sig:
             sig_mask[cluster] = True
 
-    spectral_dims = data.shape[2:]
+    spectral_dims = X[0].shape[1:]
     return dict(
         F_obs=F_obs.reshape(spectral_dims),
         clusters=clusters,
@@ -147,32 +156,28 @@ def make_rm_stat_fun(factor_levels: list[int], effect: str):
             np.swapaxes(args, 1, 0),
             factor_levels=factor_levels,
             effects=effect,
-            return_pvals=False,
+            return_pvals=False,  # we don't need ANOVAs p values for clustering
         )[0]
     return stat_fun
 
 
-def set_adj_mat(
-        data: np.ndarray,
-        info: Info,
-) -> np.ndarray | None:
+def set_adj_mat(X: list[np.ndarray], info: Info) -> np.ndarray | None:
     """Set adjacency matrix based on the type of spectral object."""
-    spectral_dims = data.shape[1:]
+    if len(set(x.shape for x in X)) != 1:
+        raise ValueError(f'X contains arrays of different shapes.')
+    spectral_dims = X[0].shape[1:]  # all
     ch_avg = info['nchan'] == 1
     if len(spectral_dims) == 1:
         # Channel-averaged PSD: spectral_dims is (n_freqs)
         return None  # None will be set as a lattice adjacency (freq1-freq2-...-freqn)
-
     elif len(spectral_dims) == 2:
         if not ch_avg:
             # Channel-wise PSD (n_channels, n_freqs)
             ch_adj, _ = find_ch_adjacency(info, ch_type='eeg')
             return combine_adjacency(ch_adj, spectral_dims[1])  # see example: https://mne.tools/stable/auto_tutorials/stats-sensor-space/75_cluster_ftest_spatiotemporal.html
-
         else:
-            # Case: Channel-averaged TFR (n_freqs, n_times)
+            # Channel-averaged TFR (n_freqs, n_times)
             return None  # None will be set as a lattice adjacency (freq1-freq2-...-freqn and time1-time2-...-time-n)
-
     raise ValueError(f'Invalid shape of spectral data detected: accepted one (freqs) or two (fres/time, ch/freqs) dimensions, got {spectral_dims}')
 
 
