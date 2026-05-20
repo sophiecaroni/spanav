@@ -39,7 +39,7 @@ def run_cluster_tests(
 
     for group in sorted(get_groups_letters()):
         for spct_obj, run_fn in spct_objects:
-            results, included_sids = run_fn(group, factor_cols=FACTORS, effects=EFFECTS, **kwargs)
+            results, included_sids = run_fn(group, **kwargs)
 
             if verbose:
                 print(format_cluster_test_results(spct_obj, results, group, included_sids))
@@ -49,11 +49,8 @@ def run_cluster_tests(
 
 
 if __name__ == '__main__':
-    EFFECTS = ['A', 'B', 'A:B']
-    FACTORS = ['cond', 'epo_type']
-
     run_cluster_tests(
         dev=False,
         verbose=True,
-        save=False,
+        save=True,
     )

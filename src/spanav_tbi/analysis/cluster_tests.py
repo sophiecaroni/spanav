@@ -24,6 +24,8 @@ from spanav_tbi.analysis.stat_utils import get_tfr_epo_types, get_psd_epo_types
 SEED = get_seed()
 _TFR_EPO_TYPES = get_tfr_epo_types()
 _PSD_EPO_TYPES = get_psd_epo_types()
+_EFFECTS = ['A', 'B', 'A:B']
+_FACTORS = ['cond', 'epo_type']
 
 
 def _reshape_for_cluster(
@@ -189,8 +191,6 @@ def _get_effect_label(effect: str, factor_cols: list[str]) -> str:
 
 def run_cluster_test_tfr(
         group: str,
-        factor_cols: list[str],
-        effects: list[str],
         dev: bool = False,
         **kwargs,
 ) -> tuple[dict[str, dict], list]:
@@ -200,12 +200,14 @@ def run_cluster_test_tfr(
     Expects the 'tfr' column to contain single-channel AverageTFR objects (average_channels=True at load time).
 
     :param group:
-    :param factor_cols: list[str], within-subjects factors.
-    :param effects: list[str], factors statistical effects to test.
     :param kwargs: forwarded to run_cluster_test (e.g. n_permutations).
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
+    factor_cols = _FACTORS.copy()
+    effects = _EFFECTS.copy()
+
+    # Load and prepare subjects data
     tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, verbose=False)
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
@@ -228,8 +230,6 @@ def run_cluster_test_tfr(
 
 def run_cluster_test_psd(
         group: str,
-        factor_cols: list[str],
-        effects: list[str],
         dev: bool = False,
         **kwargs,
 ) -> tuple[dict[str, dict], list]:
@@ -239,12 +239,14 @@ def run_cluster_test_psd(
     Expects the 'psd' column to contain single-channel Spectrum objects (average_channels=True at load time).
 
     :param group:
-    :param factor_cols: list[str] or None, within-subjects factors.
-    :param effects: list[str], factors statistical effects to test.
     :param kwargs: forwarded to run_cluster_test (e.g. n_permutations).
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
+    factor_cols = _FACTORS.copy()
+    effects = _EFFECTS.copy()
+
+    # Load and prepare subjects data
     psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
@@ -266,12 +268,14 @@ def run_cluster_test_psd(
 
 def run_psd_ch_cluster_test(
         group: str,
-        factor_cols: list[str],
-        effects: list[str],
         band: str = 'theta',
         dev: bool = False,
         **kwargs,
 ):
+    factor_cols = _FACTORS.copy()
+    effects = _EFFECTS.copy()
+
+    # Load and prepare subjects data
     psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
