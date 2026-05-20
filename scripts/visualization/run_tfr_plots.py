@@ -12,25 +12,19 @@ from spanav_tbi.visualization.tfr_plots import all_sid_tfr_plots, all_group_tfr_
 
 
 def plot_each_sid_tfr(test: bool, show: bool, save: bool) -> None:
-    # Load subject TFRs df with channels aggregated and plot heatmaps and spectra
-    sid_df_ch_avg = get_sid_level_tfr_df(test=test, load=True, save=False)
-    all_sid_tfr_plots(sid_df_ch_avg, 'heatmap', show, save)
-    all_sid_tfr_plots(sid_df_ch_avg, 'spectrum', show, save)
-
-    # Load subject TFRs df with unaggregated channels and plot topomaps
-    sid_df_ch_all = get_sid_level_tfr_df(test=test, load=True, save=False)
-    all_sid_tfr_plots(sid_df_ch_all, 'topomap', show, save)
+    """Plot heatmaps and spectra (channel-aggregated) and topomaps for each subject."""
+    sid_df = get_sid_level_tfr_df(test=test, load=True, save=False)
+    all_sid_tfr_plots(sid_df, 'heatmap', show, save)
+    all_sid_tfr_plots(sid_df, 'spectrum', show, save)
+    all_sid_tfr_plots(sid_df, 'topomap', show, save)
 
 
 def plot_each_group_tfr(test: bool, show: bool, save: bool) -> None:
-    # Load group TFRs df with channels aggregated and plot heatmaps and spectra
-    group_df_ch_avg = get_group_level_tfr_df(load=True, test=test, save=False)
-    all_group_tfr_plots(group_df_ch_avg, 'heatmap', show, save)
-    all_group_tfr_plots(group_df_ch_avg, 'spectrum', show, save)
-
-    # Load group TFRs df with unaggregated channels and plot topomaps
-    group_df_ch_all = get_group_level_tfr_df(load=True, test=test, save=False)
-    all_group_tfr_plots(group_df_ch_all, 'topomap', show, save)
+    """Plot heatmaps and spectra (channel-aggregated) and topomaps for each group."""
+    group_df = get_group_level_tfr_df(load=True, test=test, save=False)
+    all_group_tfr_plots(group_df, 'heatmap', show, save)
+    all_group_tfr_plots(group_df, 'spectrum', show, save)
+    all_group_tfr_plots(group_df, 'topomap', show, save)
 
 
 def run_tfr_plots(**kwargs):
