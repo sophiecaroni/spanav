@@ -167,6 +167,7 @@ def get_sid_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
+        verbose: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -184,7 +185,8 @@ def get_sid_level_psd_df(
                     fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
                     fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
                     if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        if verbose:
+                            warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
                     # Load spectrum from exported file

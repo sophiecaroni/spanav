@@ -7,9 +7,9 @@
     Description:
     This script performs spectral processing (power spectra, oscillations, TFR) of EEG.
 """
-from spanav_tbi.processing.psd import get_epo_level_psd_df, get_sid_level_psd_df, get_group_level_psd_df
+from spanav_tbi.processing.psd import get_sid_level_psd_df, get_group_level_psd_df
 from spanav_tbi.processing.osc import get_epo_level_osc_df, get_sid_level_osc_df, get_group_level_osc_df
-from spanav_tbi.processing.tfr import get_epo_level_tfr_df, get_sid_level_tfr_df, get_group_level_tfr_df
+from spanav_tbi.processing.tfr import get_sid_level_tfr_df, get_group_level_tfr_df
 
 
 def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
@@ -20,7 +20,7 @@ def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
     print(
         f"\n\t#### 1) Get subject-level PSD table ####"
     )
-    sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save)
+    sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save, verbose=True)  # verbose here to get warnings about missing recs
     if verbose:
         print(f"\t\t{sid_level_df = }")
 
@@ -68,7 +68,7 @@ def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
     print(
         f"\n\t#### 1) Get subject-level TFR table ####"
     )
-    sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save)
+    sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save, verbose=True)  # verbose here to get warnings about missing recs
     if verbose:
         print(f"\t\t{sid_level_tfr_df = }")
 

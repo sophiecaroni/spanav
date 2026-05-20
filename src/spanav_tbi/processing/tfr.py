@@ -133,6 +133,7 @@ def get_sid_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        verbose: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -152,7 +153,8 @@ def get_sid_level_tfr_df(
                     fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
                     fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                     if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
+                        if verbose:
+                            warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
                         continue
 
                     # Load TFR from exported file

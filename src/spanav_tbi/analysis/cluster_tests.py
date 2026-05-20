@@ -206,7 +206,7 @@ def run_cluster_test_tfr(
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
-    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True)
+    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, verbose=False)
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
     data_col = 'tfr'
@@ -245,7 +245,7 @@ def run_cluster_test_psd(
     :param dev:
     :return: tuple of (results dict mapping effect str to results dict, included_sids list)
     """
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
     data_col = 'psd'
@@ -272,7 +272,7 @@ def run_psd_ch_cluster_test(
         dev: bool = False,
         **kwargs,
 ):
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
 
