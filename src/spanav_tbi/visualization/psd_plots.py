@@ -58,10 +58,6 @@ def plot_psd_by_epo(
             epo_type_df.reset_index(inplace=True)
             psd_plot = epo_type_df.loc[0, 'psd']
 
-            # Drop nan-padded channels before plotting, otherwise MNE produces blank figures
-            valid_chs = [ch for ch, d in zip(psd_plot.ch_names, psd_plot._data) if not np.all(np.isnan(d))]
-            psd_plot = psd_plot.copy().pick(valid_chs)
-
             if pkind == 'topomap':
                 fmin, fmax = psd_plot.freqs.min(), psd_plot.freqs.max()
                 psd_plot.plot_topomap(

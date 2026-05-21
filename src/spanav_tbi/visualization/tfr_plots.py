@@ -59,10 +59,6 @@ def plot_tfr_by_epo(
             epo_type_df.reset_index(inplace=True)
             tfr_plot = epo_type_df.loc[0, 'tfr']
 
-            # Drop nan-padded channels before plotting, otherwise MNE produces blank figures
-            valid_chs = [ch for ch, d in zip(tfr_plot.ch_names, tfr_plot.data) if not np.all(np.isnan(d))]
-            tfr_plot = tfr_plot.copy().pick(valid_chs)
-
             if pkind == 'heatmap':
                 tfr_plot.plot(
                     combine='mean',  # averages across channels in case there are multiples
