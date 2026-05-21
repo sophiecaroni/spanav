@@ -208,13 +208,10 @@ def run_cluster_test_tfr(
     effects = _EFFECTS.copy()
 
     # Load and prepare subjects data
-    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, verbose=False)
+    tfr_df = get_sid_level_tfr_df(test=dev, save=False, load=True, verbose=False, ch_avg=True)
     tfr_df = tfr_df[tfr_df['group'] == group]
     tfr_df = tfr_df[tfr_df['epo_type'].isin(_TFR_EPO_TYPES)]
     data_col = 'tfr'
-
-    # Average channels
-    tfr_df[data_col] = tfr_df[data_col].apply(lambda t: _average_tfr_channels(t))
 
     data, included_sids, factor_levels = _reshape_for_cluster(tfr_df, data_col, factor_cols)
 
@@ -247,13 +244,10 @@ def run_cluster_test_psd(
     effects = _EFFECTS.copy()
 
     # Load and prepare subjects data
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False, ch_avg=True)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
     data_col = 'psd'
-
-    # Average channels
-    psd_df[data_col] = psd_df[data_col].apply(lambda p: _average_psd_channels(p))
 
     data, included_sids, factor_levels = _reshape_for_cluster(psd_df, data_col, factor_cols)
     factor_levels_counts = [len(v) for v in factor_levels.values()]
@@ -276,7 +270,7 @@ def run_psd_ch_cluster_test(
     effects = _EFFECTS.copy()
 
     # Load and prepare subjects data
-    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False)
+    psd_df = get_sid_level_psd_df(test=dev, save=False, load=True, verbose=False, ch_avg=False)
     psd_df = psd_df[psd_df['group'] == group]
     psd_df = psd_df[psd_df['epo_type'].isin(_PSD_EPO_TYPES)]
 
@@ -299,27 +293,3 @@ def _select_psd_interval(band: str, psd_series: pd.Series) -> pd.Series:
     """Select PSD of a series of spectra into a frequency band interval."""
     fmin, fmax = get_band_freqs(band)
     return psd_series.apply(lambda psd: band_crop_psd(psd, fmin, fmax))
-
-
-def _average_tfr_channels(tfr: TFR, squeeze_ch_dim: bool = True) -> AverageTFR:
-    ch_tfrs = []
-    for ch in tfr.ch_names:
-        ch_tfr = tfr.copy().pick(ch)
-        mne.rename_channels(ch_tfr.info, {ch: 'ch_mean'})
-        ch_tfrs.append(ch_tfr)
-    ch_mean = combine_tfr(ch_tfrs)
-    if squeeze_ch_dim:
-        ch_mean.data = ch_mean.data.squeeze()
-    return ch_mean
-
-
-def _average_psd_channels(psd, squeeze_ch_dim: bool = True) -> Spectrum:
-    ch_psds = []
-    for ch in psd.ch_names:
-        ch_psd = psd.copy().pick(ch)
-        mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
-        ch_psds.append(ch_psd)
-    ch_mean = combine_spectrum(ch_psds)
-    if squeeze_ch_dim:
-        ch_mean._data = ch_mean._data.squeeze()
-    return ch_mean

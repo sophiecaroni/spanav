@@ -163,11 +163,21 @@ def get_epo_level_psd_df(
     return pd.DataFrame.from_records(psd_records)
 
 
+def _average_psd_channels(psd) -> object:
+    ch_psds = []
+    for ch in psd.ch_names:
+        ch_psd = psd.copy().pick(ch)
+        mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
+        ch_psds.append(ch_psd)
+    return combine_spectrum(ch_psds)
+
+
 def get_sid_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
         verbose: bool = False,
+        ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -182,7 +192,8 @@ def get_sid_level_psd_df(
             conds = prs.get_conds(sid=sid)
             for cond in conds:
                 for epo_type in epo_types:
-                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
+                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_psd.h5'
                     fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
                     if not fpath.exists():
                         if verbose:
@@ -210,11 +221,15 @@ def get_sid_level_psd_df(
     # Baseline correct movement-onset epochs with stasis epochs, as in Convertino et al., 2023
     sid_level_df = _stasis_bl_corr(sid_level_df)
 
+    if ch_avg:
+        sid_level_df['psd'] = sid_level_df['psd'].apply(lambda p: _average_psd_channels(p))
+
     if save:
         # Export each subject-level PSD object
         for i, row in sid_level_df.iterrows():
             sid, cond, epo_type, psd = row['sid'], row['cond'], row['epo_type'], row['psd']
-            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_psd.h5'
+            ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_psd.h5'
             psd._inst_type = mne.Evoked  # use this (with any non-Epochs class) to prevent bug with read_spectrum
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / sid) / fname
             psd.save(fpath, overwrite=True)
@@ -225,14 +240,8 @@ def get_group_level_psd_df(
         load: bool = True,
         test: bool = False,
         save: bool = False,
+        ch_avg: bool = False,
 ) -> pd.DataFrame:
-    """
-    Build a group-level PSD DataFrame by loading pre-saved files or computing from sid-level PSDs.
-    :param load: bool, if True loads pre-saved channel-averaged group PSD files.
-    :param test: bool, if True uses test subject set.
-    :param save: bool, if True saves computed group PSDs to disk.
-    :return: pd.DataFrame with columns group, cond, epo_type, psd.
-    """
     if load:
         groups = io.get_groups_letters()
         epo_types = sn.get_task_epo_types(test=test)
@@ -245,7 +254,8 @@ def get_group_level_psd_df(
             conds = prs.get_conds(group=group)
             for cond in conds:
                 for epo_type in epo_types:
-                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
+                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_psd.h5'
                     fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
                     if not fpath.exists():
                         warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
@@ -265,7 +275,7 @@ def get_group_level_psd_df(
         return pd.DataFrame.from_records(psd_records)
 
     # For each group, average PSD of the same condition and epoch-type across different subjects
-    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False)
+    sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, ch_avg=ch_avg)  # if ch_avg, take already subject-level channel averaged
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
     group_level_df = grouped_df['psd'].apply(compute_group_psd).reset_index(drop=True)
@@ -273,7 +283,8 @@ def get_group_level_psd_df(
     if save:
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, psd = row['group'], row['cond'], row['epo_type'], row['psd']
-            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_psd.h5'
+            ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_psd.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'PSD') / fname
             psd.save(fpath, overwrite=True)
     return group_level_df

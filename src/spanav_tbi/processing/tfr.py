@@ -7,6 +7,7 @@
     Description:
     This script contains functions to compute and store TFR of EEG.
 """
+import mne
 import numpy as np
 import pandas as pd
 import warnings
@@ -129,11 +130,21 @@ def get_epo_level_tfr_df(
     return pd.DataFrame.from_records(tfr_entries)
 
 
+def _average_tfr_channels(tfr) -> object:
+    ch_tfrs = []
+    for ch in tfr.ch_names:
+        ch_tfr = tfr.copy().pick(ch)
+        mne.rename_channels(ch_tfr.info, {ch: 'ch_mean'})
+        ch_tfrs.append(ch_tfr)
+    return combine_tfr(ch_tfrs)
+
+
 def get_sid_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
         verbose: bool = False,
+        ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
         sids = io.get_sids(test=test)
@@ -150,7 +161,8 @@ def get_sid_level_tfr_df(
             conds = prs.get_conds(sid=sid)
             for cond in conds:
                 for epo_type in epo_types:
-                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
+                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_tfr.h5'
                     fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
                     if not fpath.exists():
                         if verbose:
@@ -190,11 +202,15 @@ def get_sid_level_tfr_df(
         wide_df = _stasis_bl_corr(wide_df, bl_name='Stasis_wide')
     sid_level_df = pd.concat([normal_df, wide_df], ignore_index=True)
 
+    if ch_avg:
+        sid_level_df['tfr'] = sid_level_df['tfr'].apply(lambda t: _average_tfr_channels(t))
+
     if save:
         # Export each subject-level TFR object
         for i, row in sid_level_df.iterrows():
             sid, cond, epo_type, tfr = row['sid'], row['cond'], row['epo_type'], row['tfr']
-            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_tfr.h5'
+            ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+            fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}') / fname
             tfr.save(fpath, overwrite=True)
     return sid_level_df
@@ -204,14 +220,8 @@ def get_group_level_tfr_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
+        ch_avg: bool = False,
 ) -> pd.DataFrame:
-    """
-    Build a group-level TFR DataFrame by loading pre-saved files or computing from sid-level TFRs.
-    :param test: bool, if True uses test subject set.
-    :param load: bool, if True loads pre-saved group TFR files.
-    :param save: bool, if True saves computed group TFRs to disk.
-    :return: pd.DataFrame with columns group, cond, epo_type, tfr.
-    """
     if load:
         groups = io.get_groups_letters()
         epo_types = sn.get_task_epo_types(test=test)
@@ -225,7 +235,8 @@ def get_group_level_tfr_df(
             conds = prs.get_conds(group=group)
             for cond in conds:
                 for epo_type in epo_types:
-                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
+                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_tfr.h5'
                     fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
                     if not fpath.exists():
                         warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
@@ -246,7 +257,7 @@ def get_group_level_tfr_df(
         return pd.DataFrame.from_records(tfr_records)
 
     # For each group, average TFR of the same condition and epoch-type across different subjects
-    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False)
+    sid_level_df = get_sid_level_tfr_df(test, load=True, save=False, ch_avg=ch_avg)  # if ch_avg, take already subject-level channel averaged
     group_cols = ['group', 'cond', 'epo_type']
     grouped_df = sid_level_df.groupby(group_cols, as_index=False)
     group_level_df = grouped_df['tfr'].apply(average_tfr_series).reset_index(drop=True)
@@ -254,7 +265,8 @@ def get_group_level_tfr_df(
     if save:
         for i, row in group_level_df.iterrows():
             group, cond, epo_type, group_tfr = row['group'], row['cond'], row['epo_type'], row['tfr']
-            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_tfr.h5'
+            ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+            fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_tfr.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'TFR') / fname
             group_tfr.save(fpath, overwrite=True)
     return group_level_df

@@ -13,23 +13,24 @@ from spanav_tbi.processing.tfr import get_sid_level_tfr_df, get_group_level_tfr_
 
 
 def run_psd_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
-    print(
-        f"\n#### Compute PSD across different aggregation-levels and store results in tables #### "
-    )
+    for ch_avg in [True, False]:
+        print(
+            f"\n#### Compute PSD ({ch_avg = }) across different aggregation-levels and store results in tables #### "
+        )
 
-    print(
-        f"\n\t#### 1) Get subject-level PSD table ####"
-    )
-    sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save, verbose=True)  # verbose here to get warnings about missing recs
-    if verbose:
-        print(f"\t\t{sid_level_df = }")
+        print(
+            f"\n\t#### 1) Get subject-level PSD table ####"
+        )
+        sid_level_df = get_sid_level_psd_df(load=load, test=test, save=save, ch_avg=ch_avg, verbose=True)  # verbose here to get warnings about missing recs
+        if verbose:
+            print(f"\t\t{sid_level_df = }")
 
-    print(
-        f"\n\t#### 2) Get group-level PSD table"
-    )
-    group_level_df = get_group_level_psd_df(load=load, test=test, save=save)
-    if verbose:
-        print(f"\t\t{group_level_df = }")
+        print(
+            f"\n\t#### 2) Get group-level PSD table"
+        )
+        group_level_df = get_group_level_psd_df(load=load, test=test, ch_avg=ch_avg, save=save)
+        if verbose:
+            print(f"\t\t{group_level_df = }")
 
 
 def run_osc_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
@@ -61,23 +62,24 @@ def run_osc_processing(test: bool, load: bool, verbose: bool, save: bool) -> Non
 
 
 def run_tfr_processing(test: bool, load: bool, verbose: bool, save: bool) -> None:
-    print(
-        f"\n#### Compute TFR across different aggregation-levels and store results in tables #### "
-    )
+    for ch_avg in [True, False]:
+        print(
+            f"\n#### Compute TFR ({ch_avg = }) across different aggregation-levels and store results in tables #### "
+        )
 
-    print(
-        f"\n\t#### 1) Get subject-level TFR table ####"
-    )
-    sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save, verbose=True)  # verbose here to get warnings about missing recs
-    if verbose:
-        print(f"\t\t{sid_level_tfr_df = }")
+        print(
+            f"\n\t#### 1) Get subject-level TFR table ####"
+        )
+        sid_level_tfr_df = get_sid_level_tfr_df(test=test, load=load, save=save, ch_avg=ch_avg, verbose=True)  # verbose here to get warnings about missing recs
+        if verbose:
+            print(f"\t\t{sid_level_tfr_df = }")
 
-    print(
-        f"\n\t#### 2) Get group-level TFR table"
-    )
-    group_level_tfr_df = get_group_level_tfr_df(test=test, load=load, save=save)
-    if verbose:
-        print(f"\t\t{group_level_tfr_df = }")
+        print(
+            f"\n\t#### 2) Get group-level TFR table"
+        )
+        group_level_tfr_df = get_group_level_tfr_df(test=test, load=load, ch_avg=ch_avg, save=save)
+        if verbose:
+            print(f"\t\t{group_level_tfr_df = }")
 
 
 def run_spectral_processing(**kwargs) -> None:
