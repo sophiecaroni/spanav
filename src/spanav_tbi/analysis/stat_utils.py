@@ -7,7 +7,7 @@ def format_cluster_test_results(obj_name: str, results: dict[str, dict], group: 
     for effect, res in results.items():
         sig_clusters = [(i, pv) for i, pv in enumerate(res['cluster_pv']) if pv < 0.05]
         lines.append(
-            f"\n\t{res['effect_label']}: "
+            f"\n\t{effect}: "
             f"\n\t\t-> {len(sig_clusters)} significant cluster(s)"
             f"\n\t\t-> {res['significant'].sum()} significant points"
         )

@@ -13,11 +13,12 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 import spanav_eeg_utils.io_utils as io
+import matplotlib.colors as mcolors
+from spanav_eeg_utils.spanav_utils import get_task_epo_types
 from pathlib import Path
 from importlib.resources import files
 from contextlib import contextmanager
 from matplotlib.figure import Figure
-from spanav_eeg_utils import config_utils as cfg
 from mne.io import BaseRaw
 
 
@@ -121,29 +122,44 @@ def get_nrows_ncols(
 def get_epo_palette(
 ) -> dict:
     return {
-        'ContMov': 'tab:green',
-        'Stasis': 'tab:blue',
-        'MovOn': 'OrangeRed',
-        'ObjPres': 'orange',
-        'Raw': 'purple',
+        'ContMov': 'tab:green', 'blContMov': 'tab:green',
+        'Stasis': 'tab:blue', 'blStasis': 'tab:blue',
+        'MovOn': 'OrangeRed', 'blMovOn': 'OrangeRed',
+        'ObjPres': 'orange', 'blObjPres': 'orange',
+        'Raw': 'purple', 'blRaw': 'purple',
     }
 
 
 def get_cond_palette(
 ) -> dict:
-    BLINDING = cfg.get_blinding()
-    if BLINDING:
-        return {
-            'A': '#0d2f8a',
-            'B': '#4293f5',
-            'C': '#b8d9ff'
-        }
-    else:
-        return {
-            'HF': '#0d2f8a',    # dark navy blue
-            'cTBS': '#4293f5',  # medium blue
-            'iTBS': '#b8d9ff',  # light blue
-        }
+    palette = {
+        # blinded
+        'A': '#0d2f8a',  # dark navy blue
+        'B': '#4293f5',  # medium blue
+        'C': '#b8d9ff',  # light blue
+
+        # unblinded
+        'HF': '#0d2f8a',    # dark navy blue
+        'cTBS': '#4293f5',  # medium blue
+        'iTBS': '#b8d9ff',  # light blue
+    }
+
+    # Add to the palette colors for conditions merged with epoch-types (useful in cbpt results for cond × epo_type)
+    epo_types = get_task_epo_types() + [f'bl{et}' for et in get_task_epo_types()]
+
+    cmap = plt.colormaps['tab20c']  # organized in groups of 4 similar colors
+    cmap_hue_groups = 5
+    cmap_shade_per_hue = 4
+    max_colors = cmap_hue_groups*cmap_shade_per_hue
+    conds = list(palette.keys())  # wrap in a list to create a new object and not just a view
+    for i, cond in enumerate(conds):
+        # Jump by cmap_shade_per_hue indices for each cond to grab a new hue-family
+        cond_index = (i * cmap_shade_per_hue) % max_colors  # modulo assures no error is raised if the last color is reached, restart from beginning
+        for j, et in enumerate(epo_types):
+            label = f"{cond}_{et}"
+            color_idx = (cond_index + j) % max_colors  # select the j-th shade within that hue-family
+            palette[label] = mcolors.rgb2hex(cmap(color_idx))
+    return palette
 
 
 def add_higher_title_text(

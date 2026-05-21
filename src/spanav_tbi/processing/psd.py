@@ -163,7 +163,7 @@ def get_epo_level_psd_df(
     return pd.DataFrame.from_records(psd_records)
 
 
-def _average_psd_channels(psd) -> object:
+def average_psd_channels(psd) -> object:
     ch_psds = []
     for ch in psd.ch_names:
         ch_psd = psd.copy().pick(ch)
@@ -222,7 +222,7 @@ def get_sid_level_psd_df(
     sid_level_df = _stasis_bl_corr(sid_level_df)
 
     if ch_avg:
-        sid_level_df['psd'] = sid_level_df['psd'].apply(lambda p: _average_psd_channels(p))
+        sid_level_df['psd'] = sid_level_df['psd'].apply(lambda p: average_psd_channels(p))
 
     if save:
         # Export each subject-level PSD object

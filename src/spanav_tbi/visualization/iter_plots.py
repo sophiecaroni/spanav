@@ -11,6 +11,7 @@
 """
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy as np
 from typing import Callable
 from spanav_eeg_utils.plot_utils import plot_context, save_figure, add_higher_title_text, get_cond_palette
 
@@ -68,9 +69,11 @@ def all_group_plots(
         df: pd.DataFrame,
         data_col: str,
         plot_fn: Callable,
-        vlim_fn: Callable,
         plots_subdir: str,
+        subplot_col: str = 'epo_type',
         pkind: str = 'spectrum',
+        vlim_fn: Callable | None = None,
+        sign_mask: np.ndarray | None = None,
         show: bool = True,
         save: bool = False,
 ) -> None:
@@ -79,27 +82,32 @@ def all_group_plots(
 
         for group, group_df in df.groupby('group'):
             n_conds = len(group_df['cond'].unique())
-            n_epo_types = len(group_df['epo_type'].unique())
+            n_subplot_cats = len(group_df[subplot_col].unique())
             n_rows = 1 if sup_cond else n_conds
-            n_cols = n_epo_types
+            n_cols = n_subplot_cats
             fig, axes = plt.subplots(
-                n_rows, n_cols, sharey=True, sharex=True,
-                figsize=(n_cols * 4.0, n_rows * 3.5), squeeze=False
+                n_rows, n_cols, sharey=True, sharex=True, figsize=(n_cols * 4.0, n_rows * 3.5), squeeze=False
             )
             axes = axes.flatten()
-            vlim = vlim_fn(group_df[data_col].values, pkind=pkind)
+
+            if vlim_fn is not None:
+                vlim = vlim_fn(group_df[data_col].values, pkind=pkind)
+            else:
+                vlim = None
 
             for i_c, (cond, cond_df) in enumerate(group_df.groupby('cond')):
-                start_ax_idx = 0 if sup_cond else i_c * n_epo_types
-                epo_axes = axes[start_ax_idx: start_ax_idx + n_epo_types]
+                start_ax_idx = 0 if sup_cond else i_c * n_subplot_cats
+                subplot_axes = axes[start_ax_idx: start_ax_idx + n_subplot_cats]
                 show_xlabel = True if sup_cond else i_c == n_conds - 1
-                plot_kwargs: dict = dict(epo_title=i_c == 0, vlim=vlim)
+                plot_kwargs: dict = dict(show_ax_titles=i_c == 0, vlim=vlim)
                 if sup_cond:
                     plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
-                plot_fn(cond_df, pkind, epo_axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
+                if i_c == 0:
+                    plot_kwargs.update(sign_mask=sign_mask)
+                plot_fn(cond_df, pkind, axes=subplot_axes, show_xlabel=show_xlabel, **plot_kwargs)
 
                 if not sup_cond:
-                    add_higher_title_text(fig, epo_axes, f"Cond {cond}")
+                    add_higher_title_text(fig, subplot_axes, f"Cond {cond}")
 
             if save:
                 fname = f'group{group}_etypes_{pkind}.png'
