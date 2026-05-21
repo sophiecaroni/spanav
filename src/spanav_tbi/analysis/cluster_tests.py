@@ -283,9 +283,8 @@ def run_psd_ch_cluster_test(
     info = psd_df.copy().reset_index().loc[0, psd_col].info
     results = {}
     for effect in effects:
-        res = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
-        res['effect_label'] = _get_effect_label(effect, factor_cols)
-        results[effect] = res
+        effect_label = _get_effect_label(effect, factor_cols)
+        results[effect_label] = run_cluster_test(data, info, factor_levels=factor_levels_counts, effect=effect, **kwargs)
     return results, included_sids
 
 
