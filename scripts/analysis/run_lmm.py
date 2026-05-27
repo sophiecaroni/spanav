@@ -22,7 +22,7 @@ def run_lmm_analysis(test: bool, sim: bool) -> None:
     i = 0
     for band in bands:
         for metric in metrics:
-            if i > 0 and (test or sim):
+            if i > 0 and test:
                 break
 
             print(f"\n####################################### {band.upper()} {metric.upper()} #######################################\n")

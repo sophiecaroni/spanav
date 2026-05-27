@@ -22,9 +22,10 @@ setwd(wd)
 args <- commandArgs(trailingOnly=TRUE)
 
 testing_mode <- tolower(args[1]) == "true"
-band_arg <- args[2]
-metric <- args[3]
-df_fpath <- args[4]
+simulation_mode <- tolower(args[2]) == "true"
+band_arg <- args[3]
+metric <- args[4]
+df_fpath <- args[5]
 
 # Define plotting functions
 save_residual_plot <- function(res, fpath) {
@@ -41,7 +42,7 @@ save_dharma_plot <- function(plot_fun, fpath) {
 # Define plot paths/fnames
 pdir <- file.path("outputs", "plots", "LMM", "diagnostics")
 dir.create(pdir, recursive=TRUE, showWarnings=FALSE)
-pname_pref <- paste0(if (testing_mode) "test_" else "", band_arg, "_", metric)
+pname_pref <- paste0(if (testing_mode) "TEST_" else (if (simulation_mode) "SIM_" else ""), band_arg, "_", metric)
 
 # -------------------------
 # 1. Load and prepare dataframe
