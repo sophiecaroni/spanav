@@ -11,7 +11,7 @@ library(glmmTMB)
 library(DHARMa)
 library(dplyr)
 
-wd <- "/Users/sophiecaroni/epfl_hes/spanav-tbi/data"
+wd <- "/Users/sophiecaroni/epfl_hes/spanav/local"
 setwd(wd)
 
 # -------------------------
@@ -41,7 +41,7 @@ save_dharma_plot <- function(plot_fun, fpath) {
 # Define plot paths/fnames
 pdir <- file.path("outputs", "plots", "LMM", "diagnostics")
 dir.create(pdir, recursive=TRUE, showWarnings=FALSE)
-pname_pref <- paste0(band_arg, "_", metric, if (testing_mode) "_test" else "")
+pname_pref <- paste0(if (testing_mode) "test_" else "", band_arg, "_", metric)
 
 # -------------------------
 # 1. Load and prepare dataframe
@@ -59,7 +59,9 @@ df <- raw_df %>%
         epo_type=factor(epo_type)
     )
 
-cat("\nRows in analysis dataframe:", nrow(df), "\n")
+cat("\nInput dataframe")
+cat("\n\trows: ", nrow(df))
+cat("\n\thead: ", "\n")
 print(head(df))
 
 # -------------------------
@@ -78,10 +80,10 @@ all_positive <- all(df$y > 0, na.rm=TRUE)
 # Run GLMM models with different fitting methods and add them to list
 models <- list()
 
-cat("\n======================================== Fitting models ======================================\n")
+cat("\n======================================== Fitting methods ======================================\n")
 
 # Gaussian fitting family
-cat("\n---------------------------------------- Gaussian model ---------------------------------------\n")
+cat("\n----------------------------------------- Gaussian fit ----------------------------------------\n")
 models$gaussian <- glmmTMB(
     form_lmm,
     data=df,
@@ -90,27 +92,13 @@ models$gaussian <- glmmTMB(
 
 # Lognormal fitting family
 if (all_positive) {
-    cat("\n-------------------------------------- Lognormal model --------------------------------------\n")
+    cat("\n---------------------------------------- Lognormal fit ---------------------------------------\n")
     models$lognormal <- glmmTMB(
     form_lmm,
     data=df,
     family=lognormal()
     )
 }
-
-# # Tweedie fitting family - often much slower for DHARMa simulation, so run DHARMa only if the fit succeeds
-# cat("\n----------------------------------------- Tweedie model -----------------------------------------\n")
-# models$tweedie <- tryCatch(
-#   glmmTMB(
-#     form_lmm,
-#     data=df,
-#     family=tweedie(link="log")
-#   ),
-#   error=function(e) {
-#     message("Tweedie fitting failed: ", e$message)
-#     NULL
-#   }
-# )
 
 # -------------------------
 # 3. Run diagnostics to evaluate models
@@ -192,7 +180,7 @@ for (fit_name in names(models)) {
 # -------------------------
 # 4. Print diagn_table and proposed best fit method
 # -------------------------
-cat("\n============================================= Result ===========================================\n")
+cat("\n============================================ Result ============================================\n")
 cat(
     "How to evaluate this table:
     \t a) Higher p-values (non-significant tests) indicate better fits!
