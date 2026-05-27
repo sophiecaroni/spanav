@@ -123,12 +123,19 @@ def get_sid_level_osc_df(
         osc_snr_avg=('osc_snr', 'mean'),
         osc_snr_std=('osc_snr', 'std'),
         n_epochs=('sid', 'size'),
+        pk_pw_log_avg=('pk_pw_log', 'mean'),  # mean peak power among epochs with a peak - nans (no peaks) are skipped
+        pk_pw_log_std=('pk_pw_log', 'std'),
+        n_peak_epochs=('pk_pw_log', 'count'),  # track count of not nan epochs, to quantify presence of peaks
     )
 
     # Replace with zeros the NaNs introduced as std if there was only one row to average across
     cmp.fix_std_singleton(
         sid_level_df, ["abs_pw_log_std",  "rel_pw_log_std", "osc_snr_std"],
         n_col="n_epochs"
+    )
+    cmp.fix_std_singleton(
+        sid_level_df, ["pk_pw_log_std"],
+        n_col="n_peak_epochs"  # for peak power this correction has to be considering only the epochs having a peak
     )
 
     if save:
@@ -162,12 +169,20 @@ def get_group_level_osc_df(
         osc_snr_avg=('osc_snr_avg', 'mean'),
         osc_snr_std=('osc_snr_avg', 'std'),
         n_sids=('group', 'size'),
+        pk_pw_log_avg=('pk_pw_log_avg', 'mean'),
+        pk_pw_log_std=('pk_pw_log_avg', 'std'),
+        n_sids_with_peak=('pk_pw_log_avg', 'count'),  # sids contributing a peak value
+        n_peak_epochs=('n_peak_epochs', 'sum'),  # total of not nan epochs across sids, to quantify overall presence of peaks
     )
 
     # Replace with zeros the NaNs appearing as std (if there was only one row to average across)
     cmp.fix_std_singleton(
         group_level_df, ["abs_pw_log_std", "rel_pw_log_std", "osc_snr_std"],
         n_col="n_sids"
+    )
+    cmp.fix_std_singleton(
+        sid_level_df, ["pk_pw_log_std"],
+        n_col="n_peak_epochs"  # for peak power this correction has to be considering only the epochs having a peak
     )
 
     if save:
