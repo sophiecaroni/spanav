@@ -8,7 +8,6 @@
     This script contains functions for computing and storing oscillatory features of EEG.
 """
 import warnings
-import numpy as np
 import pandas as pd
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
@@ -28,14 +27,13 @@ def get_epo_level_osc_df(
         test: bool = False,
         load: bool = True,
         save: bool = False,
-        space: str = 'log',
 ) -> pd.DataFrame:
     if load:
-        file_path = io.get_tables_path() / f'osc_df_epo_level_{space}.csv'
+        file_path = io.get_tables_path() / f'osc_df_epo_level.csv'
         return pd.read_csv(file_path, index_col=0, dtype={'sid': str})  # make sure subject ID's are strings
 
-    # Get spectra, always in linear space (needed for later computations)
-    psd_df = get_epo_level_psd_df(load=load, save=save, test=test, space='lin')
+    # Get spectra, always in linear space (needed for osc-computations)
+    psd_df = get_epo_level_psd_df(test=test, space='lin')
     df_rows = []
 
     # Define grouping variables for computing the oscillatory features
@@ -62,8 +60,8 @@ def get_epo_level_osc_df(
 
             # Extract absolute and relative band power
             band = 'theta'
-            abs_pw = spct.get_band_power(epo_psd, freqs, band, rel=False, space=space)
-            rel_pw = spct.get_band_power(epo_psd, freqs, band, rel=True, space=space)
+            abs_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=False, space='log')   # log space to improve normality of feature distribution
+            rel_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=True, space='log')   # log space to improve normality of feature distribution
 
             # Model PSD
             psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
@@ -72,7 +70,7 @@ def get_epo_level_osc_df(
             osc_snr = spct.compute_osc_snr(psd_model, band)
 
             # Extract power of modeled peaks in the band (if any - otherwise will be nan)
-            pk_pw = spct.get_modeled_peak_power(psd_model, band, space=space)
+            pk_pw_log = spct.get_modeled_peak_power(psd_model, band, space='log')  # log space to improve normality of feature distribution
 
             row = dict(
                 sid=sid,
@@ -81,10 +79,10 @@ def get_epo_level_osc_df(
                 epo_type=epo_type,
                 epo_n=epoch_idx,
                 band=band,
-                abs_pw=abs_pw,
-                rel_pw=rel_pw,
+                abs_pw_log=abs_pw_log,
+                rel_pw_log=rel_pw_log,
                 osc_snr=osc_snr,
-                pk_pw=pk_pw,
+                pk_pw_log=pk_pw_log,
             )
 
             df_rows.append(row)
@@ -95,7 +93,7 @@ def get_epo_level_osc_df(
     epo_level_df.sort_values(by=['sid', 'cond'])  # sort conveniently
 
     if save:
-        file_path = io.get_tables_path() / f'osc_df_epo_level_{space}.csv'
+        file_path = io.get_tables_path() / f'osc_df_epo_level.csv'
         epo_level_df.to_csv(file_path)
 
     return epo_level_df
@@ -118,17 +116,20 @@ def get_sid_level_osc_df(
     grouped_df = epo_level_df.groupby(group_cols, as_index=False)
     sid_level_df = grouped_df.agg(
         group=('group', 'first'),
-        abs_pw_avg=('abs_pw', 'mean'),
-        abs_pw_std=('abs_pw', 'std'),
-        rel_pw_avg=('rel_pw', 'mean'),
-        rel_pw_std=('rel_pw', 'std'),
+        abs_pw_log_avg=('abs_pw_log', 'mean'),
+        abs_pw_log_std=('abs_pw_log', 'std'),
+        rel_pw_log_avg=('rel_pw_log', 'mean'),
+        rel_pw_log_std=('rel_pw_log', 'std'),
         osc_snr_avg=('osc_snr', 'mean'),
         osc_snr_std=('osc_snr', 'std'),
         n_epochs=('sid', 'size'),
     )
 
     # Replace with zeros the NaNs introduced as std if there was only one row to average across
-    cmp.fix_std_singleton(sid_level_df, ["abs_pw_std", "rel_pw_std", "osc_snr_std"], n_col="n_epochs")
+    cmp.fix_std_singleton(
+        sid_level_df, ["abs_pw_log_std",  "rel_pw_log_std", "osc_snr_std"],
+        n_col="n_epochs"
+    )
 
     if save:
         fname = 'osc_df_sid_level.csv'
@@ -153,15 +154,21 @@ def get_group_level_osc_df(
     # Average across subject spectra of the same group_cols values
     group_cols = ['group', 'cond', 'epo_type', 'band']
     group_level_df = sid_level_df.groupby(group_cols, as_index=False).agg(
-        abs_pw_avg=('abs_pw_avg', 'mean'),
-        abs_pw_std=('abs_pw_avg', 'std'),
-        rel_pw_avg=('rel_pw_avg', 'mean'),
-        rel_pw_std=('rel_pw_avg', 'std'),
+
+        abs_pw_log_avg=('abs_pw_log_avg', 'mean'),
+        abs_pw_log_std=('abs_pw_log_avg', 'std'),
+        rel_pw_log_avg=('rel_pw_log_avg', 'mean'),
+        rel_pw_log_std=('rel_pw_log_avg', 'std'),
         osc_snr_avg=('osc_snr_avg', 'mean'),
         osc_snr_std=('osc_snr_avg', 'std'),
         n_sids=('group', 'size'),
     )
-    cmp.fix_std_singleton(group_level_df, ["abs_pw_std", "rel_pw_std", "osc_snr_std"], n_col="n_sids")  # replace with zeros the NaNs appearing as std (if there was only one row to average across)
+
+    # Replace with zeros the NaNs appearing as std (if there was only one row to average across)
+    cmp.fix_std_singleton(
+        group_level_df, ["abs_pw_log_std", "rel_pw_log_std", "osc_snr_std"],
+        n_col="n_sids"
+    )
 
     if save:
         fname = 'osc_df_group_level.csv'

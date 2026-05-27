@@ -15,8 +15,8 @@ def run_lmm_analysis(test: bool, sim: bool) -> None:
         "theta",
     )
     metrics = (
-        "abs_pw",
-        "rel_pw",
+        "abs_pw_log",
+        "rel_pw_log",
     )
 
     i = 0
