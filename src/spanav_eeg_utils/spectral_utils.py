@@ -112,35 +112,31 @@ def get_band_power(
 def compute_osc_snr(
         model: FOOOF,
         band: str,
-        space: str = 'log',
 ) -> np.float64:
     """
     Returns FOOOF-based oscillatory SNR.
 
-    SNR computation is done in linear space, but the returned value is per default in logarithmic space (better for
-    visualization and comparions).
+    SNR computation is done in linear space.
 
     :param model:
     :param band:
-    :param space:
     :return:
     """
-    # Get power spectra of oscillatory and background components
-    osc_psd = model.get_data(component='peak', space='linear')
-    osc_psd = np.clip(osc_psd, 0, None)  # Prevent negative oscillatory power (which means "no peaks")
+    # Get power spectra of background component
     bg_psd = model.get_data(component='aperiodic', space='linear')
+
+    # Get power spectra of oscillatory component; in linear space .get_data(component='peak') returns a substraction
+    # of full spectrum minus aperiodic fit, and because of float noise this can be slightly negative, so clip to min of zero
+    osc_psd = model.get_data(component='peak', space='linear')
+    osc_psd = np.clip(osc_psd, 0, None)
 
     # Estimate oscillatory-band power (absolute)
     freqs = model.freqs
-
-    osc_pw = get_band_power(osc_psd, freqs, band)
-    osc_bg = get_band_power(bg_psd, freqs, band)
+    osc_pw = get_band_power(osc_psd, freqs, band, space='linear')
+    osc_bg = get_band_power(bg_psd, freqs, band, space='linear')
 
     # Compute and return SNR
-    snr = osc_pw / osc_bg
-    if space == 'log':
-        return np.log10(snr)
-    return snr
+    return osc_pw / osc_bg
 
 
 def get_modeled_peak_power(

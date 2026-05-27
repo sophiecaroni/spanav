@@ -17,7 +17,6 @@ def run_lmm_analysis(test: bool, sim: bool) -> None:
     metrics = (
         "abs_pw",
         "rel_pw",
-        "osc_snr",
     )
 
     i = 0
@@ -26,6 +25,7 @@ def run_lmm_analysis(test: bool, sim: bool) -> None:
             if i > 0 and (test or sim):
                 break
 
+            print(f"\n####################################### {band.upper()} {metric.upper()} #######################################\n")
             fit_method = lmm.select_best_fit_method(band, metric, test, sim)
             print(
                 f"Best fitting method for {band} {metric}: {fit_method}"

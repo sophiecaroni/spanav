@@ -69,7 +69,7 @@ def get_epo_level_osc_df(
             psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
 
             # Extract FOOOF oscillatory SNR
-            osc_snr = spct.compute_osc_snr(psd_model, band, space=space)
+            osc_snr = spct.compute_osc_snr(psd_model, band)
 
             # Extract power of modeled peaks in the band (if any - otherwise will be nan)
             pk_pw = spct.get_modeled_peak_power(psd_model, band, space=space)
