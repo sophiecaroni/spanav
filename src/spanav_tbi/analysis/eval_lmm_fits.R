@@ -70,11 +70,7 @@ print(head(df))
 # 2. Run candidate models
 # -------------------------
 # Define common formula for the models
-formula <- if (testing_mode) {
-    y ~ cond * epo_type + (1 | sid)
-} else {
-    y ~ group * cond * epo_type + (1 | sid)
-}
+formula <- y ~ group * cond * epo_type + (1 | sid)
 
 # Verify wether the y column contains only positive values (needed for the lognormal family)
 all_positive <- all(df$y > 0, na.rm=TRUE)
