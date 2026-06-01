@@ -63,15 +63,14 @@ def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n
     example_sids_df = in_df.copy()[in_df['sid'].isin(example_sids)]
     _SEED = get_seed()
 
-    # Use data from the exemplar subjets as a basis to create two new subjects (one per group) with fake data
+    # Use data from the exemplar subjects as a basis to create two new subjects (one per group) with fake data
     for i in range(new_sids_by_group_n):
         existing_sids = sim_df['sid'].unique()
         new_sids_df = example_sids_df.copy()
 
         # First replace subject IDs
-        for sid, sid_df in new_sids_df.groupby('sid'):
-            sid_group = prs.get_group_letter(sid)
-            new_sid = _simulate_sid(existing_sids, sid_group)
+        for sid in new_sids_df['sid'].unique():
+            new_sid = _simulate_sid(existing_sids, new_sid_group=prs.get_group_letter(sid))
             new_sids_df.replace({sid: new_sid}, inplace=True)
 
         # Add new random features data
