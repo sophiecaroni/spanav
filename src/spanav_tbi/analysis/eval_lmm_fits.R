@@ -166,12 +166,13 @@ for (fit_name in names(models)) {
     }
 
     # Save diagn_table of this model in df
+    round_dig <- 2
     this_row <- data.frame(
         fit_method = fit_name,
-        disp_p = disp_p,
-        unif_p = unif_p,
-        out_p = out_p,
-        AIC = AIC(model_obj),
+        disp_p = round(disp_p, digits=round_dig),
+        unif_p = round(unif_p, digits=round_dig),
+        out_p = round(out_p, digits=round_dig),
+        AIC = round(AIC(model_obj), digits=round_dig),
         n_fail_diagn = sum(c(disp_p, unif_p, out_p) < 0.05, na.rm = TRUE),
         stringsAsFactors = FALSE
     )
