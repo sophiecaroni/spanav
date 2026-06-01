@@ -20,12 +20,12 @@ setwd(wd)
 
 # Retrieve arguments
 args <- commandArgs(trailingOnly=TRUE)
-
 testing_mode <- tolower(args[1]) == "true"
 simulation_mode <- tolower(args[2]) == "true"
 band_arg <- args[3]
 metric <- args[4]
 df_fpath <- args[5]
+formula_arg <- args[6]
 
 # Define plotting functions
 save_residual_plot <- function(res, fpath) {
@@ -70,7 +70,7 @@ print(head(df))
 # 2. Run candidate models
 # -------------------------
 # Define common formula for the models
-formula <- y ~ group * cond * epo_type + (1 | sid)
+formula <- as.formula(formula_arg)
 
 # Verify wether the y column contains only positive values (needed for the lognormal family)
 all_positive <- all(df$y > 0, na.rm=TRUE)
