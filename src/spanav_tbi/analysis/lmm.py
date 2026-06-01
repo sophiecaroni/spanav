@@ -55,13 +55,34 @@ def _simulate_sid(existing_sids: list[str], new_sid_group: str) -> str:
         id_n += 1
 
 
+def _estimate_lmm_components(in_df: pd.DataFrame, feature: str, lmm_factors: list[str]) -> tuple[pd.Series, float, float]:
+    df = in_df.copy()
+
+    # 1) Fixed-effects: mean response per factor combination, pooled across subjects
+    factor_comb_means = df.groupby(lmm_factors)[feature].mean()
+    factor_comb_means_long = df.groupby(lmm_factors)[feature].transform("mean")  # .transform() to return means in shape of df len (instead of compacting as mean)
+    df['factor_combs_resid'] = df[feature] - factor_comb_means_long
+
+    # 2) Random intercept: per-subject mean of the cell-centered residuals (between-subject SD)
+    sid_intercept = df.groupby('sid')['factor_combs_resid'].mean()
+    sigma_sid = sid_intercept.std(ddof=1)  # ddof=1 computes SD using n-1 denominator (ie sample SD, since we estimate a sample's unknown underlying spread)
+
+    # 3) Residual: leftover spread once both the cell mean and the subject intercept are removed (within-subject residual SD)
+    per_sid_intercept = df['sid'].map(sid_intercept)  # trasforms sid_intercept in the df["sid"] shape
+    resid = df['factor_combs_resid'] - per_sid_intercept
+    sigma_res = resid.std(ddof=1)  # ddof=1 computes SD using n-1 denominator (ie sample SD, since we estimate a sample's unknown underlying spread)
+
+    return factor_comb_means, sigma_sid, sigma_res
+
+
 def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n: int = 15) -> None:
     sim_df = in_df.copy()
+    rng = np.random.default_rng(get_seed())
+    lmm_factors = ["group", "cond", "epo_type"]
 
     # Pick one subject by group as examples and subset the input df to their data
     example_sids = [group_sids[0] for group_sids in in_df.groupby('group')['sid'].unique()]
     example_sids_df = in_df.copy()[in_df['sid'].isin(example_sids)]
-    _SEED = get_seed()
 
     # Use data from the exemplar subjects as a basis to create two new subjects (one per group) with fake data
     for i in range(new_sids_by_group_n):
@@ -73,11 +94,26 @@ def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n
             new_sid = _simulate_sid(existing_sids, new_sid_group=prs.get_group_letter(sid))
             new_sids_df.replace({sid: new_sid}, inplace=True)
 
-        # Add new random features data
+        # Then simulate each feature from the model as: factor-combinations mean + per-subject random intercept + residual noise
         simulate_features = ["abs_pw_log", "rel_pw_log"]
         for feature in simulate_features:
-            fmin, fmax = in_df[feature].min(), in_df[feature].max()
-            new_sids_df[feature] = np.random.uniform(fmin, fmax, size=len(new_sids_df[feature]))
+
+            # Use real data (from in_df) to estimate the regression-model components of the feature to simulate
+            fixed_eff, sigma_sid, sigma_res = _estimate_lmm_components(in_df, feature, lmm_factors)
+
+            # Fixed effects for each row (based on factor values combination)
+            new_sids_df_mi = new_sids_df.set_index(lmm_factors)  # convert factor columns to multiindex (as in fixed_eff)
+            row_fixed_eff = new_sids_df_mi.index.map(fixed_eff).to_numpy()  # extract the mean estimated by fixed_eff
+
+            # One random-intercept per subject
+            sid_intercepts = {sid: rng.normal(0, sigma_sid) for sid in new_sids_df['sid'].unique()}  # N(0, σ_sid)
+            row_intercept = new_sids_df['sid'].map(sid_intercepts).to_numpy()  # broadcast dict to an array, one value per row
+
+            # Create a vector of residual gaussian noise (normal distribution with mean=0 and SD=sigma_res) for each row
+            noise = rng.normal(0, sigma_res, size=len(new_sids_df))  # ε ~ N(0, σ_resid)
+
+            # Use estimated values to simulate feature values for new subjects
+            new_sids_df[feature] = row_fixed_eff + row_intercept + noise
 
         sim_df = pd.concat([sim_df, new_sids_df], ignore_index=True)
 
