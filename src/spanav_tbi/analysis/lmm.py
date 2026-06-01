@@ -93,17 +93,17 @@ def _subset_lmm_dataframe(in_df: pd.DataFrame, fname: str) -> None:
     subset_df.to_csv(io.get_tables_path() / fname, index=False)
 
 
-def get_lmm_table_path(test: bool, sim: bool) -> Path:
+def get_lmm_table_path(test: bool, sim: bool, overwrite: bool = False) -> Path:
     df_fname = "osc_df_epo_level.csv"
     if sim:
         df_fname_sim = "osc_df_epo_level_SIM.csv"
-        if not (io.get_tables_path() / df_fname_sim).exists():
+        if overwrite or not (io.get_tables_path() / df_fname_sim).exists():
             df = pd.read_csv(io.get_tables_path() / df_fname, index_col=0)
             _simulate_lmm_dataframe(df, df_fname_sim)
         df_fname = df_fname_sim
     elif test:
         df_fname_test = "osc_df_epo_level_TEST.csv"
-        if not (io.get_tables_path() / df_fname_test).exists():
+        if overwrite or not (io.get_tables_path() / df_fname_test).exists():
             df = pd.read_csv(io.get_tables_path() / df_fname, index_col=0)
             _subset_lmm_dataframe(df, df_fname_test)
         df_fname = df_fname_test
