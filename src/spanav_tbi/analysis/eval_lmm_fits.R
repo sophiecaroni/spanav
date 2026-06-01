@@ -70,7 +70,7 @@ print(head(df))
 # 2. Run candidate models
 # -------------------------
 # Define common formula for the models
-form_lmm <- if (testing_mode) {
+formula <- if (testing_mode) {
     y ~ cond * epo_type + (1 | sid)
 } else {
     y ~ group * cond * epo_type + (1 | sid)
@@ -87,7 +87,7 @@ cat("\n======================================== Fitting methods ================
 # Gaussian fitting family
 cat("\n----------------------------------------- Gaussian fit ----------------------------------------\n")
 models$gaussian <- glmmTMB(
-    form_lmm,
+    formula,
     data=df,
     family=gaussian()
 )
@@ -96,7 +96,7 @@ models$gaussian <- glmmTMB(
 if (all_positive) {
     cat("\n---------------------------------------- Lognormal fit ---------------------------------------\n")
     models$lognormal <- glmmTMB(
-    form_lmm,
+    formula,
     data=df,
     family=lognormal()
     )
