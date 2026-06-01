@@ -60,7 +60,8 @@ df <- raw_df %>%
         epo_type=factor(epo_type)
     )
 
-cat("\nInput dataframe")
+cat("\nInput dataframe: ")
+cat("\n\tsubjects: ", as.character(unique(df$sid)))
 cat("\n\trows: ", nrow(df))
 cat("\n\thead: ", "\n")
 print(head(df))
