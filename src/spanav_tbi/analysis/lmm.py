@@ -100,11 +100,13 @@ def get_lmm_table_path(test: bool, sim: bool) -> Path:
         if not (io.get_tables_path() / df_fname_sim).exists():
             df = pd.read_csv(io.get_tables_path() / df_fname, index_col=0)
             _simulate_lmm_dataframe(df, df_fname_sim)
+        df_fname = df_fname_sim
     elif test:
         df_fname_test = "osc_df_epo_level_TEST.csv"
         if not (io.get_tables_path() / df_fname_test).exists():
             df = pd.read_csv(io.get_tables_path() / df_fname, index_col=0)
             _subset_lmm_dataframe(df, df_fname_test)
+        df_fname = df_fname_test
 
     return io.get_tables_path() / df_fname
 
