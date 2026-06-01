@@ -153,11 +153,11 @@ def _parse_rscript_output(output: str, pattern: str) -> str:
     raise RuntimeError(f"Could not find value with prefix '{pattern}' from R output.")
 
 
-def select_best_fit_method(band: str, metric: str, test: bool, sim: bool) -> str:
+def select_best_fit_method(band: str, metric: str, lmm_formula: str, test: bool, sim: bool) -> str:
     df_path = get_lmm_table_path(test=test, sim=sim)
     script_out = run_rscript(
         "eval_lmm_fits.R",
-        [test, sim, band, metric, df_path, "y ~ group * cond * epo_type + (1 | sid)"],
+        [test, sim, band, metric, df_path, lmm_formula],
         verbose=True,
     )
     return _parse_rscript_output(script_out.stdout, "PROPOSED_BEST_FIT_METHOD=")
