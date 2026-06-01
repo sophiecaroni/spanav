@@ -136,28 +136,22 @@ for (fit_name in names(models)) {
     # For successfully computed residuals
     if (!is.null(res)) {
 
-        # Plot residulas
+        # Plot DHARMa residulas
         ppath <- file.path(pdir, paste0(pname_pref, "_", fit_name))
-        save_residual_plot(res, paste0(ppath, "_DHARMa.png"))
+        save_residual_plot(res, paste0(ppath, "_dharma.png"))
+
+        # Run uniformity test (already plotted in DHARMa residulas "_dharma.png") to add p-value into variable and table later
+        unif_res <- testUniformity(res, plot=TRUE)
+        unif_p <- unif_res$p.value
 
         # Plot dispersion and store dispersion test p-value into variable
-        cat("\n------------------------------------------ Dispersion -----------------------------------------\n")
         save_dharma_plot(
             function() disp_res <<- testDispersion(res, plot=TRUE),
             paste0(ppath, "_dispersion.png")
         )
         disp_p <- disp_res$p.value
 
-        # Plot uniformity and store uniformity test p-value into variable
-        cat("\n------------------------------------------ Uniformity -----------------------------------------\n")
-        save_dharma_plot(
-            function() unif_res <<- testUniformity(res, plot=TRUE),
-            paste0(ppath, "_uniformity.png")
-        )
-        unif_p <- unif_res$p.value
-
         # Plot outliers and store outliers test p-value into variable
-        cat("\n------------------------------------------- Outliers ------------------------------------------\n")
         save_dharma_plot(
             function() out_res <<- testOutliers(res, plot=TRUE),
             paste0(ppath, "_outliers.png")
