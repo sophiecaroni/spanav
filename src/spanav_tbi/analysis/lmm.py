@@ -95,7 +95,7 @@ def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n
             new_sids_df.replace({sid: new_sid}, inplace=True)
 
         # Then simulate each feature from the model as: factor-combinations mean + per-subject random intercept + residual noise
-        simulate_features = ["abs_pw_log", "rel_pw_log"]
+        simulate_features = ["abs_pw_log", "rel_pw_lin"]
         for feature in simulate_features:
 
             # Use real data (from in_df) to estimate the regression-model components of the feature to simulate

@@ -85,8 +85,10 @@ def get_band_power(
     """
     Returns estimated power in a canonical frequency band.
 
-    psd must be in linear space (as yasa's bandpower_from_psd requires), but the returned band power is per default in
-    logarithmic space (better for visualization and comparions).
+    psd must be in linear space (as yasa's bandpower_from_psd requires), but if absolute (rel=False) the returned band
+    power is per default in logarithmic space (better for visualization and comparions). Relative band power (rel=True)
+    only returns linear space, because it would make the feature distribution asymmetric (log of a value in (0,1) is
+    negative and unbounded in the negative sign, while bounded above at 0 since log(1)=0 )
 
     :param psd:
     :param freqs:
@@ -104,7 +106,7 @@ def get_band_power(
 
     # Extract power of band from df and return
     band_pw = band_pws_df[band.capitalize()][0]
-    if space == 'log':
+    if not rel and space == 'log':
         return np.log10(band_pw)
     return band_pw
 

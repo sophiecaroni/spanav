@@ -62,7 +62,7 @@ def get_epo_level_osc_df(
 
                 # Extract absolute and relative band power
                 abs_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=False, space='log')   # log space to improve normality of feature distribution
-                rel_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=True, space='log')   # log space to improve normality of feature distribution
+                rel_pw_lin = spct.get_band_power(epo_psd, freqs, band, rel=True)   # keep linear space (inconvenient to log-transform)
 
                 # Model PSD
                 psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
@@ -81,7 +81,7 @@ def get_epo_level_osc_df(
                     epo_n=epoch_idx,
                     band=band,
                     abs_pw_log=abs_pw_log,
-                    rel_pw_log=rel_pw_log,
+                    rel_pw_lin=rel_pw_lin,
                     osc_snr=osc_snr,
                     pk_pw_log=pk_pw_log,
                 )
@@ -119,8 +119,8 @@ def get_sid_level_osc_df(
         group=('group', 'first'),
         abs_pw_log_avg=('abs_pw_log', 'mean'),
         abs_pw_log_std=('abs_pw_log', 'std'),
-        rel_pw_log_avg=('rel_pw_log', 'mean'),
-        rel_pw_log_std=('rel_pw_log', 'std'),
+        rel_pw_lin_avg=('rel_pw_lin', 'mean'),
+        rel_pw_lin_std=('rel_pw_lin', 'std'),
         osc_snr_avg=('osc_snr', 'mean'),
         osc_snr_std=('osc_snr', 'std'),
         n_epochs=('sid', 'size'),
@@ -131,7 +131,7 @@ def get_sid_level_osc_df(
 
     # Replace with zeros the NaNs introduced as std if there was only one row to average across
     cmp.fix_std_singleton(
-        sid_level_df, ["abs_pw_log_std",  "rel_pw_log_std", "osc_snr_std"],
+        sid_level_df, ["abs_pw_log_std",  "rel_pw_lin_std", "osc_snr_std"],
         n_col="n_epochs"
     )
     cmp.fix_std_singleton(
@@ -165,8 +165,8 @@ def get_group_level_osc_df(
 
         abs_pw_log_avg=('abs_pw_log_avg', 'mean'),
         abs_pw_log_std=('abs_pw_log_avg', 'std'),
-        rel_pw_log_avg=('rel_pw_log_avg', 'mean'),
-        rel_pw_log_std=('rel_pw_log_avg', 'std'),
+        rel_pw_lin_avg=('rel_pw_lin_avg', 'mean'),
+        rel_pw_lin_std=('rel_pw_lin_avg', 'std'),
         osc_snr_avg=('osc_snr_avg', 'mean'),
         osc_snr_std=('osc_snr_avg', 'std'),
         n_sids=('group', 'size'),
@@ -178,7 +178,7 @@ def get_group_level_osc_df(
 
     # Replace with zeros the NaNs appearing as std (if there was only one row to average across)
     cmp.fix_std_singleton(
-        group_level_df, ["abs_pw_log_std", "rel_pw_log_std", "osc_snr_std"],
+        group_level_df, ["abs_pw_log_std", "rel_pw_lin_std", "osc_snr_std"],
         n_col="n_sids"
     )
     cmp.fix_std_singleton(

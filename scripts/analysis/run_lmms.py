@@ -14,7 +14,7 @@ def run_lmm_explorative(test: bool, sim: bool) -> None:
     formula = "y ~ group * cond * epo_type * band + (1 | sid)"
     metrics = (
         "abs_pw_log",
-        "rel_pw_log",
+        "rel_pw_lin",
     )
 
     for i, metric in enumerate(metrics):
@@ -32,7 +32,7 @@ def run_lmm_hypo_test(test: bool, sim: bool) -> None:
     formula = "y ~ group * epo_type + (1 | sid)"
     metrics = (
         "abs_pw_log",
-        "rel_pw_log",
+        "rel_pw_lin",
     )
 
     for i, metric in enumerate(metrics):
