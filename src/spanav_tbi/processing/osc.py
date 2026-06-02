@@ -58,34 +58,35 @@ def get_epo_level_osc_df(
                     f'PSD and freqs should have the same shape, got {epo_psd.sape} PSD and {freqs.shape} freqs'
                     f'\n\t{grouped_df = }')
 
-            # Extract absolute and relative band power
-            band = 'theta'
-            abs_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=False, space='log')   # log space to improve normality of feature distribution
-            rel_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=True, space='log')   # log space to improve normality of feature distribution
+            for band in ['theta', 'alpha']:
 
-            # Model PSD
-            psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
+                # Extract absolute and relative band power
+                abs_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=False, space='log')   # log space to improve normality of feature distribution
+                rel_pw_log = spct.get_band_power(epo_psd, freqs, band, rel=True, space='log')   # log space to improve normality of feature distribution
 
-            # Extract FOOOF oscillatory SNR
-            osc_snr = spct.compute_osc_snr(psd_model, band)
+                # Model PSD
+                psd_model = spct.model_psd(epo_psd, freqs, max_n_peaks=3)  # limit max_n_peaks to our relevant canonical bands
 
-            # Extract power of modeled peaks in the band (if any - otherwise will be nan)
-            pk_pw_log = spct.get_modeled_peak_power(psd_model, band, space='log')  # log space to improve normality of feature distribution
+                # Extract FOOOF oscillatory SNR
+                osc_snr = spct.compute_osc_snr(psd_model, band)
 
-            row = dict(
-                sid=sid,
-                group=prs.get_group_letter(sid),
-                cond=cond,
-                epo_type=epo_type,
-                epo_n=epoch_idx,
-                band=band,
-                abs_pw_log=abs_pw_log,
-                rel_pw_log=rel_pw_log,
-                osc_snr=osc_snr,
-                pk_pw_log=pk_pw_log,
-            )
+                # Extract power of modeled peaks in the band (if any - otherwise will be nan)
+                pk_pw_log = spct.get_modeled_peak_power(psd_model, band, space='log')  # log space to improve normality of feature distribution
 
-            df_rows.append(row)
+                row = dict(
+                    sid=sid,
+                    group=prs.get_group_letter(sid),
+                    cond=cond,
+                    epo_type=epo_type,
+                    epo_n=epoch_idx,
+                    band=band,
+                    abs_pw_log=abs_pw_log,
+                    rel_pw_log=rel_pw_log,
+                    osc_snr=osc_snr,
+                    pk_pw_log=pk_pw_log,
+                )
+
+                df_rows.append(row)
 
     # Create df
     epo_level_df = pd.DataFrame(df_rows)
