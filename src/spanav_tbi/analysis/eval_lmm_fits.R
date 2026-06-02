@@ -78,8 +78,11 @@ print(head(df))
 # Define common formula for the models
 formula <- as.formula(formula_arg)
 
-# Verify wether the y column contains only positive values (needed for the lognormal family)
+# Verify wether the y column contains only positive values, needed for the lognormal family
 all_positive <- all(df$y > 0, na.rm=TRUE)
+
+# Verify whether the y column lies strictly within (0, 1), needed for the beta family
+in_unit_interval <- all(df$y > 0 & df$y < 1, na.rm=TRUE)
 
 # Run GLMM models with different fitting methods and add them to list
 models <- list()
@@ -101,6 +104,16 @@ if (all_positive) {
     formula,
     data=df,
     family=lognormal()
+    )
+}
+
+# Beta fitting family (suited to proportions bounded in (0, 1), like relative power)
+if (in_unit_interval) {
+    cat("\n------------------------------------------- Beta fit ------------------------------------------\n")
+    models$beta <- glmmTMB(
+    formula,
+    data=df,
+    family=beta_family()
     )
 }
 
