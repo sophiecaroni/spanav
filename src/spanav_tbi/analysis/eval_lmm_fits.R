@@ -133,6 +133,7 @@ diagn_table <- data.frame(
     disp_p=numeric(),
     unif_p=numeric(),
     out_p=numeric(),
+    quant_p=numeric(),
     AIC=numeric(),
     n_fail_diagn=numeric(),
     stringsAsFactors=FALSE
@@ -164,9 +165,11 @@ for (fit_name in names(models)) {
         ppath <- file.path(pdir, paste0(pname_pref, "_", fit_name))
         save_residual_plot(res, paste0(ppath, "_dharma.png"))
 
-        # Run uniformity test (already plotted in DHARMa residulas "_dharma.png") to add p-value into variable and table later
-        unif_res <- testUniformity(res, plot=TRUE)
+        # Run uniformity and quantile test (already plotted in "_dharma.png") to get p-value
+        unif_res <- testUniformity(res, plot=FALSE)
         unif_p <- unif_res$p.value
+        quant_res <- testQuantiles(res, plot=FALSE)
+        quant_p <- quant_res$p.value
 
         # Plot dispersion and store dispersion test p-value into variable
         save_dharma_plot(
@@ -185,10 +188,12 @@ for (fit_name in names(models)) {
 
     # Save diagn_table of this model in df
     round_dig <- 2
+    p_vals <- c(disp_p, unif_p, out_p, quant_p)
     this_row <- data.frame(
         fit_method = fit_name,
         disp_p = round(disp_p, digits=round_dig),
         unif_p = round(unif_p, digits=round_dig),
+        quant_p = round(quant_p, digits=round_dig),
         out_p = round(out_p, digits=round_dig),
         AIC = round(AIC(model_obj), digits=round_dig),
         n_fail_diagn = sum(c(disp_p, unif_p, out_p) < 0.05, na.rm = TRUE),
