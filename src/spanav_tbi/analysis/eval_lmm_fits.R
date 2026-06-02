@@ -196,7 +196,7 @@ for (fit_name in names(models)) {
         quant_p = round(quant_p, digits=round_dig),
         out_p = round(out_p, digits=round_dig),
         AIC = round(AIC(model_obj), digits=round_dig),
-        n_fail_diagn = sum(c(disp_p, unif_p, out_p) < 0.05, na.rm = TRUE),
+        n_fail_diagn = sum(p_vals < 0.05 | is.na(p_vals)),  # diagnostic metric fails if significant or couldn't be computed (NA)
         stringsAsFactors = FALSE
     )
     diagn_table <- rbind(diagn_table, this_row)
