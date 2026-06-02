@@ -107,6 +107,14 @@ if (all_positive) {
     )
 }
 
+# Student-t fitting family (heavy-tailed, symmetric, robust alternative to gaussian)
+cat("\n----------------------------------------- Student-t fit ---------------------------------------\n")
+models$t <- glmmTMB(
+    formula,
+    data=df,
+    family=t_family()
+)
+
 # Beta fitting family (suited to proportions bounded in (0, 1), like relative power)
 if (in_unit_interval) {
     cat("\n------------------------------------------- Beta fit ------------------------------------------\n")
