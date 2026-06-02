@@ -13,6 +13,7 @@ import numpy as np
 import spanav_eeg_utils.io_utils as io
 import spanav_eeg_utils.parsing_utils as prs
 from pathlib import Path
+from scipy.special import expit, logit
 from spanav_eeg_utils.config_utils import get_seed
 
 
@@ -98,8 +99,15 @@ def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n
         simulate_features = ["abs_pw_log", "rel_pw_lin"]
         for feature in simulate_features:
 
+            is_proportion = feature.startswith("rel")
+
             # Use real data (from in_df) to estimate the regression-model components of the feature to simulate
-            fixed_eff, sigma_sid, sigma_res = _estimate_lmm_components(in_df, feature, lmm_factors)
+            est_df = in_df.copy()
+            if is_proportion:
+                # Map (0, 1) rel-feature onto an (-inf, inf) as the summation of simulated can produce all reals
+                est_df[feature] = logit(est_df[feature])
+
+            fixed_eff, sigma_sid, sigma_res = _estimate_lmm_components(est_df, feature, lmm_factors)
 
             # Fixed effects for each row (based on factor values combination)
             new_sids_df_mi = new_sids_df.set_index(lmm_factors)  # convert factor columns to multiindex (as in fixed_eff)
@@ -113,7 +121,13 @@ def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n
             noise = rng.normal(0, sigma_res, size=len(new_sids_df))  # ε ~ N(0, σ_resid)
 
             # Use estimated values to simulate feature values for new subjects
-            new_sids_df[feature] = row_fixed_eff + row_intercept + noise
+            simulated = row_fixed_eff + row_intercept + noise
+            if is_proportion:
+
+                # Undo logit (inverse) to map the scale back into its (0, 1) scale
+                simulated = expit(simulated)
+
+            new_sids_df[feature] = simulated
 
         sim_df = pd.concat([sim_df, new_sids_df], ignore_index=True)
 
