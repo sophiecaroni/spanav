@@ -78,7 +78,7 @@ def _estimate_lmm_components(in_df: pd.DataFrame, feature: str, lmm_factors: lis
 def _simulate_lmm_dataframe(in_df: pd.DataFrame, fname: str, new_sids_by_group_n: int = 15) -> None:
     sim_df = in_df.copy()
     rng = np.random.default_rng(get_seed())
-    lmm_factors = ["group", "cond", "epo_type"]
+    lmm_factors = ["group", "cond", "epo_type", "band"]
 
     # Pick one subject by group as examples and subset the input df to their data
     example_sids = [group_sids[0] for group_sids in in_df.groupby('group')['sid'].unique()]
@@ -153,7 +153,13 @@ def _parse_rscript_output(output: str, pattern: str) -> str:
     raise RuntimeError(f"Could not find value with prefix '{pattern}' from R output.")
 
 
-def select_best_fit_method(band: str, metric: str, lmm_formula: str, test: bool, sim: bool) -> str:
+def select_best_fit_method(
+        metric: str,
+        lmm_formula: str,
+        test: bool,
+        sim: bool,
+        band: str | None = None
+) -> str:
     df_path = get_lmm_table_path(test=test, sim=sim)
     script_out = run_rscript(
         "eval_lmm_fits.R",

@@ -10,6 +10,24 @@
 import spanav_tbi.analysis.lmm as lmm
 
 
+def run_lmm_explorative(test: bool, sim: bool) -> None:
+    formula = "y ~ group * cond * epo_type * band + (1 | sid)"
+    metrics = (
+        "abs_pw_log",
+        "rel_pw_log",
+    )
+
+    for i, metric in enumerate(metrics):
+        if i > 0 and test:
+            break
+
+        print(f"\n####################################### EXPLORATIVE: {metric.upper()} #######################################\n")
+        fit_method = lmm.select_best_fit_method(metric, formula, test, sim)
+        print(
+            f"Best fitting method for {metric}: {fit_method}"
+        )
+
+
 def run_lmm_hypo_test(test: bool, sim: bool) -> None:
     formula = "y ~ group * epo_type + (1 | sid)"
     metrics = (
@@ -22,7 +40,7 @@ def run_lmm_hypo_test(test: bool, sim: bool) -> None:
             break
 
         print(f"\n################################## HYPOTHESES TESTING: THETA {metric.upper()} ##################################\n")
-        fit_method = lmm.select_best_fit_method("theta", metric, formula, test, sim)
+        fit_method = lmm.select_best_fit_method(metric, formula, test, sim, "theta")
         print(
             f"Best fitting method for {metric}: {fit_method}"
         )

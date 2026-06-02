@@ -27,6 +27,9 @@ metric <- args[4]
 df_fpath <- args[5]
 formula_arg <- args[6]
 
+# The calling script passes "None" when band is a factor and not used to filter the metric in a specific band
+if (band_arg == "None") band_arg <- NA
+
 # Define plotting functions
 save_residual_plot <- function(res, fpath) {
     png(fpath, width=1200, height=900, res=140)
@@ -42,7 +45,8 @@ save_dharma_plot <- function(plot_fun, fpath) {
 # Define plot paths/fnames
 pdir <- file.path("outputs", "plots", "LMM", "diagnostics")
 dir.create(pdir, recursive=TRUE, showWarnings=FALSE)
-pname_pref <- paste0(if (testing_mode) "TEST_" else (if (simulation_mode) "SIM_" else ""), band_arg, "_", metric)
+band_label <- if (is.na(band_arg)) "" else paste0(band_arg, "_")  # omit band from fname when metric is not filtered in a band
+pname_pref <- paste0(if (testing_mode) "TEST_" else (if (simulation_mode) "SIM_" else ""), band_label, metric)
 
 # -------------------------
 # 1. Load and prepare dataframe
@@ -50,14 +54,15 @@ pname_pref <- paste0(if (testing_mode) "TEST_" else (if (simulation_mode) "SIM_"
 raw_df <- read.csv(file=df_fpath, row.names=1, colClasses=c(group="character"))
 
 df <- raw_df %>%
-    filter(band == band_arg) %>%   # filter out rows not corresponding to the band of interest
-    select(sid, group, cond, epo_type, all_of(metric)) %>%  # select columns of interest
+    filter(is.na(band_arg) | band == band_arg) %>%  # if band is input when calling the script exclude rows not corresponding to it
+    select(sid, group, cond, epo_type, band, all_of(metric)) %>%  # select columns of interest
     rename(y=all_of(metric)) %>%  # rename into 'y' the column containing the metric of interest
     mutate(  # turn columns into factors
         sid=factor(sid),
         group=factor(group),
         cond=factor(cond),
-        epo_type=factor(epo_type)
+        epo_type=factor(epo_type),
+        band=factor(band)
     )
 
 cat("\nInput dataframe: ")
