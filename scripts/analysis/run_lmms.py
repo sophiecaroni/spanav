@@ -46,8 +46,13 @@ def run_lmm_hypo_test(test: bool, sim: bool) -> None:
         )
 
 
+def run_lmms(**kwargs):
+    run_lmm_hypo_test(**kwargs)
+    run_lmm_explorative(**kwargs)
+
+
 if __name__ == "__main__":
-    run_lmm_hypo_test(
-        test=True,
-        sim=False,
+    run_lmms(
+        test=False,
+        sim=True ,
     )
