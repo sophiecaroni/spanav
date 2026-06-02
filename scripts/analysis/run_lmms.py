@@ -17,10 +17,7 @@ def run_lmm_explorative(test: bool, sim: bool) -> None:
         "rel_pw_lin",
     )
 
-    for i, metric in enumerate(metrics):
-        if i > 0 and test:
-            break
-
+    for metric in metrics:
         print(f"\n####################################### EXPLORATIVE: {metric.upper()} #######################################\n")
         fit_method = lmm.select_best_fit_method(metric, formula, test, sim, "explorative")
         print(
@@ -35,10 +32,7 @@ def run_lmm_hypo_test(test: bool, sim: bool) -> None:
         "rel_pw_lin",
     )
 
-    for i, metric in enumerate(metrics):
-        if i > 0 and test:
-            break
-
+    for metric in metrics:
         print(f"\n################################## HYPOTHESES TESTING: THETA {metric.upper()} ##################################\n")
         fit_method = lmm.select_best_fit_method(metric, formula, test, sim, band="theta", pipeline_label="hypo-testing")
         print(
@@ -52,7 +46,9 @@ def run_lmms(**kwargs):
 
 
 if __name__ == "__main__":
+    test = False
+    sim = not test
     run_lmms(
-        test=False,
-        sim=True ,
+        test=test,
+        sim=sim  ,
     )
