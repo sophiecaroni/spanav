@@ -22,7 +22,7 @@ def run_lmm_explorative(test: bool, sim: bool) -> None:
             break
 
         print(f"\n####################################### EXPLORATIVE: {metric.upper()} #######################################\n")
-        fit_method = lmm.select_best_fit_method(metric, formula, test, sim)
+        fit_method = lmm.select_best_fit_method(metric, formula, test, sim, "explorative")
         print(
             f"Best fitting method for {metric}: {fit_method}"
         )
@@ -40,7 +40,7 @@ def run_lmm_hypo_test(test: bool, sim: bool) -> None:
             break
 
         print(f"\n################################## HYPOTHESES TESTING: THETA {metric.upper()} ##################################\n")
-        fit_method = lmm.select_best_fit_method(metric, formula, test, sim, "theta")
+        fit_method = lmm.select_best_fit_method(metric, formula, test, sim, band="theta", pipeline_label="hypo-testing")
         print(
             f"Best fitting method for {metric}: {fit_method}"
         )

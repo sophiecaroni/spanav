@@ -158,12 +158,13 @@ def select_best_fit_method(
         lmm_formula: str,
         test: bool,
         sim: bool,
-        band: str | None = None
+        pipeline_label: str,
+        band: str | None = None,
 ) -> str:
     df_path = get_lmm_table_path(test=test, sim=sim)
     script_out = run_rscript(
         "eval_lmm_fits.R",
-        [test, sim, band, metric, df_path, lmm_formula],
+        [test, sim, band, metric, df_path, lmm_formula, pipeline_label],
         verbose=True,
     )
     return _parse_rscript_output(script_out.stdout, "PROPOSED_BEST_FIT_METHOD=")

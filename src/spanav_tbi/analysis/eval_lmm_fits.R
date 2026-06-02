@@ -26,6 +26,7 @@ band_arg <- args[3]
 metric <- args[4]
 df_fpath <- args[5]
 formula_arg <- args[6]
+pipeline_arg <- args[7]
 
 # The calling script passes "None" when band is a factor and not used to filter the metric in a specific band
 if (band_arg == "None") band_arg <- NA
@@ -43,7 +44,7 @@ save_dharma_plot <- function(plot_fun, fpath) {
 }
 
 # Define plot paths/fnames
-pdir <- file.path("outputs", "plots", "LMM", "diagnostics")
+pdir <- file.path("outputs", "plots", "LMM", pipeline_arg, "diagnostics")
 dir.create(pdir, recursive=TRUE, showWarnings=FALSE)
 band_label <- if (is.na(band_arg)) "" else paste0(band_arg, "_")  # omit band from fname when metric is not filtered in a band
 pname_pref <- paste0(if (testing_mode) "TEST_" else (if (simulation_mode) "SIM_" else ""), band_label, metric)
