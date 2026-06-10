@@ -4,7 +4,7 @@ Analysis of EEG data from the SpaNav study, investigating the effects of transcr
 
 ## Study overview
 
-The SpaNav study is a collaboration between HES-SO Sion and EPFL Lausanne (Switzerland). It combines:
+The SpaNav study is a collaboration between HES-SO Sion (Switzerland) and EPFL Lausanne (Switzerland). It combines:
 
 - **Virtual reality (VR)** spatial navigation tasks
 - **EEG** recordings to capture neural activity
@@ -16,10 +16,10 @@ The goal of this analysis is to characterize how tTIS affects neural oscillation
 
 The codebase is organized as a pipeline from raw EEG to statistical inference:
 
-1. **Preprocessing** — EEG cleaning, artifact rejection (via `autoreject`), epoching, and alignment with behavioral data
+1. **Preprocessing** — EEG data cleaning, alignment with behavioral data and epoching 
 2. **Processing** — Power spectral density (PSD) and time-frequency representations (TFR) of EEG signals, oscillatory features extracted via FOOOF modeling of the PSD
 3. **Analysis** — Mass-univariate statistics with cluster-based permutation tests, linear mixed models (LMM) in an integrated Python and R pipeline
-4. **Visualization** — Raw PSD, oscillatory features, TFR
+4. **Visualization** — PSD, TFR, oscillatory features
 
 ## Data availability
 
@@ -41,16 +41,17 @@ Edit `config.ini` to match your local setup (e.g., data paths). This file is not
 
 ### Dependencies
 
-Using pipenv:
+Install the pinned dependencies and the package itself (to make the project's own modules importable):
 
 ```bash
-pipenv install
+pip install -r requirements.txt 
+pip install -e . --no-deps      
 ```
 
-Or using pip:
+To work on the code directly install the dev extras too:
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
 ```
 
 ## License
