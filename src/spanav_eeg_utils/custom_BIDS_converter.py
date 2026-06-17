@@ -360,9 +360,9 @@ def _get_spanav_folders(subject_group: str) -> tuple[Path, Path]:
     group_dir = 'TBI' if subject_group == 'T' else 'Healthy_Agematched'
 
     if system == "Darwin":
-        return Path(f"/Volumes/PlasMA_WP73/Raw/{group_dir}/TI_and_EEG/Raw"), Path(f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/BIDS_Data_WP73{subject_group}")
+        return Path(f"/Volumes/PlasMA_WP73/Raw/{group_dir}/TI_and_EEG/Raw"), Path(f"/Volumes/Hummel-Data/TI/SpatialNavigation/WP7.3_EEG/raw/WP73{subject_group}")
     else:  # system == "Windows":
-        return Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Arch\TI\PlasMA_WP73\Raw\{group_dir}\TI_and_EEG\Raw"), Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Data\TI\SpatialNavigation\WP7.3_EEG\raw\BIDS_Data_WP73{subject_group}")
+        return Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Arch\TI\PlasMA_WP73\Raw\{group_dir}\TI_and_EEG\Raw"), Path(rf"\sv-nas1.rcp.epfl.ch\Hummel-Data\TI\SpatialNavigation\WP7.3_EEG\raw\WP73{subject_group}")
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@ from contextlib import nullcontext
          Path("/intermediate/WP73A/sub-73A01")),
 
         # Examples with group directories never modified
-        (Path("/x/y/BIDS_Data_WP73T"), Path("/x/y/BIDS_Data_WP73T")),
+        (Path("/x/y/WP73T"), Path("/x/y/WP73T")),
 
         # Whole noisy path untouched
         (Path("/x/y/fooba"), Path("/x/y/fooba")),

@@ -55,7 +55,7 @@ def get_raw_eeg_path(
 ) -> Path:
     root = get_main_path(server=server)
     group = prs.get_group_letter(sid)
-    return root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
+    return root / 'raw' / f'WP73{group}' / f'sub-{sid}' / 'ses-1' / 'eeg'
 
 
 def get_raw_beh_path(
@@ -66,7 +66,7 @@ def get_raw_beh_path(
     # Build behavioral directory
     root = get_main_path()
     group = prs.get_group_letter(sid)
-    beh_dir = root / 'raw' / f'BIDS_Data_WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
+    beh_dir = root / 'raw' / f'WP73{group}' / f'sub-{sid}' / 'ses-1' / 'beh'
     set_for_save(beh_dir)  # Make sure the directory exist
 
     # Optionally include a file in the path
@@ -282,7 +282,7 @@ def get_group_sids(
     :param test:
     :return:
     """
-    group_path = get_main_path() / 'raw' / f'BIDS_Data_WP73{group_letter}'
+    group_path = get_main_path() / 'raw' / f'WP73{group_letter}'
     group_sids = []
     for element in os.listdir(group_path):
         if os.path.isdir(os.path.join(group_path, element)):
