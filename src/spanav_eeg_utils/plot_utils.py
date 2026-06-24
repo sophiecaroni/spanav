@@ -27,7 +27,7 @@ def plot_context(
 ):
     increase = 0
     params = {
-        'figure.dpi': 300,
+        'figure.dpi': 900,
         'axes.grid': False,
         'font.size': 7 + increase,              # General fontsize
         'axes.titlesize': 7 + increase,         # Subplot titles
@@ -35,8 +35,8 @@ def plot_context(
         'axes.labelsize': 7 + increase,         # Axis labels (x and y)
         'xtick.labelsize': 6 + increase,        # X-axis tick labels
         'ytick.labelsize': 6 + increase,        # Y-axis tick labels
-        'legend.fontsize': 5 + increase,        # Legend text
-        'legend.title_fontsize': 5 + increase,       # Legend title
+        'legend.fontsize': 6 + increase,        # Legend text
+        'legend.title_fontsize': 7 + increase,  # Legend title
 
         # Line widths
         'axes.linewidth': 1,         # Border (spines) width
