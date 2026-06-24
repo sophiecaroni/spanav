@@ -281,23 +281,8 @@ def get_retrieval_raw_rec(
     file_path = io.get_cont_path('preproc', sid, acq=cid)
     raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
-    # Update onsets of annotations/triggers (bc if raw_rec was cropped, the onsets of triggers are not updated to the times of the new (cropped) rec)
-    t0 = raw_rec.first_time
-    onsets = raw_rec.annotations.onset - t0
-
-    # Baseline correct (each trial with its initial 3s of RS)
+    # Baseline correct  - each trial wuing its initial 3s of rest
     raw_corr = task_bl_corr(raw_rec, verbose=verbose)
-
-    # Crop retrieval recording based on annotated triggers
-    desc = raw_rec.annotations.description
-    retr_start = onsets[desc == sn.get_trigger_str('trial_start')][0]  # start of the first trial
-    retr_end = onsets[desc == sn.get_trigger_str('trial_end')][-1]  # end of the last trial
-    raw_corr.crop(tmin=retr_start, tmax=retr_end)
-    if verbose:
-        print(
-            f"\n-> Cropped raw recording to match retrieval-task: "
-            f"final duration of {raw_corr.duration}s (from {raw_corr.first_time}s to {raw_rec._last_time}s of original recording)"
-        )
 
     return raw_corr
 
