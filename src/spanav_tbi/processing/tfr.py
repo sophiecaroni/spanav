@@ -7,6 +7,7 @@
     Description:
     This script contains functions to compute and store TFR of EEG.
 """
+import re
 import mne
 import numpy as np
 import pandas as pd
@@ -99,7 +100,7 @@ def get_epo_level_tfr_df(
     epo_types = sn.get_task_epo_types(test)
     epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
     sids = io.get_sids(test=test)
-    tfr_entries = []
+    rows = []
     for sid in sids:
         group = prs.get_group_letter(sid)
         sid_cids = io.get_sid_blocks(sid, test=test)
@@ -119,7 +120,7 @@ def get_epo_level_tfr_df(
                     cond_epo_tfr = cond_epo_tfr.average(method='mean', dim='epochs')
 
                 # Store as df entry
-                tfr_entries.append(dict(
+                rows.append(dict(
                     sid=sid,
                     group=group,
                     cond=cond,
@@ -127,7 +128,7 @@ def get_epo_level_tfr_df(
                     tfr=cond_epo_tfr,
                 ))
 
-    return pd.DataFrame.from_records(tfr_entries)
+    return pd.DataFrame.from_records(rows)
 
 
 def _average_tfr_channels(tfr) -> object:
@@ -147,42 +148,35 @@ def get_sid_level_tfr_df(
         ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
-        sids = io.get_sids(test=test)
-        epo_types = sn.get_task_epo_types(test=test)
+        ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+        rows = []
 
-        # Additionally try to load bl-corrected version of epoch-types
-        epo_types += [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
-        epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
+        # Load subject-level existing TFR files 
+        outputs_root = io.get_outputs_path()
+        fname_pattern = re.compile(
+            rf'sub-(?P<sid>.+)_acq-(?P<cond>.+)_desc-(?P<epo_type>.+)_level-sid_{ch_avg_label}_tfr\.h5'
+        )
+        tfr_fpaths = outputs_root.glob(f'WP73*/TFR/sub-*/sub-*_level-sid_{ch_avg_label}_tfr.h5')
+        for fpath in sorted(tfr_fpaths):
+            match = fname_pattern.fullmatch(fpath.name)
+            if match is None:
+                if verbose:
+                    warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
+                continue
+            cond_epo_tfr = read_tfrs(fpath, verbose=False)
+            sid = match['sid']
+            rows.append(dict(
+                sid=sid,
+                group=prs.get_group_letter(sid),
+                cond=match['cond'],
+                epo_type=match['epo_type'],
+                tfr=cond_epo_tfr,
+            ))
 
-        tfr_records = []
-        for sid in sids:
-            sid_tfr_dir = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}'
-            group = prs.get_group_letter(sid)
-            conds = prs.get_conds(sid=sid)
-            for cond in conds:
-                for epo_type in epo_types:
-                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
-                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_tfr.h5'
-                    fpath = io.get_outputs_path(sid) / 'TFR' / f'sub-{sid}' / fname
-                    if not fpath.exists():
-                        if verbose:
-                            warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
-                        continue
+            if test:
+                break  # stops after the first iteration
 
-                    # Load TFR from exported file
-                    cond_epo_tfr = read_tfrs(sid_tfr_dir / fname, verbose=False)
-
-                    # Append as df entry
-                    tfr_records.append(dict(
-                        sid=sid,
-                        group=group,
-                        cond=cond,
-                        epo_type=epo_type,
-                        tfr=cond_epo_tfr,
-                    ))
-
-        # Create and return dataframe
-        return pd.DataFrame.from_records(tfr_records)
+        return pd.DataFrame.from_records(rows)
 
     # Load epoch-level TFR dataframe with average_epochs=True to average across epochs at loading time (more efficient)
     sid_level_df = get_epo_level_tfr_df(test, average_epochs=True)
@@ -223,38 +217,33 @@ def get_group_level_tfr_df(
         ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
-        groups = io.get_groups_letters()
-        epo_types = sn.get_task_epo_types(test=test)
+        ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+        rows = []
 
-        # Additionally try to load bl-corrected version of epoch-types
-        epo_types += [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
-        epo_types += [f'{epo_type}_wide' for epo_type in epo_types]
+        # Load group-level existing TFR files 
+        outputs_root = io.get_outputs_path()
+        fname_pattern = re.compile(
+            rf'group-(?P<group>.+)_acq-(?P<cond>.+)_desc-(?P<epo_type>.+)_level-group_{ch_avg_label}_tfr\.h5'
+        )
+        tfr_fpaths = outputs_root.glob(f'WP73*/TFR/group-*_level-group_{ch_avg_label}_tfr.h5')
+        for fpath in sorted(tfr_fpaths):
+            match = fname_pattern.fullmatch(fpath.name)
+            if match is None:
+                warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
+                continue
+            cond_epo_tfr = read_tfrs(fpath, verbose=False)
+            rows.append(dict(
+                group=match['group'],
+                cond=match['cond'],
+                epo_type=match['epo_type'],
+                tfr=cond_epo_tfr,
+            ))
 
-        tfr_records = []
-        for group in groups:
-            conds = prs.get_conds(group=group)
-            for cond in conds:
-                for epo_type in epo_types:
-                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
-                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_tfr.h5'
-                    fpath = io.get_outputs_path(group_letter=group) / 'TFR' / fname
-                    if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
-                        continue
-
-                    # Load TFR from exported file
-                    cond_epo_tfr = read_tfrs(fpath, verbose=False)
-
-                    # Store as df entry
-                    tfr_records.append(dict(
-                        group=group,
-                        cond=cond,
-                        epo_type=epo_type,
-                        tfr=cond_epo_tfr,
-                    ))
+            if test:
+                break  # stops after the first iteration
 
         # Create and return dataframe
-        return pd.DataFrame.from_records(tfr_records)
+        return pd.DataFrame.from_records(rows)
 
     # For each group, average TFR of the same condition and epoch-type across different subjects
     sid_level_df = get_sid_level_tfr_df(test, load=True, save=False, ch_avg=ch_avg)  # if ch_avg, take already subject-level channel averaged

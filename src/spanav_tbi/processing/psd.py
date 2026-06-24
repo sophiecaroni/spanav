@@ -7,6 +7,7 @@
     Description:
     This script contains functions to compute and store in tables power spectra of EEG.
 """
+import re
 import mne
 import numpy as np
 import pandas as pd
@@ -132,7 +133,7 @@ def get_epo_level_psd_df(
     # Get PSD within each epoch
     sids = io.get_sids(test=test)
     epo_types = sn.get_task_epo_types(test=test)
-    psd_records = []
+    rows = []
     for sid in sids:
         group = prs.get_group_letter(sid)
         sid_cids = io.get_sid_blocks(sid, test=test)
@@ -152,15 +153,14 @@ def get_epo_level_psd_df(
                     psd = psd.average(method='mean')
 
                 # Append as df entry
-                psd_records.append(dict(
+                rows.append(dict(
                     sid=sid,
                     group=group,
                     cond=cond,
                     epo_type=epo_type,
                     psd=psd,
                 ))
-    # Create and return dataframe
-    return pd.DataFrame.from_records(psd_records)
+    return pd.DataFrame.from_records(rows)
 
 
 def average_psd_channels(psd) -> object:
@@ -180,40 +180,36 @@ def get_sid_level_psd_df(
         ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
-        sids = io.get_sids(test=test)
-        epo_types = sn.get_task_epo_types(test=test)
+        ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
 
-        # Additionally try to load bl-corrected version of epoch-types
-        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        # Load subject-level existing PSD files 
+        outputs_root = io.get_outputs_path()
+        fname_pattern = re.compile(
+            rf'sub-(?P<sid>.+)_acq-(?P<cond>.+)_desc-(?P<epo_type>.+)_level-sid_{ch_avg_label}_psd\.h5'
+        )
+        psd_fpaths = outputs_root.glob(f'WP73*/PSD/sub-*/sub-*_level-sid_{ch_avg_label}_psd.h5')
 
-        psd_records = []
-        for sid in sids:
-            group = prs.get_group_letter(sid)
-            conds = prs.get_conds(sid=sid)
-            for cond in conds:
-                for epo_type in epo_types:
-                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
-                    fname = f'sub-{sid}_acq-{cond}_desc-{epo_type}_level-sid_{ch_avg_label}_psd.h5'
-                    fpath = io.get_outputs_path(sid) / 'PSD' / f'sub-{sid}' / fname
-                    if not fpath.exists():
-                        if verbose:
-                            warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
-                        continue
+        rows = []
+        for fpath in sorted(psd_fpaths):
+            match = fname_pattern.fullmatch(fpath.name)
+            if match is None:
+                if verbose:
+                    warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
+                continue
+            psd = read_spectrum(fpath)
+            sid = match['sid']
+            rows.append(dict(
+                sid=sid,
+                group=prs.get_group_letter(sid),
+                cond=match['cond'],
+                epo_type=match['epo_type'],
+                psd=psd,
+            ))
 
-                    # Load spectrum from exported file
-                    psd = read_spectrum(fpath)
+            if test:
+                break  # stops after the first iteration
 
-                    # Append as df entry
-                    psd_records.append(dict(
-                        sid=sid,
-                        group=group,
-                        cond=cond,
-                        epo_type=epo_type,
-                        psd=psd,
-                    ))
-
-        # Create and return dataframe
-        return pd.DataFrame.from_records(psd_records)
+        return pd.DataFrame.from_records(rows)
 
     # Load epoch-level PSD dataframe with average_epochs=True - average at the moment of loading is more efficient
     sid_level_df = get_epo_level_psd_df(test=test, average_epochs=True)
@@ -243,36 +239,32 @@ def get_group_level_psd_df(
         ch_avg: bool = False,
 ) -> pd.DataFrame:
     if load:
-        groups = io.get_groups_letters()
-        epo_types = sn.get_task_epo_types(test=test)
+        ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
+        rows = []
 
-        # Additionally try to load bl-corrected version of epoch-types
-        epo_types = epo_types + [f'bl{epo_type}' for epo_type in epo_types if epo_type != 'Stasis']
+        # Load group-level existing PSD files 
+        outputs_root = io.get_outputs_path()
+        fname_pattern = re.compile(
+            rf'group-(?P<group>.+)_acq-(?P<cond>.+)_desc-(?P<epo_type>.+)_level-group_{ch_avg_label}_psd\.h5'
+        )
+        psd_fpaths = outputs_root.glob(f'WP73*/PSD/group-*_level-group_{ch_avg_label}_psd.h5')
+        for fpath in sorted(psd_fpaths):
+            match = fname_pattern.fullmatch(fpath.name)
+            if match is None:
+                warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
+                continue
+            cond_psd = read_spectrum(fpath)
+            rows.append(dict(
+                group=match['group'],
+                cond=match['cond'],
+                epo_type=match['epo_type'],
+                psd=cond_psd,
+            ))
 
-        psd_records = []
-        for group in groups:
-            conds = prs.get_conds(group=group)
-            for cond in conds:
-                for epo_type in epo_types:
-                    ch_avg_label = 'ch-avg' if ch_avg else 'ch-all'
-                    fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_psd.h5'
-                    fpath = io.get_outputs_path(group_letter=group) / 'PSD' / fname
-                    if not fpath.exists():
-                        warnings.warn(f"\nFile {fname} not found at {fpath.parent}. Continuing...")
-                        continue
-                    # Load spectrum from exported file
-                    cond_psd = read_spectrum(fpath)
+            if test:
+                break  # stops after the first iteration
 
-                    # Append as df entry
-                    psd_records.append(dict(
-                        group=group,
-                        cond=cond,
-                        epo_type=epo_type,
-                        psd=cond_psd,
-                    ))
-
-        # Create and return dataframe
-        return pd.DataFrame.from_records(psd_records)
+        return pd.DataFrame.from_records(rows)
 
     # For each group, average PSD of the same condition and epoch-type across different subjects
     sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, ch_avg=ch_avg)  # if ch_avg, take already subject-level channel averaged
