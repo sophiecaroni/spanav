@@ -475,7 +475,10 @@ def plot_epo_overview(
     :param save: whether to save figures to disk
     """
     for wide in (True, False):
-        e_d = {k: v for k, v in epos_dict.items() if k.endswith('_wide') == wide}
+        if wide:
+            e_d = {k: epo.crop(2.5, 3.5) for k, epo in epos_dict.items() if k.endswith('_wide') == wide}
+        else:
+            e_d = {k: v for k, v in epos_dict.items() if k.endswith('_wide') == wide}
         psd_d = {k: v for k, v in psd_by_rec.items() if k.endswith('_wide') == wide}
         fname_suff = '_wide' if wide else ''
         plot_evk_by_grp(e_d, sid=sid, cid=cid, show=show, save=save, fname_suff=fname_suff)
