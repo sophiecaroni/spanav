@@ -142,31 +142,22 @@ def get_cont_path(
 
     else:
         fext = 'fif'
-        deriv_path = get_derivatives_path(sid)
+        fpath = get_derivatives_path(sid)
 
         if 'annot' in proc_stage and 'reannot' not in proc_stage:
-            fpath = deriv_path / '01_annot'
-            fname += '_desc-annot_eeg'
+            fname += '_annotated_eeg'
 
         elif 'filt' in proc_stage:
-            fpath = deriv_path / '02_filt_ds'
-            fname += '_desc-FiltDs_eeg'
-
-        elif 'reannot' in proc_stage:
-            fpath = deriv_path / '03_reannot'
-            fname += '_desc-reannot_eeg'
+            fname += '_filtered_ds_eeg'
 
         elif 'ica' in proc_stage:
-            fpath = deriv_path / '04_ica'
             fname += '_desc-ica_eeg'
 
         elif 'reconst' in proc_stage:
-            fpath = deriv_path / '05_reconstructed'
             fname += '_desc-reconst_eeg'
 
         elif 'preproc' in proc_stage:
-            fpath = deriv_path / '06_preproc'
-            fname += '_desc-preproc_eeg'
+            fname += '_preproc_eeg'
 
     if fpath is None or fext is None:
         raise ValueError('Please pass a valid proc_stage!')
@@ -354,6 +345,6 @@ def get_groups_letters(
 def get_all_preproc_raw_fpaths() -> list:
     intermediate_path = get_derivatives_path()
     fpaths = []
-    for fpath in intermediate_path.glob('*/*/06_preproc/*.fif'):
+    for fpath in intermediate_path.glob('*/*/*preproc_eeg.fif'):
         fpaths.append(fpath)
     return fpaths

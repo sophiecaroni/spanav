@@ -278,7 +278,7 @@ def get_retrieval_raw_rec(
         cid: str,
         verbose: bool = True,
 ) -> mne.io.BaseRaw:
-    file_path = io.get_cont_path('preproc', sid, acq=cid)
+    file_path = io.get_clean_eeg_path(sid, acq=cid)
     raw_rec = mne.io.read_raw_fif(file_path, preload=True, verbose=verbose)
 
     # Baseline correct  - each trial wuing its initial 3s of rest
