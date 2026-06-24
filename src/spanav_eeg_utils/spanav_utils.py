@@ -91,20 +91,20 @@ def get_ch_by_region(
 def map_epo_type_labels(
 ) -> dict:
     return {
-        'ObjPres': 'Object Presentation',
-        'MovOn': 'Movement Onset',
+        'ObjPres': 'Object presentation',
+        'MovOn': 'Movement onset',
         'ContMov': 'Moving',
         'Stasis': 'Stasis',
-        'blMovOn': 'Movement Onset (bl)',
+        'blMovOn': 'Movement onset (bl)',
         'blContMov': 'Moving (bl)',
-        'blObjPres': 'Object Presentation (bl)',
-        'ObjPres_wide': 'Object Presentation (wide)',
-        'MovOn_wide': 'Movement Onset (wide)',
+        'blObjPres': 'Object presentation (bl)',
+        'ObjPres_wide': 'Object presentation (wide)',
+        'MovOn_wide': 'Movement onset (wide)',
         'ContMov_wide': 'Moving (wide)',
         'Stasis_wide': 'Stasis (wide)',
-        'blMovOn_wide': 'Movement Onset (bl, wide)',
+        'blMovOn_wide': 'Movement onset (bl, wide)',
         'blContMov_wide': 'Moving (bl, wide)',
-        'blObjPres_wide': 'Object Presentation (bl, wide)',
+        'blObjPres_wide': 'Object presentation (bl, wide)',
     }
 
 
