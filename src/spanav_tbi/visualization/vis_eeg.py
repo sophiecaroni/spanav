@@ -277,7 +277,7 @@ def plot_evk_from_df(
         fig.suptitle(real_cid)
 
         if save:
-            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname='evk_traces.png', fig=fig,
+            save_figure(save_dir=sid, group_parent_dir='plots/evoked', fname='evk_traces.png', fig=fig,
                         sid=sid, dpi=900, bbox_inches='tight')
         if show:
             plt.show()
@@ -341,7 +341,7 @@ def plot_evk_by_grp(
             fname = f'{cid}_evk_traces'
             if fname_suff:
                 fname += fname_suff
-            save_figure(save_dir=sid, group_parent_dir='plots/Evoked', fname=f"{fname}.png", fig=fig,
+            save_figure(save_dir=sid, group_parent_dir='plots/evoked', fname=f"{fname}.png", fig=fig,
                         sid=sid, dpi=900, bbox_inches='tight')
         if show:
             fig.show()
@@ -451,7 +451,7 @@ def plot_epo_cleaning_summary(sid: str, cid: str, epos_dict: dict, show: bool = 
         if epo_rec is not None:
             fig = epo_rec.plot_drop_log(show=show)
             if save:
-                save_figure(save_dir=sid, group_parent_dir='plots/Epo', fname=f"{cid}_{epo_type}_cleaning_summary.png", fig=fig,
+                save_figure(save_dir=sid, group_parent_dir='plots/epo', fname=f"{cid}_{epo_type}_cleaning_summary.png", fig=fig,
                             sid=sid, dpi=900, bbox_inches='tight')
             if not show:
                 plt.close()
@@ -870,7 +870,7 @@ def plot_schematic_epo_def(
             fig.tight_layout()
 
             if save:
-                save_figure(save_dir=sid, group_parent_dir='plots/Epo', fname=f'block{block_n}_trials_epoching.png',
+                save_figure(save_dir=sid, group_parent_dir='plots/epo', fname=f'block{block_n}_trials_epoching.png',
                             fig=fig, sid=sid, dpi=900, bbox_inches='tight')
             if show:
                 plt.show()

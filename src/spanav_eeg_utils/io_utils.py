@@ -85,7 +85,7 @@ def get_epo_beh_tables_path(
         fname: str | None = None,
 ) -> Path:
     outputs_path = get_outputs_path(sid=sid)
-    epo_beh_tables_path = set_for_save(outputs_path / 'Epo' / sid)
+    epo_beh_tables_path = set_for_save(outputs_path / 'epo' / sid)
     if fname:
         return epo_beh_tables_path / fname
     return epo_beh_tables_path
