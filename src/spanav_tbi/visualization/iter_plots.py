@@ -44,10 +44,10 @@ def all_sid_plots(
             for i, (cond, cond_df) in enumerate(sid_df.groupby('cond')):
                 epo_axes = axes if sup_cond else axes[i * n_cols: i * n_cols + n_cols]
                 show_xlabel = True if sup_cond else i == n_rows - 1
-                plot_kwargs: dict = dict(epo_title=i == 0, vlim=vlim)
+                plot_kwargs: dict = dict(vlim=vlim)
                 if sup_cond:
                     plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
-                plot_fn(cond_df, pkind, epo_axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
+                plot_fn(cond_df, pkind, axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
 
                 if not sup_cond and n_conds > 1:
                     if n_epo_types == 1:
