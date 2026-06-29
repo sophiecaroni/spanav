@@ -29,15 +29,6 @@ warnings.filterwarnings(
 )
 
 
-def compute_group_psd(psd_series: pd.Series) -> Spectrum:
-    """
-    Combine a pandas Series of MNE Spectrum objects.
-    Every Spectrum weights 1 on the average - this is suited for example when averaging across subjects of the same group
-    (where every subject should weight the same).
-    """
-    return combine_spectrum(list(psd_series), weights='equal')
-
-
 def summarize_epo_psd(
         rec: Epochs,
         fmin: float = 0.0,
@@ -273,6 +264,15 @@ def compute_group_psd_sem(psd_series: pd.Series) -> np.ndarray:
     """
     sub_spectra = np.array([np.mean(p.get_data(), axis=0) for p in psd_series])  # (n_subjects, n_freqs)
     return cmp.sem(sub_spectra, axis=0)
+
+
+def compute_group_psd(psd_series: pd.Series) -> Spectrum:
+    """
+    Combine a pandas Series of MNE Spectrum objects.
+    Every Spectrum weights 1 on the average - this is suited for example when averaging across subjects of the same group
+    (where every subject should weight the same).
+    """
+    return combine_spectrum(list(psd_series), weights='equal')
 
 
 def get_group_level_psd_df(
