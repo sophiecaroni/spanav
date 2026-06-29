@@ -8,6 +8,7 @@
     This script contains helper functions for computations.
 """
 import mne
+import numpy as np
 import pandas as pd
 import spanav_eeg_utils.parsing_utils as prs
 from mne import EpochsArray
@@ -17,6 +18,11 @@ from spanav_eeg_utils.io_utils import get_epo_data_path
 def fix_std_singleton(df: pd.DataFrame, std_cols: list[str], n_col: str) -> None:
     for std_col in std_cols:
         df.loc[df[n_col] == 1, std_col] = 0.0  # replace with zeros the NaNs appearing as std (if there was only one row to average across)
+
+
+def sem(data: np.ndarray, axis: int, ddof: int = 1) -> np.ndarray:
+    """Compute the standard error of the mean of an array."""
+    return np.std(data, axis=axis, ddof=ddof) / np.sqrt(data.shape[axis])
 
 
 def get_concat_epo_recs(
