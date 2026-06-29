@@ -8,6 +8,7 @@
     This script contains functions to compute and store in tables power spectra of EEG.
 """
 import re
+from pathlib import Path
 import mne
 import numpy as np
 import pandas as pd
@@ -125,6 +126,18 @@ def compute_cond_psd(sid: str, cids: list[str], epo_type: str, space: str = 'log
     return None
 
 
+def compute_epo_psd_sem(psd: EpochsSpectrum) -> np.ndarray:
+    """
+    Compute the channel-averaged SEM of a spectrum across epochs.
+    Channels are averaged within each epoch, then the SEM is taken across epochs, to match the plotted spectrum line.
+      Combine a pandas Series of MNE Spectrum objects.
+    Every Spectrum weights 1 on the average - this is suited for example when averaging across subjects of the same group
+    (where every subject should weight the same).
+    """
+    epo_spectra = np.mean(psd.get_data(), axis=1)  # average channels within each epoch -> (n_epochs, n_freqs)
+    return cmp.sem(epo_spectra, axis=0)
+
+
 def get_epo_level_psd_df(
         test: bool = False,
         average_epochs: bool = False,
@@ -150,8 +163,8 @@ def get_epo_level_psd_df(
                     warnings.warn(f"\nPSD is None for {sid, cond, epo_type} (epo rec file likely not found). Skipping epo-level PSD...")
                     continue
 
-                if average_epochs:
-                    psd = psd.average(method='mean')
+                psd_sem = compute_epo_psd_sem(psd) if average_epochs else None  # compute SEM before average overwriting 'psd'
+                psd = psd.average(method='mean') if average_epochs else psd
 
                 # Append as df entry
                 rows.append(dict(
@@ -160,6 +173,7 @@ def get_epo_level_psd_df(
                     cond=cond,
                     epo_type=epo_type,
                     psd=psd,
+                    psd_sem=psd_sem,
                 ))
     return pd.DataFrame.from_records(rows)
 
@@ -171,6 +185,20 @@ def average_psd_channels(psd) -> object:
         mne.rename_channels(ch_psd.info, {ch: 'ch_mean'})
         ch_psds.append(ch_psd)
     return combine_spectrum(ch_psds)
+
+
+def _save_psd_sem(psd_fpath: Path, psd_sem: np.ndarray | None) -> None:
+    """Export a SEM array of its complementary PSD .h5 file, only if it does not contain just NaNs."""
+    if np.all(np.isnan(psd_sem)):
+        return
+    sem_fpath = psd_fpath.parent / f'{psd_fpath.stem}_sem.npy'
+    np.save(sem_fpath, np.asarray(psd_sem))
+
+
+def _load_psd_sem(psd_fpath: Path) -> np.ndarray | None:
+    """Load a SEM array of its complementary PSD .h5 file, if it does not exist, otherwise return None."""
+    sem_fpath = psd_fpath.parent / f'{psd_fpath.stem}_sem.npy'
+    return np.load(sem_fpath) if sem_fpath.exists() else None
 
 
 def get_sid_level_psd_df(
@@ -198,6 +226,7 @@ def get_sid_level_psd_df(
                     warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
                 continue
             psd = read_spectrum(fpath)
+            psd_sem = _load_psd_sem(fpath)  # SEM array file doesn't exist if there's only one epoch in the subject, so use helper function
             sid = match['sid']
             rows.append(dict(
                 sid=sid,
@@ -205,6 +234,7 @@ def get_sid_level_psd_df(
                 cond=match['cond'],
                 epo_type=match['epo_type'],
                 psd=psd,
+                psd_sem=psd_sem,
             ))
 
             if test:
@@ -230,7 +260,19 @@ def get_sid_level_psd_df(
             psd._inst_type = mne.Evoked  # use this (with any non-Epochs class) to prevent bug with read_spectrum
             fpath = io.set_for_save(io.get_outputs_path(sid) / 'PSD' / sid) / fname
             psd.save(fpath, overwrite=True)
+            _save_psd_sem(fpath, row['psd_sem'])
     return sid_level_df
+
+
+def compute_group_psd_sem(psd_series: pd.Series) -> np.ndarray:
+    """
+    Compute the channel-averaged SEM of a spectrum across subjects.
+    Every subject is averaged across channels, then the SEM is taken across subjects, to match the plotted group line.
+    :param psd_series: pd.Series, per-subject Spectrum objects of the same group, condition and epoch-type
+    :return: np.ndarray, SEM across subjects of shape (n_freqs,) - np.nan if fewer than 2 subjects
+    """
+    sub_spectra = np.array([np.mean(p.get_data(), axis=0) for p in psd_series])  # (n_subjects, n_freqs)
+    return cmp.sem(sub_spectra, axis=0)
 
 
 def get_group_level_psd_df(
@@ -255,11 +297,13 @@ def get_group_level_psd_df(
                 warnings.warn(f"\nFile {fpath.name} does not match the expected naming. Skipping...")
                 continue
             cond_psd = read_spectrum(fpath)
+            cond_psd_sem = _load_psd_sem(fpath)  # SEM array file doesn't exist if there's only one subject in the group, so use helper function
             rows.append(dict(
                 group=match['group'],
                 cond=match['cond'],
                 epo_type=match['epo_type'],
                 psd=cond_psd,
+                psd_sem=cond_psd_sem,
             ))
 
             if test:
@@ -269,9 +313,17 @@ def get_group_level_psd_df(
 
     # For each group, average PSD of the same condition and epoch-type across different subjects
     sid_level_df = get_sid_level_psd_df(test=test, load=True, save=False, ch_avg=ch_avg)  # if ch_avg, take already subject-level channel averaged
-    group_cols = ['group', 'cond', 'epo_type']
-    grouped_df = sid_level_df.groupby(group_cols, as_index=False)
-    group_level_df = grouped_df['psd'].apply(compute_group_psd).reset_index(drop=True)
+    grouping_cols = ['group', 'cond', 'epo_type']
+    grouped_rows = []
+    for (group, cond, epo_type), subdf in sid_level_df.groupby(grouping_cols):
+        grouped_rows.append(dict(
+            group=group,
+            cond=cond,
+            epo_type=epo_type,
+            psd=compute_group_psd(subdf['psd']),
+            psd_sem=compute_group_psd_sem(subdf['psd']),
+        ))
+    group_level_df = pd.DataFrame.from_records(grouped_rows)
 
     if save:
         for i, row in group_level_df.iterrows():
@@ -280,6 +332,7 @@ def get_group_level_psd_df(
             fname = f'group-{group}_acq-{cond}_desc-{epo_type}_level-group_{ch_avg_label}_psd.h5'
             fpath = io.set_for_save(io.get_outputs_path(group_letter=group) / 'PSD') / fname
             psd.save(fpath, overwrite=True)
+            _save_psd_sem(fpath, row['psd_sem'])
     return group_level_df
 
 
