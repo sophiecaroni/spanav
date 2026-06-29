@@ -37,25 +37,26 @@ def compute_group_psd(psd_series: pd.Series) -> Spectrum:
     return combine_spectrum(list(psd_series), weights='equal')
 
 
-def compute_avg_epo_psd(
+def summarize_epo_psd(
         rec: Epochs,
         fmin: float = 0.0,
         fmax: float = np.inf,
         test: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-
-    :param rec:
-    :param test:
-    :param fmin:
-    :param fmax: default takes all frequencies (up to Nyquist frequency)
-    :return: PSD
+    Summarize the PSD of an epoched recording as its grand-average spectrum and across-channel SEM.
+    :param rec: Epochs, epoched recording to compute the PSD on
+    :param fmin: float, lower frequency bound
+    :param fmax: float, upper frequency bound - default takes all frequencies (up to Nyquist frequency)
+    :param test: bool, whether to run in development mode (crop data) or not
+    :return: tuple[np.ndarray, np.ndarray, np.ndarray], grand-average spectrum, across-channel SEM and frequencies
     """
     ch_psd = spct.compute_psd(rec, log_space=True, fmin=fmin, fmax=fmax, test=test)
     freqs = ch_psd.freqs
-    rec_psd_avg = np.mean(np.mean(ch_psd, axis=1), axis=0)
-    rec_psd_std = np.mean(np.std(ch_psd, axis=1) / np.sqrt(ch_psd.shape[1]), axis=0)
-    return rec_psd_avg, rec_psd_std, freqs
+    psd_data = ch_psd.get_data()
+    rec_psd_avg = np.mean(np.mean(psd_data, axis=1), axis=0)
+    rec_psd_sem = np.mean(cmp.sem(psd_data, axis=1), axis=0)
+    return rec_psd_avg, rec_psd_sem, freqs
 
 
 def compute_psd_by_key(
@@ -72,7 +73,7 @@ def compute_psd_by_key(
             psds[epo_key] = (None, None, None)
         else:
             fmax = epo_rec.info['lowpass']
-            psds[epo_key] = compute_avg_epo_psd(epo_rec, fmax=fmax)
+            psds[epo_key] = summarize_epo_psd(epo_rec, fmax=fmax)
     return psds
 
 
