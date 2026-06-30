@@ -27,7 +27,7 @@ def plot_context(
 ):
     increase = 0
     params = {
-        'figure.dpi': 900,
+        'figure.dpi': 400,
         'axes.grid': False,
         'font.size': 7 + increase,              # General fontsize
         'axes.titlesize': 7 + increase,         # Subplot titles
