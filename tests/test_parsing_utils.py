@@ -19,8 +19,8 @@ from contextlib import nullcontext
 
         (Path("/x/y/WP73A01"), Path("/x/y/sub-73A01")),
 
-        (Path("/intermediate/WP73A/sub-A01"),
-         Path("/intermediate/WP73A/sub-73A01")),
+        (Path("/derivatives/WP73A/sub-A01"),
+         Path("/derivatives/WP73A/sub-73A01")),
 
         # Examples with group directories never modified
         (Path("/x/y/WP73T"), Path("/x/y/WP73T")),
