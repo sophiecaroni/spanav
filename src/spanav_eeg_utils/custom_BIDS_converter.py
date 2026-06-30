@@ -253,11 +253,18 @@ def process_directory(source_path: Path, output_path: Path):
                 raw_acq = '_'.join(parts[3:])  # take all parts from third one as part of the acq
 
                 if SUBJECTS and sid not in SUBJECTS:
-                    print(f'\nSkipping {file = } because of subject not in subjects to process ({sid = })')
+                    print(f'Skipping {file = } because of subject not in subjects to process ({sid = })\n')
                     continue
                 if raw_acq == 'block36':
-                    print(f'\nSkipping {file = } because this is a wrong recording')
+                    print(f'Skipping {file = } because this is a wrong recording\n')
                     continue
+                if sid == '73A01':
+                    if raw_acq == 'block5':
+                        print(f'SPECIAL RECORDING THAT NEEDS BLOCK-SWAP: {file = }')
+                        raw_acq = 'block6'
+                    elif raw_acq == 'block6':
+                        print(f'SPECIAL RECORDING THAT NEEDS BLOCK-SWAP: {file = }')
+                        raw_acq = 'block5'
 
                 # Clean up Session ID: Extract digits strictly
                 ses_match = re.search(r'\d+', raw_ses)
@@ -281,7 +288,7 @@ def process_directory(source_path: Path, output_path: Path):
                 # Format: sub-{id}_ses-{id}_task-{task}__acq-{_acq}
                 bids_basename = f"sub-{sid}_ses-{ses_id}_task-{task_name}_acq-{raw_acq}"
 
-                print(f"\nProcessing {file = } \n\t ==> will generate files in format: {bids_basename}")
+                print(f"Processing {file = } \n\t ==> will generate files in format: {bids_basename}\n")
 
                 # --- 4. Parse Metadata needed for next files---
                 file_path_vhdr = Path(root) / file
@@ -296,7 +303,7 @@ def process_directory(source_path: Path, output_path: Path):
                         # --- Rename _eeg.eeg, _eeg.vhdr, _eeg.vmrk, files ---
                         copyfile_brainvision(file_path_vhdr, bids_eeg_fpath, verbose=True)
                     else:
-                        print(f"\n\tSkipping because already present in the directory: {bids_eeg_fpath}")
+                        print(f"\tSkipping because already present in the directory: {bids_eeg_fpath}")
 
                     # --- 5b. _eeg.json file ---
                     bids_json_fpath = dest_dir / (bids_basename + "_eeg.json")
@@ -316,7 +323,7 @@ def process_directory(source_path: Path, output_path: Path):
                         with open(bids_json_fpath, 'w') as f:
                             json.dump(eeg_json, f, indent=4)
                     else:
-                        print(f"\n\tSkipping because already present in the directory: {bids_json_fpath}")
+                        print(f"\tSkipping because already present in the directory: {bids_json_fpath}")
 
                     # --- 5c. _channels.tsv file ---
                     bids_ch_fpath = dest_dir / (bids_basename + "_channels.tsv")
@@ -330,7 +337,7 @@ def process_directory(source_path: Path, output_path: Path):
                             for ch in channels:
                                 writer.writerow([ch, "EEG", "microV"])
                     else:
-                        print(f"\n\tSkipping because already present in the directory: {bids_ch_fpath}")
+                        print(f"\tSkipping because already present in the directory: {bids_ch_fpath}")
 
                     # --- 5d. _events.tsv file ---
                     original_vmrk = file_path_vhdr.with_suffix(".vmrk")
@@ -351,8 +358,8 @@ def process_directory(source_path: Path, output_path: Path):
     # --- 9. Final Root Files ---
     if not TESTING_MODE and participants_set:
         create_bids_root_files(output_path, participants_set)
-        print("\nconversion Complete!")
-        print(f"Data stored in: {output_path.absolute()}")
+        print("\n\nCONVERSION COMPLETED ✅!")
+        print(f"\n\tData stored in: {output_path.absolute()}")
 
 
 def _get_spanav_folders(subject_group: str) -> tuple[Path, Path]:
