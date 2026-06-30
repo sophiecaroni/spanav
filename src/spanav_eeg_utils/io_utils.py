@@ -255,7 +255,7 @@ def get_sids(
         group_path = os.path.join(raw_path, element)
         if os.path.isdir(group_path):
             group_sids = [
-                sid.replace('sub-', '') for sid in os.listdir(group_path)
+                sid.replace('sub-', '') for sid in os.listdir(group_path) if sid.startswith('sub-')
                 if os.path.isdir(os.path.join(group_path, sid))
             ]
             sids += group_sids
