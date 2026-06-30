@@ -296,7 +296,7 @@ def get_sid_blocks(
     """
     cids = []
     group = prs.get_group_letter(sid)
-    potential_blocks = [f'block{i}' for i in range(1, 5)] if group == 'A' else [f'block{i}' for i in range(1, 7)]
+    potential_blocks = [f'block{i}' for i in range(1, 5)] if group == 'T' else [f'block{i}' for i in range(1, 7)]
     for block in potential_blocks:
         raw_path = get_clean_eeg_path(sid, acq=block, task='SpaNav')
         if raw_path.exists():
