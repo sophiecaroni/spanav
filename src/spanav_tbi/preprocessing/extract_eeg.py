@@ -189,21 +189,16 @@ def get_epo_def(
 def check_alignment(
         raw_rec: mne.io.BaseRaw,
         events_table: pd.DataFrame,
+        tolerance_s: float = 0.05,
 ):
-    """
-    This function checks that EEG recording and events (behavioral data) are correctly aligned, i.e. cover the same recording duration.
-    :param raw_rec:
-    :param events_table:
-    :return:
-    """
     block_start = events_table.loc[:, 'BlockStart'].to_numpy()[0]
     block_end = events_table.loc[:, 'BlockEnd'].to_numpy()[0]
-    block_duration = round(block_end - block_start, 1)
-    raw_rec_duration = round(raw_rec.duration, 1)
+    block_duration = block_end - block_start
+    raw_rec_duration = raw_rec.duration
 
-    if block_duration != raw_rec_duration:
+    if abs(raw_rec_duration - block_duration) >= tolerance_s:
         raise ValueError(
-            f'Problem in aligning events (behavioral data) to EEG! \n\t{block_duration = }, {raw_rec_duration = }'
+            f'Problem in aligning events (behavioral data) to EEG! \n\t{round(block_duration, 3) = }, {round(raw_rec_duration, 3) = }'
             f'\n\tdf of block:\n\t{events_table}')
     else:
         print('EEG recording and events (behavioral data) correctly aligned.')
