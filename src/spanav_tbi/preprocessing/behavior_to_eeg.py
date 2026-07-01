@@ -2,6 +2,7 @@ import warnings
 import pandas as pd
 import numpy as np
 import spanav_eeg_utils.io_utils as io
+import spanav_eeg_utils.parsing_utils as prs
 import re
 
 
@@ -135,8 +136,8 @@ def get_retrieval_df(
     # Rename some cols
     df.drop('Block', axis=1, inplace=True)  # true block as we intend it is named "Round" here
     df = df.rename(columns={
-        'Round': 'Block',
-        'Index': 'Trial',
+        'Round': 'block',
+        'Index': 'trial',
         'StartTime': 'starttime',
         'EndTime(Nav.)': 'endtime'
     })
@@ -144,8 +145,8 @@ def get_retrieval_df(
     # Invalid strings (e.g. new starting behavioral data) --> nan
     df['starttime'] = pd.to_numeric(df['starttime'], errors='coerce')
     df['endtime'] = pd.to_numeric(df['endtime'], errors='coerce')
-    df['Block'] = pd.to_numeric(df['Block'], errors='coerce').astype('Int64')
-    df['Trial'] = pd.to_numeric(df['Trial'], errors='coerce').astype('Int64')
+    df['block'] = pd.to_numeric(df['block'], errors='coerce').astype('Int64')
+    df['trial'] = pd.to_numeric(df['trial'], errors='coerce').astype('Int64')
 
     # Drop NaN rows (trials missing a start time)
     df = df[df['starttime'].notna()].copy().reset_index(drop=True)
@@ -168,32 +169,32 @@ def extract_beh_events(
         if block_n > 1 and test:
             break
         block_trials = retrieval_df[
-            (retrieval_df['Block'] == block_n) &
+            (retrieval_df['block'] == block_n) &
             (retrieval_df['starttime'] >= retr_start) &
             (retrieval_df['endtime'] <= retr_end)
         ].copy().reset_index(drop=True)
 
         # Extract stimulation condition of the block
-        condition = block_n  # get_block_stim(sid, block_n)
+        stim_cond = prs.get_stim(sid, f'block{block_n}')
 
         # Iterate over trials (rows) of the block
         for _, trial_row in block_trials.iterrows():
             start, end = trial_row['starttime'], trial_row['endtime']
-            trial_n = trial_row['Trial']
+            trial_n = trial_row['trial']
 
             trial_trace_df = select_trial_df(trace_df, start, end)
 
-            # Create new column state; set to Moving when there are values in x and y, otherwise to Stasis
+            # Create new column state; set to moving when there are values in x and y, otherwise to Stasis
             trial_trace_df['state'] = trial_trace_df.apply(
-                lambda r: 'Moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'Stasis', axis=1)
+                lambda r: 'moving' if pd.notna(r['x']) and pd.notna(r['y']) else 'static', axis=1)
 
-            # Change each "Moving" value that is preceded by "Stasis" to "MovOn" (movement onset)
+            # Change each "moving" value that is preceded by "static" to "mov_onset" (movement onset)
             trial_trace_df['state'] = trial_trace_df.apply(
-                lambda r: 'MovOn' if (r.name > 0 and trial_trace_df.loc[r.name - 1, 'state'] == 'Stasis' and r[
-                    'state'] == 'Moving') else r['state'], axis=1
+                lambda r: 'mov_onset' if (r.name > 0 and trial_trace_df.loc[r.name - 1, 'state'] == 'static' and r[
+                    'state'] == 'moving') else r['state'], axis=1
             )
 
-            # Iterate over states (Stasis, MovOn, Moving) of the block
+            # Iterate over states (static, mov_onset, moving) of the block
             current_state = trial_trace_df.loc[0, 'state']
             state_start = trial_trace_df.loc[0, 'time']
             for i in range(1, len(trial_trace_df)):  # in every line of dataframe trial_df
@@ -201,15 +202,15 @@ def extract_beh_events(
                     state_end = trial_trace_df.loc[i - 1, 'time']  # i take the last time of the previous state
                     state_len = state_end - state_start
                     events.append({
-                        'RetrievalBlock': block_n,
-                        'Condition': condition,
-                        'Trial': trial_n,
-                        'TrialStart': start,
-                        'TrialEnd': end,
-                        'State': current_state,
-                        'StateStart': state_start,
-                        'StateEnd': state_end,
-                        'Duration': state_len,
+                        'block_retrieval': block_n,
+                        'stim_cond': stim_cond,
+                        'trial': trial_n,
+                        'trial_start': start,
+                        'trial_end': end,
+                        'state': current_state,
+                        'state_start': state_start,
+                        'state_end': state_end,
+                        'duration': state_len,
                     })
 
                     # Get next state and its time for the next iteration
@@ -220,15 +221,15 @@ def extract_beh_events(
             state_end = trial_trace_df.loc[len(trial_trace_df) - 1, 'time']
             state_len = state_end - state_start
             events.append({
-                'RetrievalBlock': block_n,
-                'Condition': condition,
-                'Trial': trial_n,
-                'TrialStart': start,
-                'TrialEnd': end,
-                'State': current_state,
-                'StateStart': state_start,
-                'StateEnd': state_end,
-                'Duration': state_len,
+                'block_retrieval': block_n,
+                'stim_cond': stim_cond,
+                'trial': trial_n,
+                'trial_start': start,
+                'trial_end': end,
+                'state': current_state,
+                'state_start': state_start,
+                'state_end': state_end,
+                'duration': state_len,
 
             })
 
@@ -236,7 +237,7 @@ def extract_beh_events(
     events_df = pd.DataFrame(events)
 
     # Check events durations
-    assert (events_df['Duration'] >= 0).all(), f'Something is wrong, some events have negative duration'
+    assert (events_df['duration'] >= 0).all(), f'Something is wrong, some events have negative duration'
 
     if save:
         file_path = io.get_epo_beh_tables_path(sid, 'beh_events.csv')
@@ -304,14 +305,14 @@ def compute_wide_window(epoch_start: float, epoch_end: float, wide_s: float = 6.
 
 
 def extract_subepochs(
-        epoch_type: str,
+        epo_type: str,
         epoch_start: float,
         epoch_end: float,
         subepo_len_s: float = 1.0,
 ) -> list[dict]:
     """
     Takes an epoch and segments it in sub-epochs of subepo_len_s seconds length.
-    :param epoch_type:
+    :param epo_type:
     :param epoch_start:
     :param epoch_end:
     :param subepo_len_s:
@@ -331,11 +332,11 @@ def extract_subepochs(
     # If there is only one sub-epoch, return as is
     if n_subepo == 0:
         return [{
-            'EpochType': epoch_type,
-            'EpochStart': epoch_start,
-            'EpochEnd': epoch_end,
-            'EpochDuration': epo_len,
-            'SubEpoch': 0,
+            'epo_type': epo_type,
+            'epo_start': epoch_start,
+            'epo_end': epoch_end,
+            'epo_len': epo_len,
+            'sub_epo': 0,
         }]
 
     # Iterate to extract multiple sub-epochs
@@ -344,11 +345,11 @@ def extract_subepochs(
         seg_start = epoch_start + subepo_idx * subepo_len_s
         seg_end = seg_start + subepo_len_s
         subepos.append({
-            'EpochType': epoch_type,
-            'EpochStart': seg_start,
-            'EpochEnd': seg_end,
-            'EpochDuration': subepo_len_s,
-            'SubEpoch': subepo_idx,
+            'epo_type': epo_type,
+            'epo_start': seg_start,
+            'epo_end': seg_end,
+            'epo_len': subepo_len_s,
+            'sub_epo': subepo_idx,
         })
     return subepos
 
@@ -371,26 +372,26 @@ def define_eeg_epochs(
     retrieval_times = get_times_retrieval_phases(sid=sid)
     events = []
     # Iterate over blocks
-    for block in events_df['RetrievalBlock'].unique():
-        block_df = events_df[events_df['RetrievalBlock'] == block]
-        block_condition = block_df['Condition'].unique()[0]
+    for block in events_df['block_retrieval'].unique():
+        block_df = events_df[events_df['block_retrieval'] == block]
+        stim_cond = block_df['stim_cond'].unique()[0]
 
         # Iterate over trials
-        for trial in block_df['Trial'].unique():
-            trial_df = block_df[block_df['Trial'] == trial].reset_index(drop=True)
+        for trial in block_df['trial'].unique():
+            trial_df = block_df[block_df['trial'] == trial].reset_index(drop=True)
 
             # Iterate over states of the trial
             for i, row in trial_df.iterrows():
 
                 # Reset times of the block to match its EEG recording (bc block times in events_df are continuous
                 # across blocks/stim. condition, while EEG aren't so their times always start from 0)
-                abs_start, duration = row['StateStart'], row['Duration']
-                block_n = row['RetrievalBlock']
+                abs_start, duration = row['state_start'], row['duration']
+                block_n = row['block_retrieval']
                 retrieval_start, retrieval_end = retrieval_times[block_n]
                 state_start = abs_start - retrieval_start
                 if verbose:
                     print(
-                        f"\nblock: {row['Condition']} ({block_n})"
+                        f"\nblock: {block_n}"
                         f"\n\t: {retrieval_start = }"
                         f"\n\t: {abs_start = }"
                         f"\n\t: {state_start = }"
@@ -398,20 +399,20 @@ def define_eeg_epochs(
 
                 # Define epochs
                 event_info = {
-                    'RetrievalBlock': block,
-                    'BlockStart': retrieval_start,
-                    'BlockEnd': retrieval_end,
-                    'Condition': block_condition,
-                    'TrialNumber': trial,
-                    'TrialStart': row['TrialStart'],
-                    'TrialEnd': row['TrialEnd'],
+                    'block_retrieval': block,
+                    'stim_cond': stim_cond,
+                    'block_start': retrieval_start,
+                    'block_end': retrieval_end,
+                    'trial_n': trial,
+                    'trial_start': row['trial_start'],
+                    'trial_end': row['trial_end'],
                 }
 
                 # 1. Stasis epochs
-                if row['State'] == 'Stasis' and duration >= static_min_s:
+                if row['state'] == 'static' and duration >= static_min_s:
                     # Segment and add to events
                     stasis_epochs = extract_subepochs(
-                        epoch_type='Stasis',
+                        epo_type='Stasis',
                         epoch_start=state_start,
                         epoch_end=state_start + duration,
                     )
@@ -420,7 +421,7 @@ def define_eeg_epochs(
                         events.append(ev)
 
                 # 2. Movement onset epochs
-                if row['State'] == 'MovOn':
+                if row['state'] == 'mov_onset':
 
                     # Movement onset is constrained by preceding immobility and following movement, so can't be the first state and has to have one state after it
                     if 0 < i < len(trial_df) - 1:
@@ -429,9 +430,9 @@ def define_eeg_epochs(
 
                         # Check if preceding and following states qualify as EEG events
                         if (
-                                prev['State'] == 'Stasis' and prev['Duration'] >= static_min_s_before_mov
+                                prev['state'] == 'static' and prev['duration'] >= static_min_s_before_mov
                         ) and (
-                                following['State'] == 'Moving' and following['Duration'] >= mov_min_s
+                                following['state'] == 'moving' and following['duration'] >= mov_min_s
                         ):
 
                             # Save aside movement onset time (relative to block)
@@ -443,7 +444,7 @@ def define_eeg_epochs(
 
                             # Segment and add to events
                             movon_epochs = extract_subepochs(
-                                epoch_type='MovOn',
+                                epo_type='MovOn',
                                 epoch_start=movon_epoch_start,
                                 epoch_end=movon_epoch_end,
                             )
@@ -458,12 +459,12 @@ def define_eeg_epochs(
                             # Define epoch end: end at earlier end between movement end and movement portions exceeding mov_max_s after onset
                             max_end = movon_start + mov_max_s
                             mov_state_end = following[
-                                                'StateEnd'] - retrieval_start  # as done above with abs_start (but here we are in following state so need this again)
+                                                'state_end'] - retrieval_start  # as done above with abs_start (but here we are in following state so need this again)
                             contmov_epoch_end = min(mov_state_end, max_end)
 
                             # Segment and add to events
                             contmov_epochs = extract_subepochs(
-                                epoch_type='ContMov',
+                                epo_type='ContMov',
                                 epoch_start=contmov_epoch_start,
                                 epoch_end=contmov_epoch_end,
                             )
@@ -473,7 +474,7 @@ def define_eeg_epochs(
 
     # Add to each event their corresponding wide epoch interval
     for ev in events:
-        ev['WideStart'], ev['WideEnd'] = compute_wide_window(ev['EpochStart'], ev['EpochEnd'], wide_s=wide_s)
+        ev['wide_start'], ev['wide_end'] = compute_wide_window(ev['epo_start'], ev['epo_end'], wide_s=wide_s)
 
     # Create events data frame
     events_df = pd.DataFrame(events)

@@ -124,7 +124,7 @@ def ch_psd_subplots(
 
             if save:
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
-                assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
+                assert cid is not None, "stim_cond ID (cid) can't be None with save=True (when data is to save)"
                 real_cid = get_stim(sid, acq=cid)
                 fname = f'{fname_pref}_psd_subplots' if fname_pref is not None else 'psd_subplots'
                 fname += f"_{brain_region}"
@@ -151,7 +151,7 @@ def ch_psd_overlap(
 
         if save:
             assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
-            assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
+            assert cid is not None, "stim_cond ID (cid) can't be None with save=True (when data is to save)"
             real_cid = get_stim(sid, acq=cid)
             fname = f'{fname_pref}_psd_overlap' if fname_pref is not None else 'psd_overlap'
             save_figure(save_dir=f'{sid}/{real_cid}', group_parent_dir='plots/PSD', fname=fname, fig=fig, sid=sid)
@@ -188,7 +188,7 @@ def ics_psd_subplots(
 
             if save:
                 assert sid is not None, "Subject ID (sid) can't be None with save=True (when data is to save)"
-                assert cid is not None, "Condition ID (cid) can't be None with save=True (when data is to save)"
+                assert cid is not None, "stim_cond ID (cid) can't be None with save=True (when data is to save)"
                 n_components = ica_psd.info['nchan']
                 real_cid = get_stim(sid, acq=cid)
                 fname = 'subplots'
@@ -745,7 +745,7 @@ def plot_band_metric(
         if legend:
             handles, current_labels = ax.get_legend_handles_labels()
             new_labels = [xticklabels_mapping.get(lbl, lbl) for lbl in current_labels]
-            leg_title = 'Extracted Epochs' if color_by == 'epo_type' else ('Condition' if color_by == 'cond' else '')
+            leg_title = 'Extracted Epochs' if color_by == 'epo_type' else ('stim_cond' if color_by == 'cond' else '')
             ax.legend(handles, new_labels, loc='best', title=leg_title)
 
         x_vals = metric_df[x_by].unique()
@@ -826,43 +826,43 @@ def plot_schematic_epo_def(
         save: bool = False,
 ) -> None:
 
-    for block_n, block_df in beh_events_df.groupby('RetrievalBlock'):
+    for block_n, block_df in beh_events_df.groupby('block_retrieval'):
 
         # Create one figure per block (containing all its trials as subplots)
-        trials_in_block = len(block_df['Trial'].unique())
+        trials_in_block = len(block_df['trial'].unique())
         nrows, ncols = layout_subplots_grid(n=trials_in_block, max_cols=2)
         with plot_context():
             fig, axs = plt.subplots(nrows, ncols, figsize=(17*ncols * cm, 4*nrows * cm))
             axs = axs.ravel()
 
             # Put each trial in a different subplot
-            for i, (trial_n, trial_df) in enumerate(block_df.groupby('Trial')):
+            for i, (trial_n, trial_df) in enumerate(block_df.groupby('trial')):
                 ax = axs[i]
 
                 # Subset dataframes to specific block and trial numers
                 beh_data = trial_df.reset_index(drop=True)
-                eeg_data = eeg_events_df[(eeg_events_df['RetrievalBlock'] == block_n) & (
-                            eeg_events_df['TrialNumber'] == trial_n)].reset_index(drop=True)
-                beh_data.drop(['RetrievalBlock', 'Trial', 'Condition'], axis=1,
+                eeg_data = eeg_events_df[(eeg_events_df['block_retrieval'] == block_n) & (
+                            eeg_events_df['trial_n'] == trial_n)].reset_index(drop=True)
+                beh_data.drop(['block_retrieval', 'trial', 'stim_cond'], axis=1,
                                 inplace=True)  # drop now useless columns
-                eeg_data.drop(['RetrievalBlock', 'TrialNumber', 'Condition'], axis=1,
+                eeg_data.drop(['block_retrieval', 'trial_n', 'stim_cond'], axis=1,
                               inplace=True)  # drop now useless columns
 
                 # Sort to make sure states/epochs are ordered on time
-                beh_data = beh_data.sort_values("StateStart")
-                eeg_data = eeg_data.sort_values("EpochStart")
+                beh_data = beh_data.sort_values("state_start")
+                eeg_data = eeg_data.sort_values("epo_start")
 
                 # Plot behavior, if in this trial there was any
                 if len(beh_data) > 0:
-                    plot_schematic_behavior(ax, beh_data)
+                    _plot_schematic_behavior(ax, beh_data)
 
                 # Plot eeg epochs, if in this trial there were any
                 if len(eeg_data) > 0:
-                    plot_schematic_eeg_epochs(ax, eeg_data)
+                    _plot_schematic_eeg_epochs(ax, eeg_data)
 
                 # General plot customizations
                 ax.legend(loc='upper left')
-                ax.set_title(f'Trial {trial_n}')
+                ax.set_title(f'trial {trial_n}')
 
             # hide unused axes
             for ax in axs[trials_in_block:]:
@@ -881,16 +881,16 @@ def plot_schematic_epo_def(
                 plt.close(fig)
 
 
-def plot_schematic_behavior(
+def _plot_schematic_behavior(
         ax: Axes,
         beh_data: pd.DataFrame
 ) -> None:
     # Add needed x and y columns in behavioral plot
-    y_movement = beh_data['State'].apply(lambda r: 1 if (r == 'Moving' or r == 'MovOn') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
-    x_time = beh_data['StateStart'].to_numpy()
+    y_movement = beh_data['state'].apply(lambda r: 1 if (r == 'static' or r == 'mov_onset') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
+    x_time = beh_data['state_start'].to_numpy()
 
     # Duplicate last observation to allow plotting of full duration of last state
-    x_time = np.r_[x_time, beh_data['StateEnd'].iloc[-1]]  # use np.r_ as row-wise concatenator
+    x_time = np.r_[x_time, beh_data['state_end'].iloc[-1]]  # use np.r_ as row-wise concatenator
     y_movement = np.r_[y_movement, y_movement[-1]]  # use np.r_ as row-wise concatenator
 
     with plot_context():
@@ -908,20 +908,20 @@ def plot_schematic_behavior(
         ax.set_yticklabels(["Stationary", "Moving"])
 
         # Retrieve start of first state and end of last one
-        first_start = beh_data.loc[0, 'StateStart']
-        last_end = beh_data['StateEnd'].iloc[-1]
+        first_start = beh_data.loc[0, 'state_start']
+        last_end = beh_data['state_end'].iloc[-1]
         ax.set_xlim(first_start, last_end)
 
 
-def plot_schematic_eeg_epochs(
+def _plot_schematic_eeg_epochs(
         ax: Axes,
         eeg_epochs_df: pd.DataFrame,
 ) -> None:
     # Shift times based on block
-    eeg_epochs_df['EpochStart'] = eeg_epochs_df['EpochStart'] + eeg_epochs_df['BlockStart']
-    eeg_epochs_df['EpochEnd'] = eeg_epochs_df['EpochEnd'] + eeg_epochs_df['BlockStart']
+    eeg_epochs_df['epo_start'] = eeg_epochs_df['epo_start'] + eeg_epochs_df['block_start']
+    eeg_epochs_df['epo_end'] = eeg_epochs_df['epo_end'] + eeg_epochs_df['block_start']
 
-    # One color per EpochType
+    # One color per epoch type
     palette = get_epo_palette()
 
     # Vertical position
@@ -930,9 +930,9 @@ def plot_schematic_eeg_epochs(
 
     with plot_context():
         plotted_epos = []
-        for etype, s, e in eeg_epochs_df[["EpochType", "EpochStart", "EpochEnd"]].itertuples(index=False):
+        for etype, s, e in eeg_epochs_df[["epo_type", "epo_start", "epo_end"]].itertuples(index=False):
 
-            label = None if etype in plotted_epos else f'{etype} (x{len(eeg_epochs_df[eeg_epochs_df["EpochType"] == etype])})'
+            label = None if etype in plotted_epos else f'{etype} (x{len(eeg_epochs_df[eeg_epochs_df["epo_type"] == etype])})'
             color = palette[etype]
             rect = Rectangle(
                 (s, y_levels[etype]),

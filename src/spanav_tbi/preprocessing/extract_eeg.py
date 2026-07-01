@@ -182,7 +182,7 @@ def get_epo_def(
 
     # Select rows selative to the retrieval block od the condition ID
     block_n = int(block[-1])
-    epo_table_block = epo_table[epo_table['RetrievalBlock'] == block_n]
+    epo_table_block = epo_table[epo_table['block_retrieval'] == block_n]
     return epo_table_block
 
 
@@ -191,8 +191,8 @@ def check_alignment(
         events_table: pd.DataFrame,
         tolerance_s: float = 0.05,
 ):
-    block_start = events_table.loc[:, 'BlockStart'].to_numpy()[0]
-    block_end = events_table.loc[:, 'BlockEnd'].to_numpy()[0]
+    block_start = events_table.loc[:, 'block_start'].to_numpy()[0]
+    block_end = events_table.loc[:, 'block_end'].to_numpy()[0]
     block_duration = block_end - block_start
     raw_rec_duration = raw_rec.duration
 
@@ -213,13 +213,13 @@ def get_epo_from_intervals(
     check_alignment(raw_rec, df_epo_intervals)
 
     # Subset the df to rows relative to epochs of argument epo_type
-    epoch_type_df = df_epo_intervals[df_epo_intervals['EpochType'] == epo_type].copy()
+    epo_type_df = df_epo_intervals[df_epo_intervals['epo_type'] == epo_type].copy()
 
     # Get start/end of each epoch (in s) frm df and convert to samples
     sfreq = raw_rec.info['sfreq']
-    start_col = 'WideStart' if wide else 'EpochStart'
-    end_col = 'WideEnd' if wide else 'EpochEnd'
-    epo_start_samples = (epoch_type_df[start_col] * sfreq).to_numpy(int)
+    start_col = 'wide_start' if wide else 'epo_start'
+    end_col = 'wide_end' if wide else 'epo_end'
+    epo_start_samples = (epo_type_df[start_col] * sfreq).to_numpy(int)
 
     # In case raw_rec was previously cropped (e.g. encoding-task cropped out), align epoch-timings from df to cropped raw
     first = raw_rec.first_samp
@@ -234,11 +234,11 @@ def get_epo_from_intervals(
     ])
 
     if events.size > 0:
-        # Based on the definition of event_starts, event markers are already correctly placed at EpochStart/WideStart samples
+        # Based on the definition of event_starts, event markers are already correctly placed at epo_start/wide_start samples
         tmin = 0
 
         # tmax determines the duration for all epochs, and can be defined from the first row (since all epochs are of the same duration)
-        first_row = epoch_type_df.reset_index().iloc[0]
+        first_row = epo_type_df.reset_index().iloc[0]
         tmax = (first_row[end_col] - first_row[start_col]) - 1 / sfreq  # MNE Epochs includes both tmin and tmax samples (closed interval), so a [0, 1s] window gives 513 samples at 512 Hz; subtract one sample period to get the intended n_samples = duration * sfreq
 
         # Define Epochs object
