@@ -17,6 +17,7 @@ def get_times_retrieval_phases(
     file = io.get_raw_beh_path(sid, acq='TaskLog')
     times_by_retrieval_phase = {}
     current_block_n = None
+    block_start_count = 0
 
     with open(file, 'r') as f:
         for line in f:
@@ -28,15 +29,23 @@ def get_times_retrieval_phases(
                 # In TaskLog, each phase is defined via a block-round couple (where blocks go up to 2 for TBI and 3 for HC, rounds up to 2, giving blocks 1–4 or 1-6).
                 task_block, task_round = int(m.group(1)), int(m.group(2))
                 current_block_n = (task_block - 1) * 2 + task_round   # the actual block number used throughout the analysis is computed as (X - 1) * 2 + Y
-                continue
+                block_start_count += 1
+
+                # Warn if the order on TaskLog doesn't match the label derived with task_block and task_round
+                if current_block_n != block_start_count:
+                    warnings.warn(
+                        f'Block appearing as {block_start_count}. in TaskLog is labelled n={current_block_n} ({sid = }) '
+                        f'— please make extra sure that the data is extracted correctly.')
+
+                continue  # go directly to next line
 
             if 'Retrieval Start' in line and current_block_n is not None:
 
                 # If a block was re-run after a session restart, its entry in the dict is overwritten by the re-run
                 if current_block_n in times_by_retrieval_phase:
                     warnings.warn(
-                        f'\n\n### Warning! Block {current_block_n} appears more than once in TaskLog '
-                        f'({sid = }) — keeping the last occurrence (session restart assumed) ### \n\n')
+                        f'Block {current_block_n} appears more than once in TaskLog ({sid = }) — keeping the last '
+                        f'occurrence (session restart assumed).')
 
                 retr_start = float(line.split(',')[0])
                 retr_end = float(next(f).split(',')[0])
