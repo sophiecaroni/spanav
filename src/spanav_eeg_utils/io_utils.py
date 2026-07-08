@@ -219,7 +219,7 @@ def get_outputs_path(
         group_letter: str | None = None,
 ) -> Path:
     root = get_main_path()
-    outputs_path = root / 'outputs'
+    outputs_path = root / 'results'
 
     if group_parent_dir:
         outputs_path /= group_parent_dir
