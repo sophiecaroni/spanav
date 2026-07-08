@@ -6,12 +6,35 @@
     Date of creation: 08.07.2026
 
     Description:
-    This script contains helper functions to copy data trees between storage locations, wrapping rsync for incremental, resumable
-    and verifiable transfers.
+    This script contains helper functions to copy data trees between storage locations via rsync.
 ********************************************************************************
 """
+import platform
+import shutil
 import subprocess
 from pathlib import Path
+
+
+_IS_WINDOWS = platform.system() == 'Windows'
+
+# Find rsync; for Windows, fall back _MSYS2_RSYNC location if 'rsync' isn't resolvable on PATH
+_MSYS2_RSYNC = r'C:\msys64\usr\bin\rsync.exe'
+_RSYNC_EXE = shutil.which('rsync') or (_MSYS2_RSYNC if _IS_WINDOWS else 'rsync')
+
+
+def _to_rsync_path(path: Path) -> str:
+    """
+    Render a path in the form rsync expects. For Windows this means translating drive paths (e.g. 'C:\\data') into the
+    needed '/c/data' format.
+    :param path: Path, path to render
+    :return: str, rsync-compatible path string
+    """
+    if not _IS_WINDOWS:
+        return str(path)
+    drive = path.drive
+    if len(drive) == 2 and drive[1] == ':':
+        return f"/{drive[0].lower()}{path.as_posix()[len(drive):]}"
+    return path.as_posix()
 
 
 def build_rsync_command(
@@ -28,14 +51,14 @@ def build_rsync_command(
     :param dry_run: bool, whether to only simulate the transfer (``-n``), as used to build the confirmation preview
     :return: list[str], the rsync command and its arguments, ready to pass to ``subprocess.run``
     """
-    command = ['rsync', '-avh']  # '-avh' for archive + verbose + human-readable
+    command = [_RSYNC_EXE, '-avh']  # '-avh' for archive + verbose + human-readable
     if dry_run:
         command.append('-n')  # dry run flag
     if pattern is not None:
         # Keep only files matching pattern: descend into every directory, include the matches, drop everything else,
         # and prune the directories left empty. Order matters: rsync applies the first matching include/exclude rule.
         command += ['-m', '--include=*/', f'--include={pattern}', '--exclude=*']
-    command += [f'{src}/', str(dst)]  # add trailing slash to copy contents of src, not src itself
+    command += [f'{_to_rsync_path(src)}/', _to_rsync_path(dst)]  # trailing slash: copy contents of src, not src itself
     return command
 
 
@@ -89,7 +112,7 @@ def transfer_data(
 
     # Give preview of what data is going to be transferred
     preview_command = build_rsync_command(src, dst, pattern=pattern, dry_run=True)
-    print(f"\nPreview of {src}/ -> {dst}")
+    print(f"\nPreview of {src} -> {dst}")
     print(f"Running: {' '.join(preview_command)}\n")
     _run_rsync(preview_command, verbose=True)
 
@@ -100,5 +123,5 @@ def transfer_data(
 
     # Perform actual transfer
     transfer_command = build_rsync_command(src, dst, pattern=pattern)
-    print(f"\nTransferring {src}/ -> {dst}\n")
+    print(f"\nTransferring {src} -> {dst}\n")
     return _run_rsync(transfer_command, verbose=verbose)
