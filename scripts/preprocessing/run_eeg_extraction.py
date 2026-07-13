@@ -26,7 +26,7 @@ def extract_all_epochs(test: bool, show: bool, save: bool) -> None:
 
 
 def run_eeg_extraction(test: bool, show: bool, save: bool) -> None:
-    extract_cohort_channels(test, save)
+    extract_cohort_channels()
     extract_all_epochs(test, show, save)
 
 
