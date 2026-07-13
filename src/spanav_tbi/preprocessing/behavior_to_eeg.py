@@ -36,8 +36,7 @@ def get_times_retrieval_phases(
                     warnings.warn(
                         f'Block appearing as {block_start_count}. in TaskLog is labelled n={current_block_n} ({sid = }) '
                         f'— please make extra sure that the data is extracted correctly.')
-
-                continue  # go directly to next line
+                continue
 
             if 'Retrieval Start' in line and current_block_n is not None:
 
@@ -48,7 +47,15 @@ def get_times_retrieval_phases(
                         f'occurrence (session restart assumed).')
 
                 retr_start = float(line.split(',')[0])
-                retr_end = float(next(f).split(',')[0])
+                end_line = next(f).split(',')[0]
+                try:
+                    retr_end = float(end_line)
+                except ValueError:
+                    warnings.warn(
+                        f'Block {current_block_n} contains "{end_line.strip()}" instead of retrieval end ({sid = }) — considering '
+                        f'the block as invalid and continuing (session restart assumed)')
+                    continue
+
                 times_by_retrieval_phase[current_block_n] = (retr_start, retr_end)
 
     return times_by_retrieval_phase
