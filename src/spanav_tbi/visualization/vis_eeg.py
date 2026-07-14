@@ -886,7 +886,7 @@ def _plot_schematic_behavior(
         beh_data: pd.DataFrame
 ) -> None:
     # Add needed x and y columns in behavioral plot
-    y_movement = beh_data['state'].apply(lambda r: 1 if (r == 'static' or r == 'mov_onset') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
+    y_movement = beh_data['state'].apply(lambda r: 1 if (r == 'moving' or r == 'mov_onset') else 0).to_numpy()  # Binarize movement (either present 1 or not 0)
     x_time = beh_data['state_start'].to_numpy()
 
     # Duplicate last observation to allow plotting of full duration of last state
