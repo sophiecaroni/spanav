@@ -20,5 +20,5 @@ def run_data_transfer(src: Path, dst: Path) -> None:
 if __name__ == '__main__':
     run_data_transfer(
         src=cfg.get_server_root() / 'derivatives',
-        dst=cfg.get_local_root() / 'data' / 'derivatives',
+        dst=cfg.get_local_root() / 'derivatives',
     )
