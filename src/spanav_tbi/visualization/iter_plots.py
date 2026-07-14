@@ -32,8 +32,9 @@ def all_sid_plots(
         for sid, sid_df in df.groupby('sid'):
             n_conds = len(sid_df['cond'].unique())
             n_epo_types = len(sid_df['epo_type'].unique())
+            sup_epo = pkind == 'spectrum' and n_conds == 1  # when there's only one condition, superimpose epoch-types
             n_rows = 1 if sup_cond else n_conds
-            n_cols = n_epo_types
+            n_cols = 1 if sup_epo else n_epo_types
             fig, axes = plt.subplots(
                 n_rows, n_cols, sharey=True, sharex=True,
                 figsize=(n_cols * 4.0, n_rows * 3.5), squeeze=False
@@ -45,7 +46,9 @@ def all_sid_plots(
                 epo_axes = axes if sup_cond else axes[i * n_cols: i * n_cols + n_cols]
                 show_xlabel = True if sup_cond else i == n_rows - 1
                 plot_kwargs: dict = dict(vlim=vlim)
-                if sup_cond:
+                if sup_epo:
+                    plot_kwargs.update(superimpose=True)
+                elif sup_cond:
                     plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
                 plot_fn(cond_df, pkind, axes=epo_axes, show_xlabel=show_xlabel, **plot_kwargs)
 
@@ -83,8 +86,9 @@ def all_group_plots(
         for group, group_df in df.groupby('group'):
             n_conds = len(group_df['cond'].unique())
             n_subplot_cats = len(group_df[subplot_col].unique())
+            sup_epo = pkind == 'spectrum' and n_conds == 1  # when there's only one condition, superimpose epoch-types
             n_rows = 1 if sup_cond else n_conds
-            n_cols = n_subplot_cats
+            n_cols = 1 if sup_epo else n_subplot_cats
             fig, axes = plt.subplots(
                 n_rows, n_cols, sharey=True, sharex=True, figsize=(n_cols * 4.0, n_rows * 3.5), squeeze=False
             )
@@ -97,10 +101,12 @@ def all_group_plots(
 
             for i_c, (cond, cond_df) in enumerate(group_df.groupby('cond')):
                 start_ax_idx = 0 if sup_cond else i_c * n_subplot_cats
-                subplot_axes = axes[start_ax_idx: start_ax_idx + n_subplot_cats]
+                subplot_axes = axes[start_ax_idx: start_ax_idx + n_cols]
                 show_xlabel = True if sup_cond else i_c == n_conds - 1
                 plot_kwargs: dict = dict(show_ax_titles=i_c == 0, vlim=vlim)
-                if sup_cond:
+                if sup_epo:
+                    plot_kwargs.update(superimpose=True)
+                elif sup_cond:
                     plot_kwargs.update(label=cond, color=get_cond_palette().get(cond))
                 if i_c == 0:
                     plot_kwargs.update(sign_mask=sign_mask)
