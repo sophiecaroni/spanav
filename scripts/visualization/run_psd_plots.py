@@ -13,21 +13,21 @@ from spanav_tbi.visualization.psd_plots import all_sid_psd_plots, all_group_psd_
 
 def plot_each_sid_psd(test: bool, show: bool, save: bool) -> None:
     # Load subject PSDs df with channels aggregated and plot heatmaps and spectra
-    sid_df_ch_avg = get_sid_level_psd_df(test=test, load=True, save=False)
+    sid_df_ch_avg = get_sid_level_psd_df(test=test, load=True, save=False, ch_avg=True)
     all_sid_psd_plots(sid_df_ch_avg, 'spectrum', show, save)
 
     # Load subject PSDS df with unaggregated channels and plot topomaps
-    sid_df_ch_all = get_sid_level_psd_df(test=test, load=True, save=False)
+    sid_df_ch_all = get_sid_level_psd_df(test=test, load=True, save=False, ch_avg=False)
     all_sid_psd_plots(sid_df_ch_all, 'topomap', show, save)
 
 
 def plot_each_group_psd(test: bool, show: bool, save: bool) -> None:
     # Load group PSDs df with channels aggregated and plot heatmaps and spectra
-    group_df_ch_avg = get_group_level_psd_df(load=True, test=test, save=False)
+    group_df_ch_avg = get_group_level_psd_df(load=True, test=test, save=False, ch_avg=True)
     all_group_psd_plots(group_df_ch_avg, 'spectrum', show, save)
 
     # Load group PSDs df with unaggregated channels and plot topomaps
-    group_df_ch_all = get_group_level_psd_df(load=True, test=test, save=False)
+    group_df_ch_all = get_group_level_psd_df(load=True, test=test, save=False, ch_avg=False)
     all_group_psd_plots(group_df_ch_all, 'topomap', show, save)
 
 
