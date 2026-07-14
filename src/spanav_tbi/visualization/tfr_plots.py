@@ -36,74 +36,74 @@ def _compute_tfr_vlim(tfr_array: Iterable[TFR], pkind: str) -> tuple[float, floa
     return vmin, vmax
 
 
-def plot_tfr_by_epo(
+def plot_tfr_subplots(
         tfr_df: pd.DataFrame,
         pkind: str,
-        epo_axes: plt.Axes | np.ndarray,
+        axes: plt.Axes | np.ndarray,
         vlim: tuple[float, float],
-        epo_title: bool = True,
+        subplot_col: str = 'epo_type',
+        show_ax_titles: bool = True,
         show_xlabel: bool = True,
         **kwargs,
 ) -> None:
-    base_order = get_epo_types()
-    epo_type_order = base_order + [f'bl{e}' for e in base_order]
-    epo_type_order += [f'{e}_wide' for e in epo_type_order]
-    epo_types_sorted = sorted(tfr_df['epo_type'].unique(), key=epo_type_order.index)
-
+    if subplot_col == 'epo_type':
+        base_order = get_epo_types()
+        epo_type_order = base_order + [f'bl{e}' for e in base_order]
+        epo_type_order += [f'{e}_wide' for e in epo_type_order]
+        subplot_cats = sorted(tfr_df['epo_type'].unique(), key=epo_type_order.index)
+    else:
+        subplot_cats = tfr_df[subplot_col].unique()
     with plot_context():
-        for i, epo_type in enumerate(epo_types_sorted):
-            epo_type_df = tfr_df[tfr_df['epo_type'] == epo_type]
+        for i, (ax, subplot_cat) in enumerate(zip(axes, subplot_cats)):
+            subplot_df = tfr_df[tfr_df[subplot_col] == subplot_cat].reset_index()
 
-            assert len(epo_type_df) == 1, f'This plot is made for one TFR per epoch-type! Here got {len(epo_type_df)} for {epo_type} type'
-            ax = epo_axes[i]
-            epo_type_df.reset_index(inplace=True)
-            tfr_plot = epo_type_df.loc[0, 'tfr']
+            if pkind == 'spectrum':  # plot spectrum
+                # Iterate so in case there are multple TFRs, each of them is plotted as a different line
+                for ir, row in subplot_df.iterrows():
+                    tfr = row['tfr']
 
-            if pkind == 'heatmap':
-                tfr_plot.plot(
-                    combine='mean',  # averages across channels in case there are multiples
-                    axes=ax,
-                    cmap='RdBu_r',  # set because default switches between two
-                    colorbar=int(i) + 1 == len(epo_axes),  # only add colorbar to right-most subplots
-                    show=False,
-                    vlim=vlim,
-                    **kwargs
-                )
+                    # Average TFR across time (-1) to get a spectrum, then average across channels (0) to get (n_freqs,)
+                    avg_psd = tfr.data.mean(axis=(-1, 0))  # it gets to (n_chan, n_freqs)
+                    ax.plot(tfr.freqs, avg_psd, **kwargs)
+                    ax.set_xlabel('Frequency (Hz)')
+                    ax.set_ylabel('Power (log)')
+                    ax.set_ylim(vlim)
 
-            elif pkind == 'topomap':  # plot topo maps
-                tfr_plot.plot_topomap(
-                    axes=ax,
-                    cmap='RdBu_r',  # set because default switches between two
-                    colorbar=int(i) + 1 == len(epo_axes),  # only add colorbar to right-most subplots
-                    show=False,
-                    vlim=vlim,
-                    **kwargs,
-                )
+            else:
+                # In case there are multple TFRs, compute their average to plot as heatmap/topomap
+                if len(subplot_df) > 1:
+                    tfr = subplot_df.loc[:, 'tfr'].mean()
+                else:
+                    tfr = subplot_df.loc[0, 'tfr']
+                if pkind == 'heatmap':
+                    tfr.plot(
+                        combine='mean',  # averages across channels in case there are multiples
+                        axes=ax,
+                        cmap='RdBu_r',  # set because default switches between two
+                        colorbar=int(i) + 1 == len(axes),  # only add colorbar to right-most subplots
+                        show=False,
+                        vlim=vlim,
+                        **kwargs
+                    )
 
-            else:  # plot spectrum
-                # Average TFR across time to get a specturm, then average across channels
-                chs_psd = tfr_plot.data.mean(axis=-1)  # it gets to (n_chan, n_freqs)
-                avg_psd = chs_psd.mean(axis=0)  # it gets to (n_freqs,)
-
-                # Plot
-                ax.plot(
-                    tfr_plot.freqs,
-                    avg_psd,
-                    **kwargs
-                )
-                ax.set_xlabel('Frequency (Hz)')
-                ax.set_ylabel('Power (log)')
-                ax.set_ylim(vlim)
+                elif pkind == 'topomap':  # plot topo maps
+                    tfr.plot_topomap(
+                        axes=ax,
+                        cmap='RdBu_r',  # set because default switches between two
+                        colorbar=int(i) + 1 == len(axes),  # only add colorbar to right-most subplots
+                        show=False,
+                        vlim=vlim,
+                        **kwargs,
+                    )
 
             # Further axis customization
             if not i == 0:
                 # Remove automatically set y-axis label if not left-most plot
                 ax.set_ylabel('')
 
-            if epo_title:
-                # Put epoch-type as title
-                epo_type_lbl = map_epo_type_labels().get(epo_type, epo_type)
-                ax.set_title(epo_type_lbl)
+            if show_ax_titles:
+                title = map_epo_type_labels().get(subplot_cat, subplot_cat)
+                ax.set_title(title)
             if not show_xlabel:
                 # Remove automatically set x-axis label
                 ax.set_xlabel('')
@@ -129,7 +129,7 @@ def all_sid_tfr_plots(
         save: bool = False,
 ) -> None:
     plot_df = _filter_tfr_plot_df(tfr_df)
-    all_sid_plots(plot_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
+    all_sid_plots(plot_df, 'tfr', plot_tfr_subplots, _compute_tfr_vlim, 'TFR', pkind, show, save)
 
 
 def all_group_tfr_plots(
@@ -139,4 +139,7 @@ def all_group_tfr_plots(
         save: bool = False,
 ) -> None:
     plot_df = _filter_tfr_plot_df(tfr_df)
-    all_group_plots(plot_df, 'tfr', plot_tfr_by_epo, _compute_tfr_vlim, 'TFR', pkind, show, save)
+    all_group_plots(
+        plot_df, 'tfr', plot_tfr_subplots, vlim_fn=_compute_tfr_vlim, plots_subdir='TFR', pkind=pkind,
+        show=show, save=save
+    )

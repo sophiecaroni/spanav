@@ -7,13 +7,10 @@
     Description:
     This script is used to run cluster-based permutation tests on TFR and PSD data, separately per TBI and HC groups.
 """
-from spanav_tbi.analysis.cluster_tests import (
-    run_cluster_test_tfr,
-    run_cluster_test_psd,
-    run_psd_ch_cluster_test
-)
+from spanav_tbi.analysis.cluster_tests import run_cluster_test_psd, run_psd_ch_cluster_test
 from spanav_tbi.analysis.stat_utils import format_cluster_test_results, save_cluster_test_results
 from spanav_eeg_utils.io_utils import get_groups_letters
+from spanav_tbi.visualization.cluster_plots import plot_psd_cluster_freqs
 
 
 def run_cluster_tests(
@@ -32,13 +29,13 @@ def run_cluster_tests(
     kwargs.setdefault('n_permutations', 10 if dev else 1024)
 
     spct_objects = [
-        ('tfr', run_cluster_test_tfr),
-        ('psd', run_cluster_test_psd),
-        ('ch_psd', run_psd_ch_cluster_test),
+        # ('tfr', run_cluster_test_tfr),
+        ('psd', run_cluster_test_psd, plot_psd_cluster_freqs),
+        # ('ch_psd', run_psd_ch_cluster_test, plot_psd_cluster_sensors),
     ]
 
     for group in sorted(get_groups_letters()):
-        for spct_obj, run_fn in spct_objects:
+        for spct_obj, run_fn, plot_fn in spct_objects:
             results, included_sids = run_fn(group, **kwargs)
 
             if verbose:
