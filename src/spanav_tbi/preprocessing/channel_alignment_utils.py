@@ -60,7 +60,7 @@ def reconstruct_missing_channels(rec: Epochs, sid: str, epo_label: str, verbose:
     return padded_epo_rec
 
 
-def extract_cohort_channels(verbose: bool = False, save: bool = False):
+def extract_cohort_channels(verbose: bool = True, save: bool = True):
     """Extract union of channels across all cohort subjects."""
     all_raw_fnames = get_all_preproc_raw_fpaths()
     all_chs = set()
