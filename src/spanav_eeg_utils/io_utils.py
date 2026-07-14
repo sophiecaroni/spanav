@@ -225,7 +225,7 @@ def get_outputs_path(
         outputs_path /= group_parent_dir
 
     if sid is None and group_letter is None:
-        return outputs_path
+        return set_for_save(outputs_path)
 
     # If a subject ID or a group letter is passed, then the group-specific path is returned
     group = group_letter or prs.get_group_letter(sid)
