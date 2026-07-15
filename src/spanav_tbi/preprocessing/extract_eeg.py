@@ -43,7 +43,8 @@ def get_all_epo_objects(
             )
 
         epo_rec = get_epo_rec(epo_type, sid, cid, raw_rec=raw_rec, load=load, save=save, verbose=verbose)
-        epo_by_type[epo_type] = epo_rec
+        if epo_rec is not None and len(epo_rec) > 0:
+            epo_by_type[epo_type] = epo_rec
 
     return epo_by_type
 
