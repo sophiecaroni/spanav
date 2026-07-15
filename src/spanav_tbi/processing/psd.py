@@ -61,9 +61,7 @@ def compute_psd_by_key(
     """
     psds = {}
     for epo_key, epo_rec in epos_dict.items():
-        if epo_rec is None or len(epo_rec) == 0:
-            psds[epo_key] = (None, None, None)
-        else:
+        if epo_rec is not None and len(epo_rec) > 0:
             fmax = epo_rec.info['lowpass']
             psds[epo_key] = summarize_epo_psd(epo_rec, fmax=fmax)
     return psds
