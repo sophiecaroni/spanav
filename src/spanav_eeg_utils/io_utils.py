@@ -101,8 +101,9 @@ def get_epo_path(
 
 def get_derivatives_path(
         sid: str | None = None,
+        server: bool | None = None,
 ) -> Path:
-    root = get_main_path()
+    root = get_main_path(server)
     if sid is None:
         return root / 'derivatives'
     else:
@@ -142,7 +143,7 @@ def get_cont_path(
 
     else:
         fext = 'fif'
-        fpath = get_derivatives_path(sid)
+        fpath = get_derivatives_path(sid, server)
 
         if 'annot' in proc_stage and 'reannot' not in proc_stage:
             fname += '_annotated_eeg'
