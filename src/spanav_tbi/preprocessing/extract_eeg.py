@@ -133,7 +133,6 @@ def get_obj_pres_epochs(
         reject_by_annotation=True,  # reject segments marked as bad
         **kwargs
     )
-    epo_3s.plot_drop_log(show=True)
 
     # Reset these to prevent from keeping them in new short epochs based on the copy of epo_3s to define 'e'
     epo_3s.reject = None
