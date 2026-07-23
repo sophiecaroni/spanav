@@ -40,24 +40,26 @@ def _to_rsync_path(path: Path) -> str:
 def build_rsync_command(
         src: Path,
         dst: Path,
-        pattern: str | None = None,
+        patterns: list[str] | None = None,
         dry_run: bool = False,
 ) -> list[str]:
     """
     Assemble a rsync command that copies the contents of a source directory (src) into a destination directory (dst).
     :param src: Path, source directory whose contents are transferred
     :param dst: Path, destination directory the contents are written into
-    :param pattern: str | None, glob to restrict the transfer to matching files (e.g. '*_preproc*'); None copies all
+    :param patterns: list[str] | None, glob(s) to restrict the transfer to matching files (e.g. '*_preproc*'); None copies all
     :param dry_run: bool, whether to only simulate the transfer (``-n``), as used to build the confirmation preview
     :return: list[str], the rsync command and its arguments, ready to pass to ``subprocess.run``
     """
     command = [_RSYNC_EXE, '-avh']  # '-avh' for archive + verbose + human-readable
     if dry_run:
         command.append('-n')  # dry run flag
-    if pattern is not None:
-        # Keep only files matching pattern: descend into every directory, include the matches, drop everything else,
-        # and prune the directories left empty. Order matters: rsync applies the first matching include/exclude rule.
-        command += ['-m', '--include=*/', f'--include={pattern}', '--exclude=*']
+
+    # Keep only files matching patterns
+    patterns = patterns or []  # assign empty list if None
+    command += ['-m', '--include=*/', *[f'--include={p}' for p in patterns], '--exclude=*']
+
+    # Add src to dst rsync command
     command += [f'{_to_rsync_path(src)}/', _to_rsync_path(dst)]  # trailing slash: copy contents of src, not src itself
     return command
 
@@ -108,10 +110,15 @@ def transfer_data(
     dst.mkdir(parents=True, exist_ok=True)
 
     # When copying derivatives to the local working directory, only select the preprocessed files (_preproc)
-    pattern = '*_preproc*' if 'derivatives' in src.parts and 'local' in dst.parts else None
+    if 'derivatives' in src.parts and 'local' in dst.parts:
+        patterns = ['*_preproc*']
+    elif 'results' in src.parts and 'local' in dst.parts:
+        patterns = ['beh_events.csv', 'eeg_epochs.csv']
+    else:
+        patterns = None
 
     # Give preview of what data is going to be transferred
-    preview_command = build_rsync_command(src, dst, pattern=pattern, dry_run=True)
+    preview_command = build_rsync_command(src, dst, patterns=patterns, dry_run=True)
     print(f"\nPreview of {src} -> {dst}")
     print(f"Running: {' '.join(preview_command)}\n")
     _run_rsync(preview_command, verbose=True)
@@ -122,6 +129,6 @@ def transfer_data(
         return None
 
     # Perform actual transfer
-    transfer_command = build_rsync_command(src, dst, pattern=pattern)
+    transfer_command = build_rsync_command(src, dst, patterns=patterns)
     print(f"\nTransferring {src} -> {dst}\n")
     return _run_rsync(transfer_command, verbose=verbose)
