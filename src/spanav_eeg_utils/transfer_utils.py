@@ -47,7 +47,7 @@ def build_rsync_command(
     Assemble a rsync command that copies the contents of a source directory (src) into a destination directory (dst).
     :param src: Path, source directory whose contents are transferred
     :param dst: Path, destination directory the contents are written into
-    :param patterns: list[str] | None, glob(s) to restrict the transfer to matching files (e.g. '*_preproc*'); None copies all
+    :param patterns: list[str] | None, glob(s) to restrict the transfer to matching files; None copies all
     :param dry_run: bool, whether to only simulate the transfer (``-n``), as used to build the confirmation preview
     :return: list[str], the rsync command and its arguments, ready to pass to ``subprocess.run``
     """
@@ -96,26 +96,20 @@ def _run_rsync(command: list[str], verbose: bool = True) -> subprocess.Completed
 def transfer_data(
         src: Path,
         dst: Path,
+        patterns: list[str] | None = None,
         verbose: bool = True,
 ) -> subprocess.CompletedProcess | None:
     """
     Copy a data tree from one directory to another via rsync, after user confirmation.
     :param src: Path, source directory whose contents are transferred
     :param dst: Path, destination directory the contents are written into
+    :param patterns: list[str] | None, glob(s) to restrict the transfer to matching files; None copies all
     :param verbose: bool, whether to print the rsync output of the live transfer
     :return: subprocess.CompletedProcess, the completed live transfer, or None if the user declined
     """
     if not src.exists():
         raise FileNotFoundError(f"Source directory does not exist: {src}")
     dst.mkdir(parents=True, exist_ok=True)
-
-    # When copying derivatives to the local working directory, only select the preprocessed files (_preproc)
-    if 'derivatives' in src.parts and 'local' in dst.parts:
-        patterns = ['*_preproc*']
-    elif 'results' in src.parts and 'local' in dst.parts:
-        patterns = ['beh_events.csv', 'eeg_epochs.csv']
-    else:
-        patterns = None
 
     # Give preview of what data is going to be transferred
     preview_command = build_rsync_command(src, dst, patterns=patterns, dry_run=True)
