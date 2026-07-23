@@ -32,3 +32,10 @@ def download_epo_tables():
     patterns = ['beh_events.csv', 'eeg_epochs.csv']  # only select epochs/events table files from results source folder
     transfer_data(src=src, dst=dst, patterns=patterns)
 
+
+def download_stim_mapping_tables():
+    for group in ['A', 'T']:
+        src = cfg.get_server_root() / f'Data_WP73{group}' / 'TI_and_EEG'
+        dst = cfg.get_local_root() / f'Data_WP73{group}' / 'TI_and_EEG'
+        patterns = [f'*RandomizationTable*']  # only select randomization table files
+        transfer_data(src=src, dst=dst, patterns=patterns)
