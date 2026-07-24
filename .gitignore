@@ -11,3 +11,4 @@ config.ini
 dist/
 tutorials/
 local/
+notebooks/
